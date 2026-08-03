@@ -1,0 +1,16 @@
+{
+  "name": "人生管理器",
+  "short_name": "人生管理器",
+  "description": "長期管理人生重要面向、行動、條件、能力與成果。",
+  "lang": "zh-Hant",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f4f1e8",
+  "theme_color": "#162118",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/icon-maskable.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}

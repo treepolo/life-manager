@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="人生管理器">
+  <rect width="512" height="512" fill="#162118"/>
+  <path d="M72 96h368v64H72zM72 224h224v64H72zM72 352h368v64H72z" fill="#f4f1e8"/>
+  <path d="M336 216h104v80H336z" fill="#e15f3c"/>
+</svg>
