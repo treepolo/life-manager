@@ -76,9 +76,12 @@ Occurrence需可重建但不得因排程修改而抹除歷史。Completion為app
 - `provider_connections`
 - `provider_raw_payloads`
 - `provider_sync_runs`
+- `provider_sync_run_payloads`
 - `provider_sync_jobs`
 
 `content_assets`保存內容風格／主題等分析條件；`platform_posts`保存平台發布實體。不得把平台帳號總指標與單篇指標混在同一個無類型欄位。
+
+`social_metric_snapshots`的帳號級與貼文級目標是XOR關係。schema 9由`0009_social_snapshot_uniqueness.sql`分別以partial unique index保證`(definition, account, observed_at, source_type)`與`(definition, post, observed_at, source_type)`唯一；不能依賴同時包含兩個可空外鍵的原始UNIQUE，因SQLite的`NULL`不互相衝突。schema 10新增`provider_sync_run_payloads`，在不複製相同raw內容的前提下保存每次run的payload順序與完整來源集合。
 
 ### 2.6 Deadlines與通知
 
@@ -104,7 +107,7 @@ Occurrence需可重建但不得因排程修改而抹除歷史。Completion為app
 每次YouTube、Instagram或CSV匯入需：
 
 1. 建立`provider_sync_run`或`import_batch`。
-2. 保存原始payload／原始列及雜湊。
+2. 保存原始payload／原始列及雜湊，並為該次run逐項寫入`provider_sync_run_payloads`；全域去重命中既有raw時仍不可省略run關聯。
 3. 驗證schema與來源識別。
 4. 正規化到正式資料表。
 5. 建立來源參照。
@@ -112,6 +115,12 @@ Occurrence需可重建但不得因排程修改而抹除歷史。Completion為app
 7. 允許從原始證據重新正規化，不能要求重新向平台抓取才能修正parser。
 
 原始資料的保存期限預設長期保留；若資料量接近免費額度，再提供可預覽的清理功能，不能靜默刪除。
+
+YouTube Data API的每支影片`views`／`likes`／`comments`保存為貼文級累積快照；YouTube Analytics channel day report的`views`／`likes`／`comments`保存為帳號級非累積快照。Analytics來源日是America/Los_Angeles的曆日，`observed_at`必須依當日PST／PDT轉為UTC；值原樣保存有限的帶符號十進位來源值，因平台調整可能讓日區間值為負，不得改寫成0或丟棄整列。每個快照都要指向對應的`provider_raw_payloads`，並保留query組合與`youtube-analytics-v2-channel-daily@2026-08-09`定義版本。
+
+同一次provider run只查找或建立每個metric definition一次，快照prepared statements以最多100筆一批交給D1 `batch()`；每批維持D1交易語意，並降低逐筆資料庫往返。這只改變寫入方式，不省略raw payload、snapshot、來源參照或唯一性驗證。
+
+`provider_raw_payloads.sync_run_id`只表示該份全域去重raw最初由哪一次run建立；列舉任一次run的完整抓取證據必須查`provider_sync_run_payloads`，並以`payload_order`還原取得順序。migration 0010只將既有raw回填到其原始擁有run；無法由舊資料可靠推斷的後續去重命中不得事後臆測回填，須由部署後的新真實run驗證。
 
 ## 4. 社群數據時間窗
 
@@ -212,6 +221,7 @@ IndexedDB至少包含：
 - 同一瀏覽器的普通API、sync batch與後續pull共用`src/core/network/request-gate.ts`，確保D1寫入／拉取不與頁面重抓重疊；這是請求排序，不是省略任何資料。
 - 每一輪同步以30秒具名逾時包住請求閘門、batch與pull；逾時或呼叫端取消時保留outbox並顯示可讀錯誤，不把未確認資料當成成功。
 - 同步進行中若收到另一個自動或手動觸發，完成當輪後必須再跑一輪；避免操作在當輪讀取outbox之後才寫入而滯留。自動同步成功後立即刷新查詢與待同步計數。
+- Provider外部同步不共用上述核心outbox請求閘門，避免長時間YouTube／Instagram工作讓30秒outbox逾時誤報「請求已取消」。它仍使用獨立pending狀態、伺服器job單一執行權及明確錯誤回應；不能藉由繞過閘門允許重複點擊。
 - `RESTORE`對可封存資料清除`archived_at`，對可刪除資料清除`deleted_at`；同步change snapshot、IndexedDB及D1必須使用相同欄位語意。
 - Server acknowledgement只有在同一entity沒有後續outbox operation時才清除本機`pending`；未確認的後續操作不得被伺服器snapshot覆蓋。
 - Service Worker shell明確預快取`/assets/app.js`與`/assets/app.css`，使使用者在離線重開後仍能啟動App並從IndexedDB讀出正式資料與outbox。
@@ -237,9 +247,11 @@ IndexedDB至少包含：
 
 ## 8. Service Worker與更新
 
-- 快取版本化app shell及靜態資產。
+- `scripts/build-client.mjs`在Vite完成後，以`index.html`、固定名稱JS／CSS、manifest與icons的實際內容計算SHA-256短版本，寫入`dist/sw.js`及cache名稱；不得使用永久固定cache名稱。相同檔名但內容改變時，`sw.js`內容與cache版本必須改變。
+- 安裝時只接受成功的同源app shell回應；Cloudflare Access登入redirect或其他跨來源回應不得預快取。
+- 導覽與靜態資產在線時使用network-first並更新同版cache，只有網路失敗才回退cache；不能以cache-first讓既有裝置永久停留舊bundle。
 - API使用network-first，不將私人API回應放入公開Cache Storage；正式資料進IndexedDB。
-- 新版本可用時顯示更新提示，不能在使用者有未同步outbox時強制reload。
+- 前端註冊`/sw.js`時使用`updateViaCache: "none"`並主動`registration.update()`；新版本進入waiting時顯示固定在初始viewport內的更新提示，不能排在路由內容之後或在使用者有未同步outbox時強制reload；手機提示位於同步狀態列與底部導覽上方。
 - 更新前先完成或保存outbox。
 - 離線時仍可顯示重要期限警告及本地待辦。
 

@@ -1,9 +1,27 @@
-const SHELL_CACHE = "life-manager-shell-v1";
-const RUNTIME_CACHE = "life-manager-runtime-v1";
+const BUILD_VERSION = "__LIFE_MANAGER_BUILD_VERSION__";
+const SHELL_CACHE = `life-manager-shell-${BUILD_VERSION}`;
+const RUNTIME_CACHE = `life-manager-runtime-${BUILD_VERSION}`;
 const SHELL_URLS = ["/", "/assets/app.css", "/assets/app.js", "/manifest.webmanifest", "/icon.svg", "/icon-maskable.svg"];
 
+function canCacheResponse(response, requestUrl) {
+  return response.ok && new URL(response.url).origin === requestUrl.origin;
+}
+
+async function precacheShell() {
+  const cache = await caches.open(SHELL_CACHE);
+  await Promise.all(SHELL_URLS.map(async (pathname) => {
+    const requestUrl = new URL(pathname, self.location.origin);
+    const request = new Request(requestUrl.href, { cache: "reload" });
+    const response = await fetch(request);
+    if (!canCacheResponse(response, requestUrl)) {
+      throw new Error(`無法預快取同源app shell：${pathname}`);
+    }
+    await cache.put(request, response);
+  }));
+}
+
 self.addEventListener("install", (event) => {
-  event.waitUntil(caches.open(SHELL_CACHE).then((cache) => cache.addAll(SHELL_URLS)));
+  event.waitUntil(precacheShell());
 });
 
 self.addEventListener("activate", (event) => {
@@ -23,16 +41,22 @@ self.addEventListener("fetch", (event) => {
   if (request.method !== "GET" || url.origin !== self.location.origin || url.pathname.startsWith("/api/") || url.pathname.startsWith("/oauth/")) return;
   if (request.mode === "navigate") {
     event.respondWith(fetch(request).then((response) => {
-      const copy = response.clone();
-      caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, copy));
+      if (canCacheResponse(response, url)) {
+        const copy = response.clone();
+        caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, copy));
+      }
       return response;
     }).catch(async () => (await caches.match(request)) || (await caches.match("/"))));
     return;
   }
-  event.respondWith(caches.match(request).then((cached) => cached || fetch(request).then((response) => {
-    if (response.ok) caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, response.clone()));
+  event.respondWith(fetch(request).then((response) => {
+    if (canCacheResponse(response, url)) caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, response.clone()));
     return response;
-  })));
+  }).catch(async () => {
+    const cached = await caches.match(request);
+    if (cached) return cached;
+    throw new Error(`離線且沒有可用的靜態資產：${url.pathname}`);
+  }));
 });
 
 self.addEventListener("push", (event) => {

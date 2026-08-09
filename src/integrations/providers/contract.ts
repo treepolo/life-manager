@@ -27,7 +27,7 @@ export interface IntegrationProvider {
   readonly definitionVersion: string;
   authorize?(state: string, codeChallenge: string, redirectUri: string): URL;
   connect?(code: string, codeVerifier: string, redirectUri: string): Promise<unknown>;
-  refreshCredentials?(encryptedConnection: unknown): Promise<unknown>;
+  refreshCredentials?(connection: unknown): Promise<unknown>;
   fetchAccounts(connection: unknown): Promise<ProviderRawPayload[]>;
   fetchContent(connection: unknown): Promise<ProviderRawPayload[]>;
   fetchMetrics(connection: unknown, input: { from: string; to: string }): Promise<ProviderRawPayload[]>;

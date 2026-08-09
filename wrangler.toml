@@ -24,6 +24,7 @@ PROVIDER_SYNC_INTERVAL_HOURS = "6"
 OPERATION_LOG_RETENTION_DAYS = "365"
 NOTIFICATION_LOG_RETENTION_DAYS = "365"
 OAUTH_STATE_RETENTION_DAYS = "30"
+OAUTH_STATE_TTL_MINUTES = "60"
 
 [triggers]
 crons = [ "*/15 * * * *" ]
@@ -32,14 +33,24 @@ crons = [ "*/15 * * * *" ]
 name = "life-manager-staging"
 workers_dev = true
 
+[[env.staging.d1_databases]]
+binding = "LIFE_DB"
+database_name = "life-manager-staging"
+database_id = "4a9da6fd-2fe5-41e1-b17f-0f444e60e14c"
+migrations_dir = "migrations"
+
 [env.staging.vars]
 ENVIRONMENT = "staging"
 APP_TIMEZONE = "Asia/Taipei"
+ACCESS_TEAM_DOMAIN = "life-manager.cloudflareaccess.com"
+ACCESS_AUD = "0cc6ca1ed73a340419af9e457ce44f52c7b2d67e04272440c223ce6610e1feca"
+OAUTH_CALLBACK_BASE_URL = "https://life-manager-staging.life-manager.workers.dev"
 INSTAGRAM_API_VERSION = "v23.0"
 PROVIDER_SYNC_INTERVAL_HOURS = "6"
 OPERATION_LOG_RETENTION_DAYS = "365"
 NOTIFICATION_LOG_RETENTION_DAYS = "365"
 OAUTH_STATE_RETENTION_DAYS = "30"
+OAUTH_STATE_TTL_MINUTES = "60"
 
 [env.production]
 name = "life-manager"
@@ -53,3 +64,4 @@ PROVIDER_SYNC_INTERVAL_HOURS = "6"
 OPERATION_LOG_RETENTION_DAYS = "365"
 NOTIFICATION_LOG_RETENTION_DAYS = "365"
 OAUTH_STATE_RETENTION_DAYS = "30"
+OAUTH_STATE_TTL_MINUTES = "60"

@@ -11,6 +11,8 @@ export const YOUTUBE_SCOPES = [
   "https://www.googleapis.com/auth/yt-analytics.readonly",
 ] as const;
 
+const YOUTUBE_PAGE_SIZE = 50;
+
 interface OAuthCredentials {
   accessToken: string;
   refreshToken?: string;
@@ -20,7 +22,7 @@ interface OAuthCredentials {
 
 export class YouTubeProvider implements IntegrationProvider {
   readonly key = "youtube";
-  readonly definitionVersion = "youtube-data-v3+analytics-v2@2026-08-02";
+  readonly definitionVersion = "youtube-data-v3+analytics-v2@2026-08-09";
 
   constructor(
     private readonly clientId: string,
@@ -119,6 +121,26 @@ export class YouTubeProvider implements IntegrationProvider {
     };
   }
 
+  private async pagedApi(url: URL, accessToken: string, kind: string): Promise<ProviderRawPayload[]> {
+    const pages: ProviderRawPayload[] = [];
+    const seenPageTokens = new Set<string>();
+    let pageToken: string | null = null;
+    do {
+      const pageUrl = new URL(url);
+      if (pageToken) pageUrl.searchParams.set("pageToken", pageToken);
+      const page = await this.api(pageUrl, accessToken, kind);
+      pages.push(page);
+      const nextPageToken = (page.payload as { nextPageToken?: unknown }).nextPageToken;
+      if (typeof nextPageToken !== "string" || !nextPageToken) break;
+      if (seenPageTokens.has(nextPageToken)) {
+        throw new ApiError(502, "PROVIDER_ERROR", `YouTube ${kind}分頁token重複。`);
+      }
+      seenPageTokens.add(nextPageToken);
+      pageToken = nextPageToken;
+    } while (pageToken);
+    return pages;
+  }
+
   async fetchAccounts(connection: OAuthCredentials): Promise<ProviderRawPayload[]> {
     const url = new URL("https://www.googleapis.com/youtube/v3/channels");
     url.searchParams.set("part", "id,snippet,contentDetails,statistics");
@@ -134,15 +156,21 @@ export class YouTubeProvider implements IntegrationProvider {
     const url = new URL("https://www.googleapis.com/youtube/v3/playlistItems");
     url.searchParams.set("part", "id,snippet,contentDetails");
     url.searchParams.set("playlistId", uploads);
-    url.searchParams.set("maxResults", "50");
-    const playlist = await this.api(url, connection.accessToken, "playlist_items");
-    const playlistBody = playlist.payload as { items?: Array<{ contentDetails?: { videoId?: string } }> };
-    const videoIds = (playlistBody.items ?? []).map((item) => item.contentDetails?.videoId).filter((id): id is string => Boolean(id));
-    if (!videoIds.length) return [playlist];
-    const detailsUrl = new URL("https://www.googleapis.com/youtube/v3/videos");
-    detailsUrl.searchParams.set("part", "id,snippet,statistics,contentDetails");
-    detailsUrl.searchParams.set("id", videoIds.join(","));
-    return [playlist, await this.api(detailsUrl, connection.accessToken, "videos")];
+    url.searchParams.set("maxResults", String(YOUTUBE_PAGE_SIZE));
+    const playlistPages = await this.pagedApi(url, connection.accessToken, "playlist_items");
+    const videoIds = [...new Set(playlistPages.flatMap((page) => {
+      const body = page.payload as { items?: Array<{ contentDetails?: { videoId?: string } }> };
+      return (body.items ?? []).map((item) => item.contentDetails?.videoId).filter((id): id is string => Boolean(id));
+    }))];
+    if (!videoIds.length) return playlistPages;
+    const videoPages: ProviderRawPayload[] = [];
+    for (let index = 0; index < videoIds.length; index += YOUTUBE_PAGE_SIZE) {
+      const detailsUrl = new URL("https://www.googleapis.com/youtube/v3/videos");
+      detailsUrl.searchParams.set("part", "id,snippet,statistics,contentDetails");
+      detailsUrl.searchParams.set("id", videoIds.slice(index, index + YOUTUBE_PAGE_SIZE).join(","));
+      videoPages.push(await this.api(detailsUrl, connection.accessToken, "videos"));
+    }
+    return [...playlistPages, ...videoPages];
   }
 
   async fetchMetrics(connection: OAuthCredentials, input: { from: string; to: string }): Promise<ProviderRawPayload[]> {
@@ -150,9 +178,9 @@ export class YouTubeProvider implements IntegrationProvider {
     url.searchParams.set("ids", "channel==MINE");
     url.searchParams.set("startDate", input.from);
     url.searchParams.set("endDate", input.to);
-    url.searchParams.set("dimensions", "video,day");
+    url.searchParams.set("dimensions", "day");
     url.searchParams.set("metrics", "views,likes,comments");
-    url.searchParams.set("sort", "day,video");
+    url.searchParams.set("sort", "day");
     return [await this.api(url, connection.accessToken, "analytics")];
   }
 

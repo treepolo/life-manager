@@ -1,33 +1,121 @@
 import { newId, nowIso } from "@/core/database/d1";
-import { sha256 } from "@/core/crypto/secrets";
 import { ApiError } from "@/core/errors/api-error";
 import type { ProviderRawPayload } from "@/integrations/providers/contract";
 import { SYSTEM_PLATFORM_IDS } from "@/modules/social/platforms";
-import { connectionCredentials } from "@/worker/api/oauth";
+import { connectionCredentials, refreshConnectionCredentialsIfNeeded } from "@/worker/api/oauth";
+import { prepareRawPayloadWrites, type RawWithId } from "@/worker/api/provider-raw";
 import type { Env } from "@/worker/env";
 
-interface RawWithId extends ProviderRawPayload { rawId: string }
+export type { RawWithId } from "@/worker/api/provider-raw";
 
-async function storeRawPayloads(env: Env, providerKey: string, runId: string, payloads: ProviderRawPayload[]): Promise<RawWithId[]> {
-  const stored: RawWithId[] = [];
-  for (const payload of payloads) {
-    const serialized = JSON.stringify(payload.payload);
-    const digest = await sha256(serialized);
-    const existing = await env.LIFE_DB.prepare(
-      "SELECT id FROM provider_raw_payloads WHERE provider_key = ? AND payload_kind = ? AND sha256 = ?",
-    ).bind(providerKey, payload.kind, digest).first<{ id: string }>();
-    const rawId = existing?.id ?? newId();
-    if (!existing) {
-      await env.LIFE_DB.prepare(
-        `INSERT INTO provider_raw_payloads
-         (id, provider_key, sync_run_id, payload_kind, external_id, observed_at, sha256, payload_json, api_version, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      ).bind(rawId, providerKey, runId, payload.kind, payload.externalId, payload.observedAt, digest,
-        serialized, payload.apiVersion, nowIso()).run();
-    }
-    stored.push({ ...payload, rawId });
+const YOUTUBE_DAILY_METRICS = ["views", "likes", "comments"] as const;
+const D1_WRITE_BATCH_SIZE = 100;
+const PROVIDER_SYNC_STALE_MS = 10 * 60 * 1000;
+
+export interface YouTubeDailyMetricPoint {
+  day: string;
+  metric: typeof YOUTUBE_DAILY_METRICS[number];
+  value: string;
+  observedAt: string;
+}
+
+export async function runD1WriteBatches(env: Env, statements: D1PreparedStatement[]): Promise<void> {
+  for (let offset = 0; offset < statements.length; offset += D1_WRITE_BATCH_SIZE) {
+    await env.LIFE_DB.batch(statements.slice(offset, offset + D1_WRITE_BATCH_SIZE));
   }
-  return stored;
+}
+
+export async function recoverStaleProviderSyncs(env: Env, now: Date, connectionId: string | null = null): Promise<void> {
+  const completedAt = now.toISOString();
+  const staleBefore = new Date(now.getTime() - PROVIDER_SYNC_STALE_MS).toISOString();
+  await env.LIFE_DB.batch([
+    env.LIFE_DB.prepare(
+      `UPDATE provider_sync_runs
+       SET status = 'FAILED', completed_at = ?, error_count = 1, error_code = 'SYNC_INTERRUPTED',
+           error_message_redacted = '同步執行中斷，可安全重試。'
+       WHERE status = 'RUNNING' AND started_at <= ? AND (? IS NULL OR connection_id = ?)`,
+    ).bind(completedAt, staleBefore, connectionId, connectionId),
+    env.LIFE_DB.prepare(
+      `UPDATE provider_sync_jobs
+       SET status = CASE WHEN attempt + 1 >= max_attempts THEN 'DEAD_LETTER' ELSE 'RETRY' END,
+           attempt = MIN(attempt + 1, max_attempts), next_run_at = ?, last_error_code = 'SYNC_INTERRUPTED', updated_at = ?
+       WHERE status = 'RUNNING' AND updated_at <= ? AND (? IS NULL OR connection_id = ?)`,
+    ).bind(completedAt, completedAt, staleBefore, connectionId, connectionId),
+  ]);
+}
+
+export async function claimManualProviderSyncJob(env: Env, connectionId: string, now: string): Promise<boolean> {
+  const result = await env.LIFE_DB.prepare(
+    `UPDATE provider_sync_jobs SET status = 'RUNNING', updated_at = ?
+     WHERE connection_id = ? AND status IN ('READY','RETRY','PAUSED','DEAD_LETTER')`,
+  ).bind(now, connectionId).run();
+  return Number(result.meta.changes ?? 0) === 1;
+}
+
+function pacificParts(instant: Date): Record<string, string> {
+  return Object.fromEntries(new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Los_Angeles",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(instant).filter((part) => part.type !== "literal").map((part) => [part.type, part.value]));
+}
+
+export function youtubePacificDayStart(day: string): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || new Date(`${day}T00:00:00.000Z`).toISOString().slice(0, 10) !== day) {
+    throw new ApiError(502, "PROVIDER_ERROR", "YouTube Analytics回傳無效日期。");
+  }
+  const [year, month, date] = day.split("-").map(Number);
+  const desiredWallTime = Date.UTC(year, month - 1, date, 0, 0, 0);
+  let instant = desiredWallTime + 8 * 60 * 60 * 1000;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const parts = pacificParts(new Date(instant));
+    const renderedWallTime = Date.UTC(
+      Number(parts.year), Number(parts.month) - 1, Number(parts.day),
+      Number(parts.hour), Number(parts.minute), Number(parts.second),
+    );
+    instant += desiredWallTime - renderedWallTime;
+  }
+  const verified = pacificParts(new Date(instant));
+  if (`${verified.year}-${verified.month}-${verified.day}` !== day || verified.hour !== "00") {
+    throw new ApiError(502, "PROVIDER_ERROR", "YouTube Analytics日期無法轉換為Pacific日界。");
+  }
+  return new Date(instant).toISOString();
+}
+
+export function youtubeAnalyticsDailyPoints(payload: unknown): YouTubeDailyMetricPoint[] {
+  const body = payload as { columnHeaders?: Array<{ name?: unknown }>; rows?: unknown[] };
+  const headerNames = (body.columnHeaders ?? []).map((header) => String(header.name ?? ""));
+  const dayIndex = headerNames.indexOf("day");
+  const metricIndexes = YOUTUBE_DAILY_METRICS.map((metric) => ({ metric, index: headerNames.indexOf(metric) }));
+  if (dayIndex < 0 || metricIndexes.some((entry) => entry.index < 0)) {
+    throw new ApiError(502, "PROVIDER_ERROR", "YouTube Analytics回應缺少必要日指標欄位。");
+  }
+  const points: YouTubeDailyMetricPoint[] = [];
+  for (const sourceRow of body.rows ?? []) {
+    if (!Array.isArray(sourceRow)) throw new ApiError(502, "PROVIDER_ERROR", "YouTube Analytics回應列格式無效。");
+    const day = String(sourceRow[dayIndex] ?? "");
+    const observedAt = youtubePacificDayStart(day);
+    for (const { metric, index } of metricIndexes) {
+      const rawValue = sourceRow[index];
+      const value = typeof rawValue === "number" && Number.isFinite(rawValue)
+        ? String(rawValue)
+        : typeof rawValue === "string" && /^-?\d+(?:\.\d+)?$/.test(rawValue) ? rawValue : null;
+      if (value === null) throw new ApiError(502, "PROVIDER_ERROR", `YouTube Analytics ${metric}值無效。`);
+      points.push({ day, metric, value, observedAt });
+    }
+  }
+  return points;
+}
+
+export async function storeRawPayloads(env: Env, providerKey: string, runId: string, payloads: ProviderRawPayload[]): Promise<RawWithId[]> {
+  const prepared = await prepareRawPayloadWrites(env, providerKey, runId, payloads);
+  await runD1WriteBatches(env, prepared.statements);
+  return prepared.stored;
 }
 
 async function ensureSocialAccount(input: {
@@ -130,7 +218,7 @@ async function upsertPost(input: {
   return { postId, contentAssetId, created: true };
 }
 
-async function persistYouTube(env: Env, raw: RawWithId[]): Promise<{ created: number; updated: number }> {
+export async function persistYouTube(env: Env, raw: RawWithId[]): Promise<{ created: number; updated: number }> {
   const channelRaw = raw.find((entry) => entry.kind === "channels");
   const channelBody = channelRaw?.payload as { items?: Array<{ id: string; snippet?: { title?: string } }> } | undefined;
   const channel = channelBody?.items?.[0];
@@ -138,38 +226,74 @@ async function persistYouTube(env: Env, raw: RawWithId[]): Promise<{ created: nu
   const account = await ensureSocialAccount({ env, providerKey: "youtube", externalId: channel.id, displayName: channel.snippet?.title ?? channel.id, accountKind: "CHANNEL" });
   let created = account.created ? 1 : 0;
   let updated = account.created ? 0 : 1;
-  const videosRaw = raw.find((entry) => entry.kind === "videos");
-  const videos = (videosRaw?.payload as { items?: Array<Record<string, unknown>> } | undefined)?.items ?? [];
-  for (const video of videos) {
-    const id = String(video.id);
-    const snippet = video.snippet as { title?: string; description?: string; publishedAt?: string; categoryId?: string } | undefined;
-    const statistics = video.statistics as Record<string, string> | undefined;
-    const post = await upsertPost({
-      env, accountId: account.id, externalPostId: id, title: snippet?.title ?? id,
-      description: snippet?.description ?? "", format: "VIDEO", permalink: `https://www.youtube.com/watch?v=${encodeURIComponent(id)}`,
-      publishedAt: snippet?.publishedAt ?? videosRaw!.observedAt, sourceType: "YOUTUBE_API",
-    });
-    if (post.created) created++;
-    else updated++;
-    for (const [providerName, value] of Object.entries(statistics ?? {})) {
-      if (!/^\d+$/.test(value)) continue;
-      const metricKey = `youtube.${providerName.replace(/Count$/, "s").toLowerCase()}`;
-      const definitionId = await ensureMetricDefinition({
-        env, platformId: SYSTEM_PLATFORM_IDS.youtube, metricKey, providerName,
-        providerDefinition: `YouTube Data API v3 videos.statistics.${providerName}; observed cumulative source value.`,
-        version: "youtube-data-v3@2026-08-02", scope: "POST", cumulative: true, sourceType: "YOUTUBE_API",
+  const metricDefinitions = new Map<string, string>();
+  const snapshotStatements: D1PreparedStatement[] = [];
+  for (const videosRaw of raw.filter((entry) => entry.kind === "videos")) {
+    const videos = (videosRaw.payload as { items?: Array<Record<string, unknown>> }).items ?? [];
+    for (const video of videos) {
+      const id = String(video.id);
+      const snippet = video.snippet as { title?: string; description?: string; publishedAt?: string; categoryId?: string } | undefined;
+      const statistics = video.statistics as Record<string, string> | undefined;
+      const post = await upsertPost({
+        env, accountId: account.id, externalPostId: id, title: snippet?.title ?? id,
+        description: snippet?.description ?? "", format: "VIDEO", permalink: `https://www.youtube.com/watch?v=${encodeURIComponent(id)}`,
+        publishedAt: snippet?.publishedAt ?? videosRaw.observedAt, sourceType: "YOUTUBE_API",
       });
-      const observedAt = videosRaw!.observedAt;
-      const publishedAt = snippet?.publishedAt ?? observedAt;
-      const ageSeconds = Math.max(0, Math.floor((Date.parse(observedAt) - Date.parse(publishedAt)) / 1000));
-      await env.LIFE_DB.prepare(
+      if (post.created) created++;
+      else updated++;
+      for (const [providerName, value] of Object.entries(statistics ?? {})) {
+        if (!/^\d+$/.test(value)) continue;
+        const metricKey = `youtube.${providerName.replace(/Count$/, "s").toLowerCase()}`;
+        const definitionCacheKey = `youtube-data-v3@2026-08-09:${metricKey}`;
+        let definitionId = metricDefinitions.get(definitionCacheKey);
+        if (!definitionId) {
+          definitionId = await ensureMetricDefinition({
+            env, platformId: SYSTEM_PLATFORM_IDS.youtube, metricKey, providerName,
+            providerDefinition: `YouTube Data API v3 videos.statistics.${providerName}; observed cumulative source value.`,
+            version: "youtube-data-v3@2026-08-09", scope: "POST", cumulative: true, sourceType: "YOUTUBE_API",
+          });
+          metricDefinitions.set(definitionCacheKey, definitionId);
+        }
+        const observedAt = videosRaw.observedAt;
+        const publishedAt = snippet?.publishedAt ?? observedAt;
+        const ageSeconds = Math.max(0, Math.floor((Date.parse(observedAt) - Date.parse(publishedAt)) / 1000));
+        snapshotStatements.push(env.LIFE_DB.prepare(
+          `INSERT OR IGNORE INTO social_metric_snapshots
+           (id, social_metric_definition_id, social_account_id, platform_post_id, observed_at, published_at, age_seconds,
+            value_decimal, is_cumulative, quality, raw_payload_id, source_type, created_at, updated_at, version)
+           VALUES (?, ?, NULL, ?, ?, ?, ?, ?, 1, 'SOURCE_REPORTED', ?, 'YOUTUBE_API', ?, ?, 1)`,
+        ).bind(newId(), definitionId, post.postId, observedAt, publishedAt, ageSeconds, value, videosRaw.rawId, nowIso(), nowIso()));
+      }
+    }
+  }
+  for (const analyticsRaw of raw.filter((entry) => entry.kind === "analytics")) {
+    for (const point of youtubeAnalyticsDailyPoints(analyticsRaw.payload)) {
+      const metricKey = `youtube.analytics.daily.${point.metric}`;
+      const definitionCacheKey = `youtube-analytics-v2-channel-daily@2026-08-09:${metricKey}`;
+      let definitionId = metricDefinitions.get(definitionCacheKey);
+      if (!definitionId) {
+        definitionId = await ensureMetricDefinition({
+          env,
+          platformId: SYSTEM_PLATFORM_IDS.youtube,
+          metricKey,
+          providerName: point.metric,
+          providerDefinition: `YouTube Analytics API v2 channel time-based report; dimensions=day; metric=${point.metric}; source day is 00:00–23:59 America/Los_Angeles (UTC-7/UTC-8); source-reported signed interval value, not cumulative.`,
+          version: "youtube-analytics-v2-channel-daily@2026-08-09",
+          scope: "ACCOUNT",
+          cumulative: false,
+          sourceType: "YOUTUBE_API",
+        });
+        metricDefinitions.set(definitionCacheKey, definitionId);
+      }
+      snapshotStatements.push(env.LIFE_DB.prepare(
         `INSERT OR IGNORE INTO social_metric_snapshots
          (id, social_metric_definition_id, social_account_id, platform_post_id, observed_at, published_at, age_seconds,
           value_decimal, is_cumulative, quality, raw_payload_id, source_type, created_at, updated_at, version)
-         VALUES (?, ?, NULL, ?, ?, ?, ?, ?, 1, 'SOURCE_REPORTED', ?, 'YOUTUBE_API', ?, ?, 1)`,
-      ).bind(newId(), definitionId, post.postId, observedAt, publishedAt, ageSeconds, value, videosRaw!.rawId, nowIso(), nowIso()).run();
+         VALUES (?, ?, ?, NULL, ?, NULL, NULL, ?, 0, 'SOURCE_REPORTED', ?, 'YOUTUBE_API', ?, ?, 1)`,
+      ).bind(newId(), definitionId, account.id, point.observedAt, point.value, analyticsRaw.rawId, nowIso(), nowIso()));
     }
   }
+  await runD1WriteBatches(env, snapshotStatements);
   return { created, updated };
 }
 
@@ -233,7 +357,8 @@ export async function syncProviderConnection(input: {
   from: string;
   to: string;
 }): Promise<Record<string, unknown>> {
-  const { provider, credentials } = await connectionCredentials(input.env, input.connectionId);
+  const { provider, credentials: storedCredentials } = await connectionCredentials(input.env, input.connectionId);
+  if (input.triggerKind === "MANUAL") await recoverStaleProviderSyncs(input.env, new Date(), input.connectionId);
   const runId = newId();
   const startedAt = nowIso();
   await input.env.LIFE_DB.prepare(
@@ -242,7 +367,20 @@ export async function syncProviderConnection(input: {
       updated_count, ignored_count, error_count, request_id, created_at)
      VALUES (?, ?, ?, ?, 'RUNNING', ?, 0, 0, 0, 0, 0, ?, ?)`,
   ).bind(runId, provider.key, input.connectionId, input.triggerKind, startedAt, input.requestId, startedAt).run();
+  if (input.triggerKind === "MANUAL" && !(await claimManualProviderSyncJob(input.env, input.connectionId, startedAt))) {
+    await input.env.LIFE_DB.prepare(
+      `UPDATE provider_sync_runs SET status = 'FAILED', completed_at = ?, error_count = 1,
+       error_code = 'PROVIDER_SYNC_IN_PROGRESS', error_message_redacted = '此連線已有同步正在執行。' WHERE id = ?`,
+    ).bind(nowIso(), runId).run();
+    throw new ApiError(409, "PROVIDER_SYNC_IN_PROGRESS", "此連線已有同步正在執行。");
+  }
   try {
+    const credentials = await refreshConnectionCredentialsIfNeeded({
+      env: input.env,
+      connectionId: input.connectionId,
+      provider,
+      credentials: storedCredentials,
+    });
     const payloads = [
       ...(await provider.fetchAccounts(credentials)),
       ...(await provider.fetchContent(credentials)),
@@ -251,28 +389,48 @@ export async function syncProviderConnection(input: {
     const stored = await storeRawPayloads(input.env, provider.key, runId, payloads);
     const counts = provider.key === "youtube" ? await persistYouTube(input.env, stored) : await persistInstagram(input.env, stored);
     const completedAt = nowIso();
+    const configuredInterval = Number(input.env.PROVIDER_SYNC_INTERVAL_HOURS ?? "6");
+    const intervalHours = Number.isFinite(configuredInterval) && configuredInterval > 0 ? configuredInterval : 6;
+    const nextRunAt = new Date(Date.parse(completedAt) + intervalHours * 60 * 60 * 1000).toISOString();
     await input.env.LIFE_DB.batch([
       input.env.LIFE_DB.prepare(
         `UPDATE provider_sync_runs SET status = 'SUCCEEDED', completed_at = ?, fetched_count = ?,
          created_count = ?, updated_count = ? WHERE id = ?`,
       ).bind(completedAt, payloads.length, counts.created, counts.updated, runId),
       input.env.LIFE_DB.prepare(
-        "UPDATE provider_connections SET status = 'CONNECTED', last_attempt_at = ?, last_success_at = ?, last_error_code = NULL, last_error_message_redacted = NULL, updated_at = ?, version = version + 1 WHERE id = ?",
-      ).bind(completedAt, completedAt, completedAt, input.connectionId),
+        "UPDATE provider_connections SET status = 'CONNECTED', last_attempt_at = ?, last_success_at = ?, last_error_code = NULL, last_error_message_redacted = NULL, provider_definition_version = ?, updated_at = ?, version = version + 1 WHERE id = ?",
+      ).bind(completedAt, completedAt, provider.definitionVersion, completedAt, input.connectionId),
+      input.env.LIFE_DB.prepare(
+        "UPDATE provider_sync_jobs SET status = 'READY', attempt = 0, next_run_at = ?, last_error_code = NULL, updated_at = ? WHERE connection_id = ?",
+      ).bind(nextRunAt, completedAt, input.connectionId),
     ]);
     return { runId, providerKey: provider.key, status: "SUCCEEDED", fetchedCount: payloads.length, ...counts };
   } catch (error) {
     const code = error instanceof ApiError ? error.code : "PROVIDER_ERROR";
     const status = error instanceof ApiError && error.status === 401 ? "NEEDS_REAUTH" : "ERROR";
     const completedAt = nowIso();
-    await input.env.LIFE_DB.batch([
+    const failureStatements: D1PreparedStatement[] = [
       input.env.LIFE_DB.prepare(
         "UPDATE provider_sync_runs SET status = 'FAILED', completed_at = ?, error_count = 1, error_code = ?, error_message_redacted = ? WHERE id = ?",
       ).bind(completedAt, code, error instanceof Error ? error.message.slice(0, 240) : "同步失敗", runId),
       input.env.LIFE_DB.prepare(
         "UPDATE provider_connections SET status = ?, last_attempt_at = ?, last_error_code = ?, last_error_message_redacted = ?, updated_at = ?, version = version + 1 WHERE id = ?",
       ).bind(status, completedAt, code, error instanceof Error ? error.message.slice(0, 240) : "同步失敗", completedAt, input.connectionId),
-    ]);
+    ];
+    if (input.triggerKind === "MANUAL") {
+      const retryAt = new Date(Date.parse(completedAt) + 60_000).toISOString();
+      failureStatements.push(status === "NEEDS_REAUTH"
+        ? input.env.LIFE_DB.prepare(
+          "UPDATE provider_sync_jobs SET status = 'PAUSED', last_error_code = ?, updated_at = ? WHERE connection_id = ?",
+        ).bind(code, completedAt, input.connectionId)
+        : input.env.LIFE_DB.prepare(
+          `UPDATE provider_sync_jobs
+           SET status = CASE WHEN attempt + 1 >= max_attempts THEN 'DEAD_LETTER' ELSE 'RETRY' END,
+               attempt = MIN(attempt + 1, max_attempts), next_run_at = ?, last_error_code = ?, updated_at = ?
+           WHERE connection_id = ?`,
+        ).bind(retryAt, code, completedAt, input.connectionId));
+    }
+    await input.env.LIFE_DB.batch(failureStatements);
     throw error;
   }
 }

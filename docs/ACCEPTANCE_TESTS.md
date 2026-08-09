@@ -181,7 +181,7 @@ state錯誤、redirect mismatch及缺少Access身分均被拒絕；token不出�
 
 ### AT-YT-03　同步冪等
 
-相同API資料同步兩次不重複建立貼文或快照。
+相同API資料同步兩次不重複建立貼文或快照。相同raw內容可全域去重，但每個run都必須以有序關聯完整列出其實際取得的payload，且完整JSON匯出／還原保留該關聯。
 
 ### AT-YT-04　真實頻道
 
@@ -283,7 +283,9 @@ Resend寄到使用者本人信箱，收到測試信；錯誤與message ID保存�
 
 ### AT-OFF-08　更新App
 
-有待同步outbox時service worker更新不丟資料、不強制reload。
+以相同`/assets/app.js`檔名建置兩個不同內容的正式bundle，兩次`sw.js`必須有不同的內容衍生版本與cache名稱；既有受控client重新整理後要顯示「有新版可用」，不能永久停留舊bundle。提示必須固定且完整落在初始viewport內；320、390、768、1366、1920px都不得靠捲到文件底部才看見，手機並須位於同步狀態與底部導覽上方。註冊與主動檢查更新不得使用HTTP cache。靜態資產在線時採network-first、離線時才回退同版cache，且Cloudflare Access跨來源redirect不得寫入app shell cache。
+
+有待同步outbox時按「安全更新」要明確阻擋、不丟資料、不強制reload；outbox為0時才通知waiting worker接管並reload。更新後在YouTube長請求尚未完成時，該連線的按鈕必須顯示「同步中」且同步／撤銷均停用，完成後才恢復。
 
 ## 11. UI與圖表
 

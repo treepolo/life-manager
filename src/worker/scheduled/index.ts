@@ -4,7 +4,7 @@ import { localDateAt } from "@/core/time/taipei";
 import { sendDeadlineEmail } from "@/integrations/resend/client";
 import { planDeadlineDeliveries } from "@/modules/notifications/scheduler";
 import { sendDeadlinePush } from "@/modules/notifications/push";
-import { syncProviderConnection } from "@/worker/api/provider-sync";
+import { recoverStaleProviderSyncs, syncProviderConnection } from "@/worker/api/provider-sync";
 import type { Env } from "@/worker/env";
 
 interface PreferenceRow {
@@ -194,6 +194,7 @@ export async function sendDeadlineNotificationTest(input: {
 }
 
 async function processProviderJobs(env: Env, requestId: string, now: Date): Promise<{ success: number; retries: number; deadLetter: number }> {
+  await recoverStaleProviderSyncs(env, now);
   const jobs = await env.LIFE_DB.prepare(
     `SELECT id, provider_key, connection_id, attempt, max_attempts, backoff_seconds
      FROM provider_sync_jobs WHERE status IN ('READY','RETRY') AND next_run_at <= ? ORDER BY next_run_at LIMIT 5`,
@@ -204,7 +205,10 @@ async function processProviderJobs(env: Env, requestId: string, now: Date): Prom
   let retries = 0;
   let deadLetter = 0;
   for (const job of jobs.results) {
-    await env.LIFE_DB.prepare("UPDATE provider_sync_jobs SET status = 'RUNNING', updated_at = ? WHERE id = ?").bind(nowIso(), job.id).run();
+    const claimed = await env.LIFE_DB.prepare(
+      "UPDATE provider_sync_jobs SET status = 'RUNNING', updated_at = ? WHERE id = ? AND status IN ('READY','RETRY') AND next_run_at <= ?",
+    ).bind(nowIso(), job.id, now.toISOString()).run();
+    if (Number(claimed.meta.changes ?? 0) !== 1) continue;
     try {
       const to = localDateAt(now, "UTC");
       const fromDate = new Date(now);

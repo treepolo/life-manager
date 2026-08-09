@@ -11,7 +11,7 @@ export function PwaUpdate() {
     const hadController = Boolean(navigator.serviceWorker.controller);
     const onControllerChange = () => { if (hadController) window.location.reload(); };
     navigator.serviceWorker.addEventListener("controllerchange", onControllerChange);
-    void navigator.serviceWorker.register("/sw.js").then((registration) => {
+    void navigator.serviceWorker.register("/sw.js", { updateViaCache: "none" }).then((registration) => {
       if (!active) return;
       if (registration.waiting) setWaiting(registration.waiting);
       registration.addEventListener("updatefound", () => {
@@ -20,6 +20,7 @@ export function PwaUpdate() {
           if (installing.state === "installed" && navigator.serviceWorker.controller) setWaiting(installing);
         });
       });
+      void registration.update();
     });
     return () => { active = false; navigator.serviceWorker.removeEventListener("controllerchange", onControllerChange); };
   }, []);

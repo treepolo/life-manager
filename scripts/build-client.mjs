@@ -5,6 +5,8 @@ import { basename, join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
+import { stampServiceWorker } from "./stamp-service-worker.mjs";
+
 const workspace = resolve(fileURLToPath(new URL("..", import.meta.url)));
 let runDirectory = workspace;
 
@@ -32,3 +34,6 @@ if (result.error) throw result.error;
 if (result.status !== 0) {
   throw new Error(`${basename(viteCli)} build failed with exit code ${String(result.status)}`);
 }
+
+const stamped = stampServiceWorker(join(workspace, "dist"));
+process.stdout.write(`Service Worker build version: ${stamped.buildVersion}\n`);

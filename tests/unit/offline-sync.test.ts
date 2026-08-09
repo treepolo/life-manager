@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { apiPostLongRunning } from "@/app/api/client";
+import { acquireRequestSlot } from "@/core/network/request-gate";
 import { applyServerChanges, cacheServerEntities, cachedEntities, commitOfflineMutation, getOrCreateSyncMeta, listOutbox, localDatabase } from "@/core/sync/client-db";
 import { createSyncPassSignal, syncNow } from "@/core/sync/sync-manager";
 
@@ -110,6 +112,19 @@ describe("IndexedDB離線輸入", () => {
     expect(pass.signal.aborted).toBe(true);
     expect(pass.signal.reason).toMatchObject({ name: "TimeoutError", message: expect.stringContaining("同步逾時") });
     pass.dispose();
+  });
+
+  it("長時間provider同步不占用核心outbox的序列請求通道", async () => {
+    const release = await acquireRequestSlot();
+    const fetchMock = vi.fn(async () => Response.json({ data: { status: "SUCCEEDED" } }));
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      await expect(apiPostLongRunning("/api/v1/integrations/connection/sync", { operationId: "operation" }))
+        .resolves.toEqual({ data: { status: "SUCCEEDED" } });
+      expect(fetchMock).toHaveBeenCalledOnce();
+    } finally {
+      release();
+    }
   });
 
   it("第一批核心輸入類型可離線保存修改與封存操作，恢復會清除本機封存旗標", async () => {

@@ -34,6 +34,15 @@ export async function apiPost<T>(path: string, body: unknown, signal?: AbortSign
   }));
 }
 
+export async function apiPostLongRunning<T>(path: string, body: unknown, signal?: AbortSignal): Promise<T> {
+  return responseJson<T>(await fetch(path, {
+    method: "POST",
+    headers: { "content-type": "application/json", accept: "application/json" },
+    body: JSON.stringify(body),
+    signal,
+  }));
+}
+
 export async function listResource<T extends Record<string, unknown>>(resource: string, query = "", signal?: AbortSignal): Promise<T[]> {
   try {
     const response = await apiGet<{ data: T[] }>(`/api/v1/${resource}${query}`, signal);

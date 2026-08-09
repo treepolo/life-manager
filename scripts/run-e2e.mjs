@@ -51,7 +51,13 @@ async function runProject(playwrightArgs) {
     windowsHide: true,
   });
   try {
-    await waitUntilReady(server);
+    try {
+      await waitUntilReady(server);
+    } catch (error) {
+      const serverCrashed = server.exitCode !== null || server.signalCode !== null;
+      if (serverCrashed) return { status: server.exitCode ?? 1, serverCrashed: true };
+      throw error;
+    }
     const status = run(process.execPath, [playwright, "test", ...playwrightArgs], false);
     let serverCrashed = server.exitCode !== null || server.signalCode !== null;
     if (status !== 0 && !serverCrashed) {
@@ -90,6 +96,7 @@ const desktopCases = [
   "離線社群快照與手動成交可同步",
   "離線期限建立可同步",
   "離線任務完成可同步",
+  "外部同步長請求期間顯示同步中並鎖定重複動作",
   "正式圖表具完整語意、事件互動且D1資料更新會改變曲線",
 ];
 const projectArguments = inputArguments.length

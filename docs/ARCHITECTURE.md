@@ -26,6 +26,12 @@ YouTube、Instagram、Firstrade CSV、未來方格子等整合均遵循provider�
 
 原始provider資料與正規化資料分離，新增provider不修改既有分析公式。
 
+YouTube provider的正式來源定義為`youtube-data-v3+analytics-v2@2026-08-09`：上傳播放清單必須走完所有`nextPageToken`，影片明細每批最多50支；Analytics使用官方Channel basic time-based report的`dimensions=day`、`metrics=views,likes,comments`及`sort=day`，不得用未支援的`video,day`組合。來源日依YouTube定義的America/Los_Angeles 00:00–23:59轉成UTC觀測時間；每日值是來源回報的帶符號區間值而非累積快照，禁止把負值截成0。access token在到期前5分鐘以伺服器端refresh token換發並重新AES-GCM加密保存；非401 provider錯誤保留既有授權與手動重試，只有`NEEDS_REAUTH`／`EXPIRED`才要求重新授權。
+
+Provider同步是長時間外部工作，不占用核心outbox的單一瀏覽器請求閘門；頁面在同一provider工作未結束前停用再次同步與撤銷。Worker以`provider_sync_jobs`條件式更新取得單一執行權，手動與Cron不得同時處理同一connection。正規化大量快照時先在單次run快取metric definition，再以最多100個statement的D1 batch寫入；超過10分鐘仍為`RUNNING`的中斷run會標為`FAILED/SYNC_INTERRUPTED`，job依attempt轉成`RETRY`或`DEAD_LETTER`，不得永久留在執行中或以後續Cron成功掩蓋。
+
+原始provider回應以`provider_key + payload_kind + sha256`全域去重，`provider_sync_run_payloads`則按`sync_run_id + payload_order`保存每一次run實際取得的有序證據。即使內容未變而沿用既有`provider_raw_payloads`，每次run仍必須新增關聯；不得用raw列最初建立時的`sync_run_id`冒充之後每次同步的完整證據。
+
 ## 2. 技術堆疊
 
 - Runtime／hosting：Cloudflare Workers與Static Assets。
@@ -37,6 +43,7 @@ YouTube、Instagram、Firstrade CSV、未來方格子等整合均遵循provider�
 - Validation：Zod，前端、API與測試共用schema。
 - Charts：Recharts，外加專案自建chart wrapper與設定面板。
 - Local offline store：IndexedDB；可使用經評估的薄封裝，但不能把同步規則藏在不可測黑盒。
+- PWA更新：自有Service Worker；正式build依app shell內容寫入版本戳，靜態資產network-first／離線cache fallback，waiting worker只可在outbox為0時由使用者明確「安全更新」接管；更新提示是高層固定介面，不能隨路由文件流落到長頁面底部，手機須避讓既有同步列與導覽。
 - Test：Vitest、Cloudflare Workers test integration、Playwright。
 - SQL：參數化SQL與repository；migration由Wrangler D1 migrations管理。
 - Dates：使用Temporal polyfill或明確時區函式；不得以本機隱含時區處理期限。
@@ -206,7 +213,7 @@ Deadlines決定哪些事項應提醒；Notifications負責in-app、Push及Email�
 - OAuth refresh/access token在伺服器端以AES-GCM等經審查方式加密後存D1；加密主金鑰只在Secret。
 - 前端不得取得refresh token。
 - token log必須遮蔽。
-- OAuth state、PKCE／CSRF防護及redirect URI嚴格驗證。
+- OAuth state、PKCE／CSRF防護及redirect URI嚴格驗證。state為一次性且逾時即拒絕；TTL由`OAUTH_STATE_TTL_MINUTES`公開設定控制，正式環境使用60分鐘，允許私人分步授權但不形成無限期state，程式只接受10至120分鐘整數。
 
 ### SEC-003　Resend
 
@@ -231,6 +238,8 @@ CSV在客戶端或Worker受控解析，不執行公式；匯出CSV時防止試�
 - 清理過期暫存及保留範圍內的log。
 
 Cron以UTC執行，所有使用者日期與提醒時間先轉換Asia/Taipei。D1中的`scheduled_jobs`保存`next_run_at`、狀態、attempt、backoff及dedupe key。外部API失敗不得重複建立相同快照。
+
+社群provider工作由`provider_sync_jobs`保存相同排程語意。每次Cron先收斂逾時的`RUNNING` run/job，再以帶原狀態與到期時間條件的更新取得工作；未取得者直接略過，避免兩個Cron或手動同步重入。
 
 ## 8. 擴充規則
 

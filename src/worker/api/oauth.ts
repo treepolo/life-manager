@@ -4,7 +4,24 @@ import { ApiError } from "@/core/errors/api-error";
 import { InstagramProvider, INSTAGRAM_SCOPES } from "@/integrations/instagram/provider";
 import type { IntegrationProvider, ProviderRawPayload } from "@/integrations/providers/contract";
 import { YouTubeProvider, YOUTUBE_SCOPES } from "@/integrations/youtube/provider";
+import { prepareRawPayloadWrites } from "@/worker/api/provider-raw";
 import type { Env } from "@/worker/env";
+
+const MIN_OAUTH_STATE_TTL_MINUTES = 10;
+const MAX_OAUTH_STATE_TTL_MINUTES = 120;
+const TOKEN_REFRESH_SKEW_MILLISECONDS = 5 * 60 * 1000;
+
+export function oauthStateTtlMilliseconds(value: string | undefined): number {
+  const minutes = Number(value);
+  if (!value || !Number.isInteger(minutes) || minutes < MIN_OAUTH_STATE_TTL_MINUTES || minutes > MAX_OAUTH_STATE_TTL_MINUTES) {
+    throw new ApiError(
+      503,
+      "OAUTH_CONFIGURATION_MISSING",
+      `OAuth state有效時間必須是${MIN_OAUTH_STATE_TTL_MINUTES}至${MAX_OAUTH_STATE_TTL_MINUTES}分鐘的整數。`,
+    );
+  }
+  return minutes * 60 * 1000;
+}
 
 function providerFor(key: string, env: Env): IntegrationProvider {
   if (key === "youtube") return new YouTubeProvider(env.GOOGLE_CLIENT_ID ?? "", env.GOOGLE_CLIENT_SECRET ?? "");
@@ -51,8 +68,9 @@ export async function startOAuth(input: {
   const verifier = randomUrlSafe(64);
   const redirectUri = callbackUri(input.request, input.env, input.providerKey);
   const authorizeUrl = provider.authorize(state, await pkceChallenge(verifier), redirectUri).toString();
-  const now = nowIso();
-  const expires = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+  const nowMilliseconds = Date.now();
+  const now = new Date(nowMilliseconds).toISOString();
+  const expires = new Date(nowMilliseconds + oauthStateTtlMilliseconds(input.env.OAUTH_STATE_TTL_MINUTES)).toISOString();
   const encryptedVerifier = await encryptSecret(verifier, input.env.TOKEN_ENCRYPTION_KEY);
   const encryptedAuthorizeUrl = await encryptSecret(authorizeUrl, input.env.TOKEN_ENCRYPTION_KEY);
   await input.env.LIFE_DB.batch([
@@ -144,6 +162,7 @@ export async function finishOAuth(input: {
       now, now, provider.definitionVersion, now, now));
   }
   const jobId = newId();
+  const rawWrites = await prepareRawPayloadWrites(input.env, input.providerKey, runId, rawAccounts, now);
   statements.push(
     input.env.LIFE_DB.prepare("UPDATE oauth_states SET consumed_at = ? WHERE id = ? AND consumed_at IS NULL").bind(now, stateRow.id),
     input.env.LIFE_DB.prepare(
@@ -159,16 +178,8 @@ export async function finishOAuth(input: {
        ON CONFLICT(dedupe_key) DO UPDATE SET status = 'READY', attempt = 0, next_run_at = excluded.next_run_at,
        last_error_code = NULL, updated_at = excluded.updated_at`,
     ).bind(jobId, input.providerKey, connectionId, now, `provider-sync:${connectionId}`, now, now),
+    ...rawWrites.statements,
   );
-  for (const raw of rawAccounts) {
-    const serialized = JSON.stringify(raw.payload);
-    statements.push(input.env.LIFE_DB.prepare(
-      `INSERT OR IGNORE INTO provider_raw_payloads
-       (id, provider_key, sync_run_id, payload_kind, external_id, observed_at, sha256, payload_json, api_version, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    ).bind(newId(), input.providerKey, runId, raw.kind, raw.externalId, raw.observedAt,
-      await sha256(serialized), serialized, raw.apiVersion, now));
-  }
   await input.env.LIFE_DB.batch(statements);
   cleanRedirect.searchParams.set("connected", "1");
   return Response.redirect(cleanRedirect.toString(), 303);
@@ -190,4 +201,45 @@ export async function connectionCredentials(env: Env, connectionId: string): Pro
   };
   if (row.encrypted_refresh_token) credentials.refreshToken = await decryptSecret(String(row.encrypted_refresh_token), env.TOKEN_ENCRYPTION_KEY);
   return { provider, credentials, row };
+}
+
+export function tokenRefreshRequired(expiresAt: unknown, nowMilliseconds = Date.now()): boolean {
+  if (typeof expiresAt !== "string") return false;
+  const expiryMilliseconds = Date.parse(expiresAt);
+  return Number.isFinite(expiryMilliseconds) && expiryMilliseconds <= nowMilliseconds + TOKEN_REFRESH_SKEW_MILLISECONDS;
+}
+
+export async function refreshConnectionCredentialsIfNeeded(input: {
+  env: Env;
+  connectionId: string;
+  provider: Pick<IntegrationProvider, "key" | "definitionVersion" | "refreshCredentials">;
+  credentials: Record<string, unknown>;
+  nowMilliseconds?: number;
+}): Promise<Record<string, unknown>> {
+  const nowMilliseconds = input.nowMilliseconds ?? Date.now();
+  if (!input.provider.refreshCredentials || !tokenRefreshRequired(input.credentials.expiresAt, nowMilliseconds)) {
+    return input.credentials;
+  }
+  const refreshed = await input.provider.refreshCredentials(input.credentials);
+  if (!refreshed || typeof refreshed !== "object") {
+    throw new ApiError(401, "PROVIDER_ERROR", "provider token換發回應無效，必須重新授權。");
+  }
+  const merged = { ...input.credentials, ...(refreshed as Record<string, unknown>) };
+  if (typeof merged.accessToken !== "string" || !merged.accessToken) {
+    throw new ApiError(401, "PROVIDER_ERROR", "provider token換發未回傳access token，必須重新授權。");
+  }
+  if (typeof merged.expiresAt !== "string" || !Number.isFinite(Date.parse(merged.expiresAt)) || Date.parse(merged.expiresAt) <= nowMilliseconds) {
+    throw new ApiError(401, "PROVIDER_ERROR", "provider token換發未回傳有效到期時間，必須重新授權。");
+  }
+  const encryptedAccessToken = await encryptSecret(merged.accessToken, input.env.TOKEN_ENCRYPTION_KEY);
+  const encryptedRefreshToken = typeof merged.refreshToken === "string" && merged.refreshToken
+    ? await encryptSecret(merged.refreshToken, input.env.TOKEN_ENCRYPTION_KEY)
+    : null;
+  const updatedAt = new Date(nowMilliseconds).toISOString();
+  await input.env.LIFE_DB.prepare(
+    `UPDATE provider_connections SET encrypted_access_token = ?,
+     encrypted_refresh_token = COALESCE(?, encrypted_refresh_token), token_expires_at = ?,
+     updated_at = ?, version = version + 1 WHERE id = ? AND disconnected_at IS NULL`,
+  ).bind(encryptedAccessToken, encryptedRefreshToken, merged.expiresAt, updatedAt, input.connectionId).run();
+  return merged;
 }

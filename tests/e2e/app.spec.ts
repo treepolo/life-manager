@@ -52,6 +52,45 @@ async function expectPending(page: Page, testInfo: TestInfo, count: number): Pro
   await expect(syncSurface(page, testInfo).getByText(`${count} 待同步`, { exact: true })).toBeVisible({ timeout: 20_000 });
 }
 
+async function expectUpdateBannerInViewport(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const banner = document.createElement("aside");
+    banner.className = "update-banner";
+    banner.setAttribute("role", "status");
+    banner.innerHTML = '<strong>有新版可用</strong><span>若有待同步資料，系統會先保留，不會強制重載。</span><button class="button" type="button">安全更新</button><button class="button button--quiet" type="button">稍後</button>';
+    document.body.appendChild(banner);
+  });
+  const banner = page.locator(".update-banner");
+  await expect(banner).toBeVisible();
+  const geometry = await banner.evaluate((element) => {
+    const rect = element.getBoundingClientRect();
+    const style = getComputedStyle(element);
+    const mobileSyncElement = document.querySelector(".mobile-sync-status");
+    const mobileSync = mobileSyncElement && getComputedStyle(mobileSyncElement).display !== "none"
+      ? mobileSyncElement.getBoundingClientRect()
+      : null;
+    return {
+      position: style.position,
+      zIndex: Number(style.zIndex),
+      viewportWidth: window.innerWidth,
+      viewportHeight: window.innerHeight,
+      left: rect.left,
+      right: rect.right,
+      top: rect.top,
+      bottom: rect.bottom,
+      mobileSyncTop: mobileSync?.top ?? null,
+    };
+  });
+  expect(geometry.position).toBe("fixed");
+  expect(geometry.zIndex).toBeGreaterThan(20);
+  expect(geometry.left).toBeGreaterThanOrEqual(0);
+  expect(geometry.right).toBeLessThanOrEqual(geometry.viewportWidth);
+  expect(geometry.top).toBeGreaterThanOrEqual(0);
+  expect(geometry.bottom).toBeLessThanOrEqual(geometry.viewportHeight);
+  if (geometry.mobileSyncTop !== null) expect(geometry.bottom).toBeLessThanOrEqual(geometry.mobileSyncTop);
+  await banner.evaluate((element) => element.remove());
+}
+
 async function setConnectivity(page: Page, context: BrowserContext, offline: boolean): Promise<void> {
   await context.setOffline(offline);
   await expect.poll(() => page.evaluate(() => navigator.onLine), { timeout: 10_000 }).toBe(!offline);
@@ -93,6 +132,12 @@ test("正式 UI 可寫入 D1，離線建立後可同步，且版面不水平溢�
     () => page.evaluate(() => navigator.serviceWorker.controller?.scriptURL ?? ""),
     { timeout: 15_000 },
   ).toContain("/sw.js");
+  const serviceWorkerResponse = await page.request.get("/sw.js");
+  const serviceWorkerSource = await serviceWorkerResponse.text();
+  expect(serviceWorkerResponse.ok(), serviceWorkerSource).toBeTruthy();
+  expect(serviceWorkerSource).toMatch(/const BUILD_VERSION = "[a-f0-9]{16}"/);
+  expect(serviceWorkerSource).not.toContain("__LIFE_MANAGER_BUILD_VERSION__");
+  await expectUpdateBannerInViewport(page);
   await expect(page.getByRole("heading", { name: "領域與事業" })).toBeVisible();
   const areaForm = page.locator("form").first();
   await areaForm.getByLabel("名稱").fill(onlineArea);
@@ -283,6 +328,45 @@ test("離線任務完成可同步", async ({ page, context }, testInfo) => {
   expect(completionSync.pulled).toContain(taskId);
 });
 
+test("外部同步長請求期間顯示同步中並鎖定重複動作", async ({ page }) => {
+  let releaseSync: (() => void) | undefined;
+  const syncFinished = new Promise<void>((resolve) => { releaseSync = resolve; });
+  const connection = {
+    id: "019fc5a1-df33-7c00-8bc0-000000000001",
+    provider_key: "youtube",
+    display_name: "正式頻道",
+    status: "CONNECTED",
+    last_attempt_at: null,
+    last_success_at: null,
+    last_error_code: null,
+    last_error_message_redacted: null,
+    token_expires_at: "2026-08-10T04:05:18.000Z",
+    provider_definition_version: "youtube-data-v3+analytics-v2@2026-08-09",
+    next_run_at: "2026-08-09T21:36:01.000Z",
+    sync_job_status: "READY",
+    sync_attempt: 0,
+  };
+  await page.route("**/api/v1/integrations", async (route) => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ data: [connection] }) });
+  });
+  await page.route("**/api/v1/integrations/*/sync", async (route) => {
+    await syncFinished;
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ data: { status: "SUCCEEDED" } }) });
+  });
+
+  await openAndRegister(page, "/integrations");
+  const youtubePanel = page.locator("section.panel").filter({ has: page.getByRole("heading", { name: /YouTube/ }) });
+  const syncButton = youtubePanel.getByRole("button", { name: "立即同步" });
+  const disconnectButton = youtubePanel.getByRole("button", { name: "撤銷連線" });
+  await syncButton.click();
+  await expect(youtubePanel.getByRole("button", { name: "同步中" })).toBeDisabled();
+  await expect(disconnectButton).toBeDisabled();
+
+  releaseSync?.();
+  await expect(youtubePanel.getByRole("button", { name: "立即同步" })).toBeEnabled();
+  await expect(disconnectButton).toBeEnabled();
+});
+
 test("正式圖表具完整語意、事件互動且D1資料更新會改變曲線", async ({ page }, testInfo) => {
   test.setTimeout(120_000);
   await page.emulateMedia({ reducedMotion: "reduce" });
@@ -398,6 +482,7 @@ test("完整viewport維持首頁優先層級、期限入口與reduced-motion", a
   const deadlineName = `首頁層級期限-${testInfo.project.name}`;
   await createResource(page, "deadlines", { id: uuidv7(), templateId: null, parentDeadlineId: null, name: deadlineName, institution: "正式驗收", accountHint: "", actionableFromLocalDate: "2026-08-01", dueLocalDate: "2026-08-31", timezone: "Asia/Taipei", completionCondition: "完成正式處理", instructions: "依正式文件執行", importance: "SUPER_CRITICAL", status: "OPEN", completedAt: null, nextOccurrenceLocalDate: null, lastSignedLocalDate: null, calculatedDueLocalDate: null, confirmedDueLocalDate: null, calculationBasis: null });
   await openAndRegister(page, "/");
+  await expectUpdateBannerInViewport(page);
   await expect(page.locator("main section").first().getByRole("heading", { name: "今日行動中心" })).toBeVisible();
   await expect(page.locator(".critical-inline-entry")).toContainText("超級無敵重要期限");
   await expect(page.locator(".critical-interrupt")).toBeVisible();

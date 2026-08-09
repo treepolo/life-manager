@@ -48,6 +48,7 @@ const exportQueries: Record<string, string> = {
                                 created_at, updated_at, version FROM provider_connections`,
   provider_raw_payloads: "SELECT * FROM provider_raw_payloads",
   provider_sync_runs: "SELECT * FROM provider_sync_runs",
+  provider_sync_run_payloads: "SELECT * FROM provider_sync_run_payloads",
   provider_sync_jobs: "SELECT * FROM provider_sync_jobs",
   deadline_items: "SELECT * FROM deadline_items",
   deadline_completions: "SELECT * FROM deadline_completions",
@@ -88,7 +89,7 @@ const restoreTableOrder = [
   "asset_definitions", "fx_rates", "asset_snapshots", "expense_baselines", "brokerage_accounts",
   "import_mapping_profiles", "import_batches", "import_files", "import_rows", "brokerage_activity", "source_reported_values",
   "social_platforms", "social_accounts", "content_assets", "platform_posts", "social_metric_definitions",
-  "provider_connections", "provider_sync_runs", "provider_raw_payloads", "social_metric_snapshots", "conversion_records", "comparison_definitions",
+  "provider_connections", "provider_sync_runs", "provider_raw_payloads", "provider_sync_run_payloads", "social_metric_snapshots", "conversion_records", "comparison_definitions",
   "provider_sync_jobs", "deadline_templates", "deadline_items", "deadline_completions",
   "notification_channels", "notification_preferences", "notification_deliveries", "scheduled_jobs", "app_settings", "audit_log",
 ] as const;

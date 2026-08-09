@@ -16,6 +16,7 @@ export interface Env {
   OPERATION_LOG_RETENTION_DAYS?: string;
   NOTIFICATION_LOG_RETENTION_DAYS?: string;
   OAUTH_STATE_RETENTION_DAYS?: string;
+  OAUTH_STATE_TTL_MINUTES: string;
   OAUTH_CALLBACK_BASE_URL?: string;
   RESEND_API_KEY?: string;
   RESEND_FROM?: string;

@@ -3,8 +3,11 @@ import { applyD1Migrations, SELF } from "cloudflare:test";
 import { beforeAll, describe, expect, it } from "vitest";
 import { v7 as uuidv7 } from "uuid";
 
-import { sha256 } from "@/core/crypto/secrets";
+import { decryptSecret, encryptSecret, sha256 } from "@/core/crypto/secrets";
+import type { IntegrationProvider } from "@/integrations/providers/contract";
 import { analyticResultSchema } from "@/core/provenance/analytic-result";
+import { oauthStateTtlMilliseconds, refreshConnectionCredentialsIfNeeded, tokenRefreshRequired } from "@/worker/api/oauth";
+import { claimManualProviderSyncJob, persistYouTube, recoverStaleProviderSyncs, storeRawPayloads, type RawWithId } from "@/worker/api/provider-sync";
 import { processRetention } from "@/worker/scheduled";
 
 async function jsonRequest(path: string, method = "GET", body?: unknown): Promise<Response> {
@@ -45,12 +48,110 @@ describe("正式D1 migration與API契約", () => {
     expect(await env.LIFE_DB.prepare("SELECT id FROM audit_log WHERE id = ?").bind(recentAuditId).first()).not.toBeNull();
   });
 
-  it("完整套用schema 8且新環境沒有使用者示範資料", async () => {
+  it("完整套用schema 10且新環境沒有使用者示範資料", async () => {
     const version = await env.LIFE_DB.prepare("SELECT value FROM schema_metadata WHERE key = 'application_schema_version'").first<{ value: string }>();
     const userCounts = await Promise.all(["areas", "task_definitions", "financial_transactions", "content_assets", "deadline_items"].map(async (table) => Number((await env.LIFE_DB.prepare(`SELECT COUNT(*) AS count FROM ${table}`).first<{ count: number }>())?.count)));
-    expect(version?.value).toBe("8");
+    expect(version?.value).toBe("10");
     expect(userCounts).toEqual([0, 0, 0, 0, 0]);
     expect(Number((await env.LIFE_DB.prepare("SELECT COUNT(*) AS count FROM social_platforms").first<{ count: number }>())?.count)).toBe(2);
+  });
+
+  it("相同原始payload全域去重但每次provider run都保留有序證據關聯", async () => {
+    const runA = uuidv7();
+    const runB = uuidv7();
+    const now = "2026-08-09T15:30:00.000Z";
+    const payload = {
+      kind: "channels",
+      externalId: null,
+      observedAt: now,
+      apiVersion: "youtube-data-v3@evidence-link-test",
+      payload: { items: [{ id: "same-channel", snippet: { title: "同一真實來源回應" } }] },
+    };
+    for (const runId of [runA, runB]) {
+      await env.LIFE_DB.prepare(
+        `INSERT INTO provider_sync_runs
+         (id, provider_key, connection_id, trigger_kind, status, started_at, completed_at, fetched_count,
+          created_count, updated_count, ignored_count, error_count, request_id, created_at)
+         VALUES (?, 'youtube', NULL, 'MANUAL', 'SUCCEEDED', ?, ?, 1, 0, 0, 0, 0, ?, ?)`,
+      ).bind(runId, now, now, `evidence-${runId}`, now).run();
+      await storeRawPayloads(env, "youtube", runId, [payload]);
+    }
+    expect(Number((await env.LIFE_DB.prepare(
+      "SELECT COUNT(*) AS count FROM provider_raw_payloads WHERE api_version = 'youtube-data-v3@evidence-link-test'",
+    ).first<{ count: number }>())?.count)).toBe(1);
+    const links = await env.LIFE_DB.prepare(
+      `SELECT l.sync_run_id, l.payload_order, p.payload_kind
+       FROM provider_sync_run_payloads l
+       JOIN provider_raw_payloads p ON p.id = l.raw_payload_id
+       WHERE l.sync_run_id IN (?, ?)
+       ORDER BY l.sync_run_id`,
+    ).bind(runA, runB).all<{ sync_run_id: string; payload_order: number; payload_kind: string }>();
+    expect(links.results).toEqual([
+      { sync_run_id: runA, payload_order: 0, payload_kind: "channels" },
+      { sync_run_id: runB, payload_order: 0, payload_kind: "channels" },
+    ].sort((left, right) => left.sync_run_id.localeCompare(right.sync_run_id)));
+    await env.LIFE_DB.prepare("DELETE FROM provider_sync_run_payloads WHERE sync_run_id IN (?, ?)").bind(runA, runB).run();
+    await env.LIFE_DB.prepare("DELETE FROM provider_raw_payloads WHERE api_version = 'youtube-data-v3@evidence-link-test'").run();
+    await env.LIFE_DB.prepare("DELETE FROM provider_sync_runs WHERE id IN (?, ?)").bind(runA, runB).run();
+  });
+
+  it("OAuth state TTL使用受限公開設定且staging固定答案為60分鐘", async () => {
+    expect(oauthStateTtlMilliseconds("60")).toBe(3_600_000);
+    for (const invalid of [undefined, "", "9", "121", "10.5", "NaN"]) {
+      expect(() => oauthStateTtlMilliseconds(invalid)).toThrowError(expect.objectContaining({
+        status: 503,
+        code: "OAUTH_CONFIGURATION_MISSING",
+      }));
+    }
+    const response = await jsonRequest("/api/v1/integrations/youtube/authorize", "POST", { operationId: uuidv7() });
+    expect(response.status).toBe(200);
+    const row = await env.LIFE_DB.prepare(
+      "SELECT created_at, expires_at FROM oauth_states WHERE provider_key = 'youtube' ORDER BY created_at DESC LIMIT 1",
+    ).first<{ created_at: string; expires_at: string }>();
+    expect(row).not.toBeNull();
+    expect(Date.parse(String(row?.expires_at)) - Date.parse(String(row?.created_at))).toBe(3_600_000);
+  });
+
+  it("中斷的provider run會轉為可重試且同一連線只能取得一個手動同步鎖", async () => {
+    const connectionId = uuidv7();
+    const runId = uuidv7();
+    const jobId = uuidv7();
+    const old = "2026-08-09T00:00:00.000Z";
+    const now = new Date("2026-08-09T01:00:00.000Z");
+    await env.LIFE_DB.batch([
+      env.LIFE_DB.prepare(
+        `INSERT INTO provider_connections
+         (id, provider_key, external_account_id, display_name, status, granted_scopes_json,
+          provider_definition_version, created_at, updated_at, version)
+         VALUES (?, 'youtube', ?, 'stale-test', 'CONNECTED', '[]', 'stale-test-v1', ?, ?, 1)`,
+      ).bind(connectionId, `stale-${connectionId}`, old, old),
+      env.LIFE_DB.prepare(
+        `INSERT INTO provider_sync_runs
+         (id, provider_key, connection_id, trigger_kind, status, started_at, fetched_count,
+          created_count, updated_count, ignored_count, error_count, request_id, created_at)
+         VALUES (?, 'youtube', ?, 'MANUAL', 'RUNNING', ?, 0, 0, 0, 0, 0, 'stale-test', ?)`,
+      ).bind(runId, connectionId, old, old),
+      env.LIFE_DB.prepare(
+        `INSERT INTO provider_sync_jobs
+         (id, provider_key, connection_id, next_run_at, status, attempt, max_attempts,
+          backoff_seconds, dedupe_key, created_at, updated_at)
+         VALUES (?, 'youtube', ?, ?, 'RUNNING', 0, 5, 60, ?, ?, ?)`,
+      ).bind(jobId, connectionId, old, `stale-job-${connectionId}`, old, old),
+    ]);
+    await recoverStaleProviderSyncs(env, now, connectionId);
+    expect(await env.LIFE_DB.prepare(
+      "SELECT status, error_code, error_count FROM provider_sync_runs WHERE id = ?",
+    ).bind(runId).first()).toEqual({ status: "FAILED", error_code: "SYNC_INTERRUPTED", error_count: 1 });
+    expect(await env.LIFE_DB.prepare(
+      "SELECT status, attempt, last_error_code FROM provider_sync_jobs WHERE id = ?",
+    ).bind(jobId).first()).toEqual({ status: "RETRY", attempt: 1, last_error_code: "SYNC_INTERRUPTED" });
+    expect(await claimManualProviderSyncJob(env, connectionId, now.toISOString())).toBe(true);
+    expect(await claimManualProviderSyncJob(env, connectionId, now.toISOString())).toBe(false);
+    await env.LIFE_DB.batch([
+      env.LIFE_DB.prepare("DELETE FROM provider_sync_jobs WHERE id = ?").bind(jobId),
+      env.LIFE_DB.prepare("DELETE FROM provider_sync_runs WHERE id = ?").bind(runId),
+      env.LIFE_DB.prepare("DELETE FROM provider_connections WHERE id = ?").bind(connectionId),
+    ]);
   });
 
   it("OAuth callback拒絕缺參數、錯誤state與redirect mismatch且回跳不洩密", async () => {
@@ -64,19 +165,163 @@ describe("正式D1 migration與API契約", () => {
     expect(mismatch.status).toBe(400); const body = await mismatch.json() as { error: { code: string } }; expect(body.error.code).toBe("OAUTH_STATE_INVALID");
   });
 
+  it("即將到期的provider token會換發並重新加密保存且保留原refresh token", async () => {
+    const connectionId = uuidv7();
+    const nowMilliseconds = Date.parse("2026-08-09T00:00:00.000Z");
+    const oldAccessToken = "old-access-token-for-refresh-test";
+    const refreshToken = "existing-refresh-token-for-refresh-test";
+    await env.LIFE_DB.prepare(
+      `INSERT INTO provider_connections
+       (id, provider_key, external_account_id, display_name, status, encrypted_access_token, encrypted_refresh_token,
+        token_algorithm, granted_scopes_json, token_expires_at, provider_definition_version, created_at, updated_at, version)
+       VALUES (?, 'youtube', ?, 'refresh-test', 'CONNECTED', ?, ?, 'AES-GCM-256', '[]', ?, 'refresh-test-v1', ?, ?, 1)`,
+    ).bind(connectionId, `refresh-${connectionId}`,
+      await encryptSecret(oldAccessToken, env.TOKEN_ENCRYPTION_KEY),
+      await encryptSecret(refreshToken, env.TOKEN_ENCRYPTION_KEY),
+      "2026-08-09T00:04:00.000Z", "2026-08-08T00:00:00.000Z", "2026-08-08T00:00:00.000Z").run();
+    expect(tokenRefreshRequired("2026-08-09T00:04:00.000Z", nowMilliseconds)).toBe(true);
+    const provider: Pick<IntegrationProvider, "key" | "definitionVersion" | "refreshCredentials"> = {
+      key: "youtube",
+      definitionVersion: "refresh-test-v2",
+      refreshCredentials: async () => ({ accessToken: "new-access-token-for-refresh-test", expiresAt: "2026-08-09T01:00:00.000Z" }),
+    };
+    const refreshed = await refreshConnectionCredentialsIfNeeded({
+      env,
+      connectionId,
+      provider,
+      credentials: { accessToken: oldAccessToken, refreshToken, expiresAt: "2026-08-09T00:04:00.000Z" },
+      nowMilliseconds,
+    });
+    expect(refreshed).toEqual(expect.objectContaining({
+      accessToken: "new-access-token-for-refresh-test",
+      refreshToken,
+      expiresAt: "2026-08-09T01:00:00.000Z",
+    }));
+    const stored = await env.LIFE_DB.prepare(
+      "SELECT encrypted_access_token, encrypted_refresh_token, token_expires_at, version FROM provider_connections WHERE id = ?",
+    ).bind(connectionId).first<{ encrypted_access_token: string; encrypted_refresh_token: string; token_expires_at: string; version: number }>();
+    expect(stored?.encrypted_access_token).not.toContain("new-access-token-for-refresh-test");
+    expect(stored?.encrypted_refresh_token).not.toContain(refreshToken);
+    expect(await decryptSecret(String(stored?.encrypted_access_token), env.TOKEN_ENCRYPTION_KEY)).toBe("new-access-token-for-refresh-test");
+    expect(await decryptSecret(String(stored?.encrypted_refresh_token), env.TOKEN_ENCRYPTION_KEY)).toBe(refreshToken);
+    expect(stored).toEqual(expect.objectContaining({ token_expires_at: "2026-08-09T01:00:00.000Z", version: 2 }));
+    await env.LIFE_DB.prepare("DELETE FROM provider_connections WHERE id = ?").bind(connectionId).run();
+  });
+
+  it("YouTube日Analytics寫入帳號級非累積快照且raw provenance與partial unique index生效", async () => {
+    const runId = uuidv7();
+    const now = "2026-08-09T00:00:00.000Z";
+    const raw: RawWithId[] = [
+      {
+        rawId: uuidv7(), kind: "channels", externalId: null, observedAt: now,
+        apiVersion: "youtube-data-v3+analytics-v2@2026-08-09",
+        payload: { items: [{ id: "test-channel", snippet: { title: "測試頻道" } }] },
+      },
+      {
+        rawId: uuidv7(), kind: "videos", externalId: null, observedAt: now,
+        apiVersion: "youtube-data-v3+analytics-v2@2026-08-09",
+        payload: { items: [{ id: "test-video", snippet: { title: "測試影片", publishedAt: "2026-08-01T00:00:00.000Z" }, statistics: { viewCount: "20" } }] },
+      },
+      {
+        rawId: uuidv7(), kind: "analytics", externalId: null, observedAt: now,
+        apiVersion: "youtube-data-v3+analytics-v2@2026-08-09",
+        payload: {
+          columnHeaders: [{ name: "day" }, { name: "views" }, { name: "likes" }, { name: "comments" }],
+          rows: [["2026-08-01", 10, -2, 1]],
+        },
+      },
+    ];
+    await env.LIFE_DB.prepare(
+      `INSERT INTO provider_sync_runs
+       (id, provider_key, connection_id, trigger_kind, status, started_at, completed_at, fetched_count,
+        created_count, updated_count, ignored_count, error_count, request_id, created_at)
+       VALUES (?, 'youtube', NULL, 'MANUAL', 'SUCCEEDED', ?, ?, 3, 0, 0, 0, 0, 'youtube-daily-test', ?)`,
+    ).bind(runId, now, now, now).run();
+    for (const entry of raw) {
+      await env.LIFE_DB.prepare(
+        `INSERT INTO provider_raw_payloads
+         (id, provider_key, sync_run_id, payload_kind, external_id, observed_at, sha256, payload_json, api_version, created_at)
+         VALUES (?, 'youtube', ?, ?, NULL, ?, ?, ?, ?, ?)`,
+      ).bind(entry.rawId, runId, entry.kind, entry.observedAt, `sha-${entry.rawId}`,
+        JSON.stringify(entry.payload), entry.apiVersion, now).run();
+    }
+    await persistYouTube(env, raw);
+    await persistYouTube(env, raw);
+    const rows = await env.LIFE_DB.prepare(
+      `SELECT d.metric_key, d.provider_definition_version, s.value_decimal, s.is_cumulative,
+              s.quality, s.observed_at, s.raw_payload_id
+       FROM social_metric_snapshots s
+       JOIN social_metric_definitions d ON d.id = s.social_metric_definition_id
+       WHERE d.metric_key LIKE 'youtube.analytics.daily.%'
+       ORDER BY d.metric_key`,
+    ).all<{
+      metric_key: string; provider_definition_version: string; value_decimal: string;
+      is_cumulative: number; quality: string; observed_at: string; raw_payload_id: string;
+    }>();
+    expect(rows.results).toEqual([
+      { metric_key: "youtube.analytics.daily.comments", provider_definition_version: "youtube-analytics-v2-channel-daily@2026-08-09", value_decimal: "1", is_cumulative: 0, quality: "SOURCE_REPORTED", observed_at: "2026-08-01T07:00:00.000Z", raw_payload_id: raw[2].rawId },
+      { metric_key: "youtube.analytics.daily.likes", provider_definition_version: "youtube-analytics-v2-channel-daily@2026-08-09", value_decimal: "-2", is_cumulative: 0, quality: "SOURCE_REPORTED", observed_at: "2026-08-01T07:00:00.000Z", raw_payload_id: raw[2].rawId },
+      { metric_key: "youtube.analytics.daily.views", provider_definition_version: "youtube-analytics-v2-channel-daily@2026-08-09", value_decimal: "10", is_cumulative: 0, quality: "SOURCE_REPORTED", observed_at: "2026-08-01T07:00:00.000Z", raw_payload_id: raw[2].rawId },
+    ]);
+    expect(Number((await env.LIFE_DB.prepare(
+      "SELECT COUNT(*) AS count FROM social_metric_snapshots s JOIN social_metric_definitions d ON d.id = s.social_metric_definition_id WHERE d.metric_key = 'youtube.views'",
+    ).first<{ count: number }>())?.count)).toBe(1);
+    const post = await env.LIFE_DB.prepare(
+      "SELECT id, content_asset_id FROM platform_posts WHERE external_post_id = 'test-video'",
+    ).first<{ id: string; content_asset_id: string }>();
+    const account = await env.LIFE_DB.prepare(
+      "SELECT id FROM social_accounts WHERE external_account_id = 'test-channel'",
+    ).first<{ id: string }>();
+    await env.LIFE_DB.batch([
+      env.LIFE_DB.prepare("DELETE FROM social_metric_snapshots WHERE raw_payload_id IN (?, ?, ?)")
+        .bind(raw[0].rawId, raw[1].rawId, raw[2].rawId),
+      env.LIFE_DB.prepare("DELETE FROM platform_posts WHERE id = ?").bind(post?.id),
+      env.LIFE_DB.prepare("DELETE FROM social_accounts WHERE id = ?").bind(account?.id),
+    ]);
+    await env.LIFE_DB.batch([
+      env.LIFE_DB.prepare("DELETE FROM content_assets WHERE id = ?").bind(post?.content_asset_id),
+      env.LIFE_DB.prepare("DELETE FROM social_metric_definitions WHERE provider_definition_version IN ('youtube-data-v3@2026-08-09', 'youtube-analytics-v2-channel-daily@2026-08-09')"),
+      env.LIFE_DB.prepare("DELETE FROM provider_raw_payloads WHERE sync_run_id = ?").bind(runId),
+    ]);
+    await env.LIFE_DB.prepare("DELETE FROM provider_sync_runs WHERE id = ?").bind(runId).run();
+  });
+
   it("完整JSON以checksum驗證後可還原到空白正式資料庫且不含秘密", async () => {
     const areaId = uuidv7();
+    const exportRunId = uuidv7();
+    const exportNow = "2026-08-09T15:40:00.000Z";
     await responseBody(await jsonRequest("/api/v1/areas", "POST", { operationId: uuidv7(), data: { id: areaId, name: "可攜領域", description: "備份驗收", whyText: "搬家", principlesText: "不遺失", strategyText: "完整匯出", nextActionText: "還原", lowClarityGuide: "核對checksum", sortOrder: 0, sourceType: "MANUAL" } }));
+    await env.LIFE_DB.prepare(
+      `INSERT INTO provider_sync_runs
+       (id, provider_key, connection_id, trigger_kind, status, started_at, completed_at, fetched_count,
+        created_count, updated_count, ignored_count, error_count, request_id, created_at)
+       VALUES (?, 'youtube', NULL, 'MANUAL', 'SUCCEEDED', ?, ?, 1, 0, 0, 0, 0, 'full-export-evidence', ?)`,
+    ).bind(exportRunId, exportNow, exportNow, exportNow).run();
+    const exportRaw = await storeRawPayloads(env, "youtube", exportRunId, [{
+      kind: "channels", externalId: null, observedAt: exportNow,
+      apiVersion: "youtube-data-v3@full-export-evidence", payload: { items: [] },
+    }]);
     const exportedResponse = await jsonRequest("/api/v1/exports/full", "POST", { operationId: uuidv7() });
     expect(exportedResponse.status).toBe(200);
     const exportedText = await exportedResponse.text();
     const exported = JSON.parse(exportedText) as { checksum: string; entities: Record<string, unknown[]> };
     expect(JSON.stringify(exported)).not.toMatch(/encrypted_access_token|endpoint_encrypted|email_recipient_encrypted/);
-    await env.LIFE_DB.prepare("DELETE FROM areas WHERE id = ?").bind(areaId).run();
+    expect(exported.entities.provider_sync_run_payloads).toEqual(expect.arrayContaining([
+      expect.objectContaining({ sync_run_id: exportRunId, payload_order: 0, raw_payload_id: exportRaw[0].rawId }),
+    ]));
+    await env.LIFE_DB.batch([
+      env.LIFE_DB.prepare("DELETE FROM areas WHERE id = ?").bind(areaId),
+      env.LIFE_DB.prepare("DELETE FROM provider_sync_run_payloads WHERE sync_run_id = ?").bind(exportRunId),
+    ]);
+    await env.LIFE_DB.prepare("DELETE FROM provider_raw_payloads WHERE id = ?").bind(exportRaw[0].rawId).run();
+    await env.LIFE_DB.prepare("DELETE FROM provider_sync_runs WHERE id = ?").bind(exportRunId).run();
     const form = new FormData(); form.set("operationId", uuidv7()); form.set("file", new File([exportedText], "full.json", { type: "application/json" }));
     const restored = (await responseBody(await SELF.fetch("https://life-manager.test/api/v1/imports/full", { method: "POST", body: form }))).data as Record<string, unknown>;
     expect(restored).toEqual(expect.objectContaining({ sourceChecksum: exported.checksum, secretsRestored: false, externalConnectionsRequireReauthorization: true }));
     expect(await env.LIFE_DB.prepare("SELECT name FROM areas WHERE id = ?").bind(areaId).first<{ name: string }>()).toEqual({ name: "可攜領域" });
+    expect(await env.LIFE_DB.prepare(
+      "SELECT raw_payload_id FROM provider_sync_run_payloads WHERE sync_run_id = ? AND payload_order = 0",
+    ).bind(exportRunId).first<{ raw_payload_id: string }>()).toEqual({ raw_payload_id: exportRaw[0].rawId });
   });
 
   it("領域CRUD具idempotency、稽核、變更流及版本衝突", async () => {

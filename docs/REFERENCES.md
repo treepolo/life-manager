@@ -5,9 +5,11 @@
 ## Cloudflare
 
 - Workers Static Assets：<https://developers.cloudflare.com/workers/static-assets/>
+- workers.dev route與一鍵Cloudflare Access（2026-08-03查核）：<https://developers.cloudflare.com/workers/configuration/routing/workers-dev/>
 - Static Assets configuration：<https://developers.cloudflare.com/workers/static-assets/binding/>
 - D1 local development：<https://developers.cloudflare.com/d1/best-practices/local-development/>
 - D1 migrations：<https://developers.cloudflare.com/d1/reference/migrations/>
+- D1 Worker API與`batch()`交易／往返語意（2026-08-09查核）：<https://developers.cloudflare.com/d1/worker-api/d1-database/>
 - D1 import／export：<https://developers.cloudflare.com/d1/best-practices/import-export-data/>
 - D1 Time Travel：<https://developers.cloudflare.com/d1/reference/time-travel/>
 - Workers Cron Triggers：<https://developers.cloudflare.com/workers/configuration/cron-triggers/>
@@ -15,6 +17,7 @@
 - Cloudflare Access web apps：<https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/>
 - Cloudflare bindings：<https://developers.cloudflare.com/workers/runtime-apis/bindings/>
 - Workers Web Crypto：<https://developers.cloudflare.com/workers/runtime-apis/web-crypto/>
+- Workers limits與internal subrequest／中斷請求限制（2026-08-09查核）：<https://developers.cloudflare.com/workers/platform/limits/>
 
 ## PWA與瀏覽器
 
@@ -26,10 +29,19 @@
 
 ## YouTube
 
+- Google Cloud project建立與隔離：<https://docs.cloud.google.com/resource-manager/docs/creating-managing-projects>
 - YouTube Analytics API reference：<https://developers.google.com/youtube/analytics/reference>
+- YouTube Analytics channel reports有效參數組合：<https://developers.google.com/youtube/analytics/channel_reports>
+- YouTube Analytics dimensions與America/Los_Angeles來源日界：<https://developers.google.com/youtube/analytics/dimensions>
+- YouTube Analytics metrics定義：<https://developers.google.com/youtube/analytics/metrics>
+- YouTube Analytics reports.query：<https://developers.google.com/youtube/analytics/reference/reports/query>
+- YouTube Studio channel Analytics入口與2026年新版介面逐步推出說明：<https://support.google.com/youtube/answer/9002587>
+- YouTube Studio Advanced Mode日期、指標與報表控制：<https://support.google.com/youtube/answer/9717005>
 - OAuth overview：<https://developers.google.com/youtube/reporting/guides/authorization>
 - Server-side web app OAuth：<https://developers.google.com/youtube/reporting/guides/authorization/server-side-web-apps>
 - Credentials：<https://developers.google.com/youtube/reporting/guides/registering_an_application>
+- Google Auth Platform audience／Testing token期限：<https://support.google.com/cloud/answer/15549945>
+- 個人自用與development／staging免公開驗證情境：<https://developers.google.com/identity/protocols/oauth2/production-readiness/brand-verification>
 - JavaScript web app警告與PKCE建議：<https://developers.google.com/youtube/reporting/guides/authorization/client-side-web-apps>
 
 ## Instagram
