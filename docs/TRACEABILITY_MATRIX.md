@@ -91,4 +91,8 @@
 
 `DDL-008`／`SETUP-006`／`AT-PUSH-01` 維持 `IN_PROGRESS`。Wrangler OAuth 已成功，staging 已核對 `WEB_PUSH_VAPID_PRIVATE_KEY` 與 `WEB_PUSH_VAPID_SUBJECT` 的 `secret_text` 名稱／型別；`WEB_PUSH_VAPID_PUBLIC_KEY` 已以 `plain_text` binding 部署至 100% staging 流量，且值比對一致。client build 注入、兩台實體裝置收件及共用 scheduler 每裝置狀態回寫仍待完成。未修改 migration、共用通知 orchestration、scheduler 或 deadline UI/API。
 
+### C線責任邊界與A整合線 handoff（2026-08-12）
+
+`VITE_VAPID_PUBLIC_KEY` 的 client build／共用 staging deployment 由 A 整合線負責：使用包含最新 A／D 內容的整合 branch，以暫時 build env 注入、保留 dashboard vars 的 `wrangler deploy --keep-vars` 發布，並回報 commit／active version／bundle scan 證據。C 線不以乾淨 master 覆蓋整合 staging；收到證據後恢復 AT-PUSH-01 的真實電腦→手機→獨立停用順序。每台裝置狀態回寫仍由 D／共用通知線處理。
+
 需求狀態的唯一權威仍為`IMPLEMENTATION_STATUS.md`；本索引只提供從原意到實際檔案與測試的查找路徑。

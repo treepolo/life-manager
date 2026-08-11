@@ -401,6 +401,13 @@
 - `wrangler secret list --config wrangler.toml --env staging` 已核對 `WEB_PUSH_VAPID_PRIVATE_KEY` 與 `WEB_PUSH_VAPID_SUBJECT` 均為 `secret_text`；私鑰與 subject 沒有輸出到聊天、文件、Git、log、bundle、source map 或 export。
 - `WEB_PUSH_VAPID_PUBLIC_KEY` 已加入 staging 公開 Worker var；版本 `e8bf7b26-f1e2-40b5-b8a4-01e9da0a2d1e` 與目前版本的 script etag、handlers、assets/runtime 及既有 bindings 一致，已提升至 100% 流量，唯讀比對值與預期 public key 一致。`VITE_VAPID_PUBLIC_KEY` client build 注入／部署、Access session 下的手機／電腦實收，以及共用 scheduler 每裝置狀態回寫仍未完成；DDL-008、SETUP-006、AT-PUSH-01 維持 `IN_PROGRESS`。
 
+### 2026-08-12 C線責任邊界與A整合線 handoff
+
+- 判斷：C 線可以並已完成 staging VAPID Secret、Worker public var 與只含設定變更的安全啟用；C 線不能安全獨立部署 `VITE_VAPID_PUBLIC_KEY` client build。原因是該步驟發布整個共用 Worker／assets 版本，而 C worktree 是乾淨 master，不能覆蓋 A／D 線整合內容。
+- A 整合線責任：從包含最新 A／D 整合內容的 branch 建置時以暫時環境變數注入 `VITE_VAPID_PUBLIC_KEY`，不把 public key 寫入 `.env`、`wrangler.toml`、source 或 Git；執行既定受影響測試與 secret／placeholder scan；以 `wrangler deploy --config wrangler.toml --env staging --keep-vars` 部署且不執行 migration；回報整合 commit SHA、active version 100%、bundle public-key 布林核對及 private key／subject／secret scan。
+- C 線恢復條件：收到 A 線 deployment evidence 後，先唯讀確認 staging client bundle／service worker 已更新，再依既有 SETUP-006 固定答案一次驗收真實電腦、再驗收真實手機，最後做單台停用不影響另一台的 AT-PUSH-01；每一步只要求一個真人操作。
+- 另一項未移除的 D／共用通知 handoff：`src/worker/scheduled/index.ts`、共用通知 API 與 `DeadlinesPage.tsx` 尚未提供每台裝置最後成功時間／錯誤狀態；C 線不修改這些共用檔案。即使 A 完成 client deployment，DDL-008／AT-PUSH-01 在該狀態回寫缺陷完成前仍不得標 `VERIFIED`。
+
 ### 未完成清單
 不得填「無」除非所有第一批項目為`VERIFIED`。
 

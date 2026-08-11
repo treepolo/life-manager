@@ -185,6 +185,14 @@ Codex先提供：
 - [x] `WEB_PUSH_VAPID_PUBLIC_KEY` 已加入 staging 公開 Worker var；版本 `e8bf7b26-f1e2-40b5-b8a4-01e9da0a2d1e` 的 binding 型別為 `plain_text`，唯讀比對值與預期 public key 一致，且已提升至 100% 流量。
 - [ ] `VITE_VAPID_PUBLIC_KEY` 尚未隨不覆蓋 A／D 線的 staging client 版本注入與部署。
 
+### C線→A整合線 handoff（2026-08-12）
+
+- 責任歸屬：`WEB_PUSH_VAPID_PUBLIC_KEY` Worker var 與 VAPID Secret 已由 C 線完成；共用 staging client 的 `VITE_VAPID_PUBLIC_KEY` build／deployment 必須由 A 整合線從包含 A／D 最新整合內容的 branch 執行。C 線不得用乾淨 master worktree 重新部署整個 Worker／assets。
+- C 線不提供需 cherry-pick 的 deploy source commit；`71e54a1` 只包含 C 線證據文件。A 線應記錄其實際整合 HEAD／deployment commit SHA，不能把 public key 寫入 `.env`、`wrangler.toml`、source 或 Git。
+- A 線只在建置程序注入暫時的 `VITE_VAPID_PUBLIC_KEY`，值必須與 staging Worker 的 `WEB_PUSH_VAPID_PUBLIC_KEY` 完全一致；建置後執行 client build、lint、typecheck、unit、Worker/D1、E2E 與 secret／placeholder scan。
+- A 線由整合 branch 執行 `wrangler deploy --config wrangler.toml --env staging --keep-vars`；不得執行 migration，不得覆蓋既有 A／D 程式。`--keep-vars` 必須保留 dashboard 設定的 Web Push public var 與既有 secrets。
+- A 線回報 active deployment 100%、版本 ID、整合 commit SHA、bundle 中 public key 存在的布林核對、private key／subject／其他 secret 不存在的掃描結果後，C 線才恢復 AT-PUSH-01。
+
 本設定只針對 staging，不修改 production `SETUP-009`，也不新增或修改既有 migration。staging Worker 為 `life-manager-staging`，入口為 `https://life-manager-staging.life-manager.workers.dev/deadlines`；未登入時先完成 Cloudflare Access，本線不得以未授權的登入頁作為 Push 證據。
 
 設定名稱與安全邊界：
