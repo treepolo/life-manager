@@ -164,7 +164,6 @@ Codex先提供：
 
 本次真實驗收仍精確缺少：
 
-- staging Cloudflare Secret `RESEND_FROM` 尚未設定；
 - App內尚未在Access保護的通知偏好流程保存Resend帳號本人收件地址；
 - 尚未取得本人實際收到測試信，以及其delivery log `SENT`／provider message ID對應證據。
 
@@ -182,7 +181,7 @@ Codex先提供：
 - [x] 建立Resend帳號（使用者已確認；不記錄帳號資料）。
 - [ ] 建立API key。
 - [x] 以Cloudflare Secret `RESEND_API_KEY`輸入；Codex只核對名稱與`secret_text`型別，不讀取值。
-- [ ] 以Cloudflare Secret `RESEND_FROM`輸入；使用網域時先完成Resend要求的寄件驗證；若採`onboarding@resend.dev`，只寄到Resend帳號本人地址。
+- [x] 以Cloudflare Secret `RESEND_FROM`輸入；使用網域時先完成Resend要求的寄件驗證；若採`onboarding@resend.dev`，只寄到Resend帳號本人地址。
 - [ ] 確認收件地址為Resend帳號本人信箱；若使用`resend.dev`不得寄到他人。
 - [ ] 在Access保護的staging App「重要期限 → 通知偏好」保存本人收件地址，畫面只顯示已安全保存；不把地址提供給Codex。
 - [ ] 在App執行測試信；信件主旨／本文必須明確包含期限名稱、重要級別、App連結與「這是使用者觸發的測試」，且不得建立假期限。
