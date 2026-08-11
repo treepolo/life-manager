@@ -395,6 +395,12 @@
 - PWA離線：自動化五種viewport通過；等待production手機加入主畫面實測。
 - 跨裝置同步：兩邏輯裝置與衝突自動測試通過；手機真實離線領域outbox `0→1→0`、不同實體電腦取得同一資料且`0 待同步`，D1聚合證明1筆已套用operation、0筆未套用、2台有效裝置與兩個游標皆到1，`OFF-005`已`VERIFIED`。
 
+### 2026-08-11 C線 Web Push staging OAuth／Secret 證據補充
+
+- Wrangler OAuth 已成功完成，C 線專用設定位置的 `whoami` exit code 為 0；沒有把 OAuth code、token 或帳號識別寫入文件。
+- `wrangler secret list --config wrangler.toml --env staging` 已核對 `WEB_PUSH_VAPID_PRIVATE_KEY` 與 `WEB_PUSH_VAPID_SUBJECT` 均為 `secret_text`；私鑰與 subject 沒有輸出到聊天、文件、Git、log、bundle、source map 或 export。
+- `WEB_PUSH_VAPID_PUBLIC_KEY` 公開 Worker var、`VITE_VAPID_PUBLIC_KEY` client build 注入／部署、Access session 下的手機／電腦實收，以及共用 scheduler 每裝置狀態回寫仍未完成；DDL-008、SETUP-006、AT-PUSH-01 維持 `IN_PROGRESS`。
+
 ### 未完成清單
 不得填「無」除非所有第一批項目為`VERIFIED`。
 

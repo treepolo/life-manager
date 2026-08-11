@@ -87,4 +87,8 @@
 | SEC | `src/core/auth`, `src/core/crypto`, OAuth/export邊界 | Access本機限定、production缺設定拒絕、JWT格式、OAuth callback去敏、正式程式掃描；staging未授權302、本人JWT/email health 200、單一Allow政策與電腦／手機實體App通過 | staging Access已驗收；production Access與外部OAuth／通知秘密仍待設定，因此`AWAITING_USER_SETUP` |
 | OPS、SETUP、NFR | `wrangler.toml`, `package.json`, `src/worker/scheduled`, `scripts`, `docs/OPERATIONS.md`, `docs/SETUP_CHECKLIST.md` | local gates、需求112 ID、保留政策D1、備份還原；staging D1 schema 10、兩個social snapshot partial unique index與per-run raw link索引存在、migration list空；PWA提示修正版部署版本14 `488a92a7-3ff1-47ec-8a04-49c8b75572a0`為100%流量、CLI exit 0；四個必要Secret名稱／型別存在、無session health 302；真實Cron、Studio、Google App長期狀態、撤銷／重連、安全更新與新版MANUAL pending UI／per-run raw追溯均成功；migration 0010前remote SQL備份與SHA-256已核對；`0001`～`0010`隔離D1 Playwright 13/13通過 | `SETUP-002`、`SETUP-003`已`VERIFIED`；其他OPS／NFR／SETUP項目仍等待production與外部服務 |
 
+### C線 Web Push staging evidence（2026-08-11）
+
+`DDL-008`／`SETUP-006`／`AT-PUSH-01` 維持 `IN_PROGRESS`。Wrangler OAuth 已成功，staging 已核對 `WEB_PUSH_VAPID_PRIVATE_KEY` 與 `WEB_PUSH_VAPID_SUBJECT` 的 `secret_text` 名稱／型別；公開 Worker var、client build 注入、兩台實體裝置收件及共用 scheduler 每裝置狀態回寫仍待完成。未修改 migration、共用通知 orchestration、scheduler 或 deadline UI/API。
+
 需求狀態的唯一權威仍為`IMPLEMENTATION_STATUS.md`；本索引只提供從原意到實際檔案與測試的查找路徑。
