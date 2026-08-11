@@ -251,7 +251,7 @@ W-8BEN與報稅範本固定最高級；可編輯日期及說明但不能降級�
 
 Resend寄到使用者本人信箱，收到測試信；錯誤與message ID保存。正式日誌不得包含API key。
 
-D線狀態（2026-08-12）：`AWAITING_USER_SETUP`。使用者已確認Resend帳號建立，staging `RESEND_API_KEY`／`RESEND_FROM`均由只讀清單核對為`secret_text`，遠端D1已核對加密收件設定與Email `READY`；但目前沒有可供測試的正式`OPEN`期限，尚未實際寄送、本人收件或取得遠端delivery log對應證據，因此不得標記`VERIFIED`。
+D線狀態（2026-08-12）：`IN_PROGRESS`。使用者已確認Resend帳號建立，staging `RESEND_API_KEY`／`RESEND_FROM`均由只讀清單核對為`secret_text`，遠端D1已核對加密收件設定、Email `READY`與正式`OPEN`期限；尚未實際寄送、本人收件或取得遠端delivery log對應證據，因此不得標記`VERIFIED`。
 
 ## 10. 離線與同步
 
