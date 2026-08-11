@@ -57,7 +57,7 @@
 | DDL-006 | VERIFIED | W-8BEN schema/UI | `0005_deadlines_notifications.sql` | 2026-04-18→2029-12-31；確認日與試算並存 | 無 |
 | DDL-007 | VERIFIED | tax template/parent child UI | `0005_deadlines_notifications.sql` | 子任務不另啟全站／排程警告 | 無 |
 | DDL-008 | AWAITING_USER_SETUP | Web Push encryption/scheduler/device UI | `0005_deadlines_notifications.sql` | 兩裝置密文訂閱與獨立停用D1契約 | 等待真實手機、電腦權限與接收 |
-| DDL-009 | IN_PROGRESS | `src/integrations/resend`, delivery log/test UI | `0005_deadlines_notifications.sql`，本線不需新migration | adapter、去重、錯誤/重試與secret邊界既有自動測試；Resend測試信標示與安全錯誤映射已補齊，兩個staging Secret均已由只讀清單核對為`secret_text` | Resend帳號已由使用者確認建立，`RESEND_API_KEY`／`RESEND_FROM` Secret名稱／型別已核對（不讀取值）；仍缺App內加密保存的本人收件地址，以及本人實際收到測試信的證據；API key／from／收件地址不進聊天、Git、log或snapshot |
+| DDL-009 | IN_PROGRESS | `src/integrations/resend`, delivery log/test UI | `0005_deadlines_notifications.sql`，本線不需新migration | adapter、去重、錯誤/重試與secret邊界既有自動測試；Resend測試信標示與安全錯誤映射已補齊，兩個staging Secret均已由只讀清單核對為`secret_text`，遠端D1已核對Email `READY` | Resend帳號已由使用者確認建立，`RESEND_API_KEY`／`RESEND_FROM` Secret名稱／型別已核對（不讀取值）；遠端D1只讀核對`recipient_encrypted=1`、Email enabled／`READY`、錯誤欄位為空；仍缺本人實際收到測試信的證據；API key／from／收件地址不進聊天、Git、log或snapshot |
 | OFF-001 | VERIFIED | manifest、`public/sw.js`、App shell、`src/app/providers/PwaUpdate.tsx`、`src/styles.css`、`scripts/stamp-service-worker.mjs`、`scripts/build-client.mjs` | 不需；本輪不修改D1 migration | app shell內容SHA-256版本、network-first／離線fallback、`updateViaCache: none`、outbox安全接管固定答案；320／390／768／1366／1920五viewport均驗證提示固定在初始可視範圍且手機避開同步列。staging outbox 0時安全更新一次，自動reload後正式CSS為`position: fixed`／`z-index: 30`，資料未清除 | 無 |
 | OFF-002 | VERIFIED | IndexedDB entities/query cache | 不需 | offline-sync unit、Playwright快取資料 | 無 |
 | OFF-003 | VERIFIED | `src/core/sync`, `src/core/network/request-gate.ts`, offline CRUD UI + outbox | `0006_sync.sql`，不需新migration | 27種核心輸入類型離線建立／修改／封存／恢復unit；UI離線修改→重開→封存→重開→恢復→D1 E2E；任務、財務、資產、指標、事件、社群、期限流程E2E | 無 |
@@ -93,15 +93,16 @@
 | 外部設定 | SETUP-002 | VERIFIED | 獨立staging D1／Worker、migration 8、部署版本、未授權302、JWK 200、本人health 200、單一Allow政策及電腦／手機實體App全部通過 | 無；跨裝置資料同步另由`OFF-005`追蹤，不混入本設定閘門 |
 | 外部設定 | SETUP-003 | VERIFIED | Google Project、OAuth client、必要Worker Secret、真實callback、本人頻道、Studio 26天精確核對、Google App「實際運作中」、撤銷／Cron失敗隔離／重連、refresh token續期均通過；2026-08-10版本14安全更新與新版pending UI、MANUAL成功、四類有序per-run raw、snapshot provenance／唯一性、job與財務隔離全數通過 |
 | 外部設定 | SETUP-001, SETUP-004, SETUP-006, SETUP-007, SETUP-008, SETUP-009 | AWAITING_USER_SETUP | `docs/SETUP_CHECKLIST.md`已填名稱、路徑、secret與驗證；待各自真實帳號、資料、裝置或production階段 |
-| 外部設定 | SETUP-005 | IN_PROGRESS | `docs/SETUP_CHECKLIST.md`、`src/integrations/resend`、通知測試入口；本線不需migration | 自動驗證已完成；Resend帳號已由使用者確認建立，`RESEND_API_KEY`／`RESEND_FROM`均已核對為Cloudflare `secret_text`；下一步只在Access保護的staging App保存本人收件地址，仍等待本人收件與真實寄送，並以delivery log核對status、provider message ID、去敏錯誤及重試／去重 |
+| 外部設定 | SETUP-005 | IN_PROGRESS | `docs/SETUP_CHECKLIST.md`、`src/integrations/resend`、通知測試入口；本線不需migration | 自動驗證已完成；Resend帳號已由使用者確認建立，`RESEND_API_KEY`／`RESEND_FROM`均已核對為Cloudflare `secret_text`；遠端D1已核對加密收件地址存在與Email `READY`；下一步只從App觸發測試信，仍等待本人收件與delivery log核對 |
 
 ## D線 Resend 正式驗收開工（2026-08-11）
 
 - 獨立工作樹：`D:\人生管理器-wt-resend`；branch：`codex/accept-resend`；基準為乾淨`master`／`origin/master` HEAD `0b370f224b2374c786f10fd94e1d7a4b326513b6`。未帶入A線Instagram dirty diff。
 - 本線需求：`DDL-009`、`SETUP-005`、`AT-MAIL-01`；免費額度證據支援`AT-OPS-02`，最終由`AT-GATE-08`判定。開工時兩個需求由`AWAITING_USER_SETUP`轉為`IN_PROGRESS`；使用者已確認Resend帳號建立，故目前維持`IN_PROGRESS`並只追蹤剩餘Secret／from／本人收件／真實寄送缺口；`AT-MAIL-01`尚未通過，不提前標示完成。
 - 開工與自動驗證現況：Resend adapter、`notification_deliveries` delivery log、D1唯一`dedupe_key`、Resend `Idempotency-Key`、失敗`RETRY`與設定缺失邊界已存在；本線已補齊Resend測試信標示與安全錯誤映射。`tests/unit/resend.test.ts` 5/5、`tests/worker/resend-d1.test.ts` 1/1、完整unit 15 files／47 tests、完整Worker/D1 2 files／22 tests、lint、兩個typecheck、client build、secret／placeholder掃描均通過。
-- 精確外部阻擋：Resend帳號已由使用者確認建立，staging `RESEND_API_KEY`／`RESEND_FROM`均已存在且只核對名稱／`secret_text`型別；App通知偏好尚未以受Access保護的流程保存本人收件地址；尚未有本人實際收到測試信、信件內容與delivery log成功列的對應證據。任何敏感值不由Codex讀取或輸出。
+- 精確外部阻擋：Resend帳號已由使用者確認建立，staging `RESEND_API_KEY`／`RESEND_FROM`均已存在且只核對名稱／`secret_text`型別；遠端D1已只讀核對Email偏好加密收件地址存在、通道`READY`且錯誤欄位為空；尚未有本人實際收到測試信、信件內容與delivery log成功列的對應證據。任何敏感值不由Codex讀取或輸出。
 - 2026-08-12外部進度：使用者已完成兩次互動式Secret輸入；`wrangler secret list --env staging`只讀回報`RESEND_API_KEY`與`RESEND_FROM`各為`secret_text`，未讀取值。下一個單一步驟是透過Access保護的staging App保存本人收件地址。
+- 2026-08-12收件設定進度：使用者已在staging App完成保存；遠端D1唯讀查詢只回報`recipient_encrypted=1`、Email `enabled=1/status=READY`、`last_error_code`與去敏錯誤為空，未輸出地址或密文。下一個單一步驟是從App觸發測試信。
 - 預定／實際修改：`src/integrations/resend/client.ts`、`tests/unit/resend.test.ts`、`tests/worker/resend-d1.test.ts`及本節列出的驗收文件；不修改Instagram、YouTube、Firstrade、Web Push、共用通知orchestration、`src/worker/scheduled`、期限UI／API、`wrangler.toml`或migration。
 - 預定驗收：固定測試信含期限名稱、級別、App連結及「這是使用者觸發的測試」；成功delivery保存`SENT`與provider message ID；失敗保存`RETRY`、去敏錯誤並保留重試；相同operation／dedupe不產生未定義重複寄送；掃描確認secret不出現在bundle、source map、console、export、Git或snapshot。
 - 共用E2E環境證據：完整Playwright腳本第一個desktop案例通過；第二個既有離線同步案例在Worker重啟後進入允許的全新D1重試，但本機同時有其他驗收線使用固定`4173`埠，重試程序卡住後停止。本項是共用E2E執行環境阻擋，不是Resend adapter缺陷；D線未修改共用同步／通知程式，也不以此宣稱`AT-MAIL-01`通過。
