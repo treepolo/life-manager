@@ -160,11 +160,10 @@ Codex先提供：
 
 ## SETUP-005　Resend電子郵件
 
-目前狀態：`AWAITING_USER_SETUP`（2026-08-11，D線 `codex/accept-resend`；本地修改與自動驗證已完成，停在下一個真人操作）。
+目前狀態：`IN_PROGRESS`（2026-08-11，D線 `codex/accept-resend`；使用者已確認Resend帳號建立，現在進入下一個真人操作）。
 
 本次真實驗收仍精確缺少：
 
-- Resend帳號尚未建立；
 - staging Cloudflare Secret `RESEND_API_KEY` 尚未設定；
 - staging Cloudflare Secret `RESEND_FROM` 尚未設定；
 - App內尚未在Access保護的通知偏好流程保存Resend帳號本人收件地址；
@@ -181,7 +180,7 @@ Codex先提供：
 
 使用者操作：
 
-- [ ] 建立Resend帳號。
+- [x] 建立Resend帳號（使用者已確認；不記錄帳號資料）。
 - [ ] 建立API key。
 - [ ] 以Cloudflare Secret `RESEND_API_KEY`輸入；Codex只核對名稱與`secret_text`型別，不讀取值。
 - [ ] 以Cloudflare Secret `RESEND_FROM`輸入；使用網域時先完成Resend要求的寄件驗證；若採`onboarding@resend.dev`，只寄到Resend帳號本人地址。
