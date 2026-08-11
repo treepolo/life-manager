@@ -251,6 +251,8 @@ W-8BEN與報稅範本固定最高級；可編輯日期及說明但不能降級�
 
 Resend寄到使用者本人信箱，收到測試信；錯誤與message ID保存。正式日誌不得包含API key。
 
+D線狀態（2026-08-11）：`IN_PROGRESS`。自動證據為`tests/unit/resend.test.ts`、`tests/worker/resend-d1.test.ts`及完整unit／Worker-D1驗證；尚未有Resend帳號、兩個staging Secret、Access保護的本人收件設定、實際寄送、本人收件與遠端delivery log對應證據，因此不得標記`VERIFIED`。
+
 ## 10. 離線與同步
 
 ### AT-OFF-01　離線啟動
@@ -385,6 +387,8 @@ D1 SQL匯出、還原及migration驗證通過。
 ### AT-OPS-02
 
 Cloudflare、Resend及其他服務設定未啟用付費方案；文件列出目前方案與額度查核日期。
+
+D線支援證據（2026-08-11）：`docs/OPERATIONS.md`已記錄Resend官方免費額度與限制、Idempotency-Key及查核日期；實際帳號方案與用量仍待SETUP-005真人設定後核對。
 
 ### AT-SETUP-01
 

@@ -26,12 +26,14 @@ workers.dev的Access操作採目標導向，不把易改版的側邊欄名稱當
 - 在文件記錄所有免費額度與查核日期；額度接近時在App管理頁顯示，不自動升級。
 - 若某整合無法在零成本正式使用，標為`EXTERNAL_BLOCKED`並保留手動／CSV正式路徑，不使用不安全替代品。
 
-2026-08-02官方額度查核：
+2026-08-11官方額度查核（Resend項目）：
 
 - Workers Free：每日100,000個動態請求、每次10ms CPU；靜態資產請求免費且不計入動態請求。來源：<https://developers.cloudflare.com/workers/platform/pricing/>。
 - D1 Free：每日5,000,000 rows read、100,000 rows written，總儲存5GB；超額時操作失敗，不會自動轉成付費。來源：<https://developers.cloudflare.com/d1/platform/pricing/>。
-- Resend Free：每日100封、每月3,000封交易郵件；本產品只在最高兩級期限且使用者明確啟用後寄送，遇到429會保留失敗證據，不升級付費。來源：<https://resend.com/docs/knowledge-base/account-quotas-and-limits>。
-- 上線後每月由Cloudflare D1 Metrics及Resend Usage頁人工核對；達任一免費額度80%時先停用非必要手動同步／測試信並記錄，不自動變更方案。
+- Resend Free：每日100封、每月3,000封交易郵件；官方說明指出寄出與收到的郵件都計入額度，多個To／CC／BCC收件人分別計數。Free方案的API起始速率限制為每秒5個請求；超額或429時保留失敗證據，不自動升級付費。來源：[Resend account quotas and limits](https://resend.com/docs/knowledge-base/account-quotas-and-limits)、[Resend usage limits](https://resend.com/docs/api-reference/rate-limit)。本數字只代表2026-08-11查核當日官方文件，不宣稱未來額度不變。
+- Resend API `Idempotency-Key`可用於`POST /emails`，官方文件寫明key最長256字元、保留24小時；本產品仍以D1唯一`dedupe_key`與delivery log作本地冪等證據，不能把Resend 24小時保留誤當成永久去重。來源：[Resend Send Email API](https://resend.com/docs/api-reference/emails/send-email)、[Resend idempotency keys](https://resend.com/docs/dashboard/emails/idempotency-keys)。
+- 無自有驗證網域時，`onboarding@resend.dev`只用於測試，且Resend要求只能寄到Resend帳號本人地址；本線不得用它寄給第三方。來源：[403 error using resend.dev domain](https://resend.com/docs/knowledge-base/403-error-resend-dev-domain)。
+- 上線後每月由Cloudflare D1 Metrics及Resend Usage頁人工核對；達任一免費額度80%時先停用非必要手動同步／測試信並記錄，不自動變更方案。每次核對要記錄日期、方案、當日／當月用量與官方頁面，不保存API key或完整收件地址。
 
 ## OPS-003　Cloudflare部署
 
