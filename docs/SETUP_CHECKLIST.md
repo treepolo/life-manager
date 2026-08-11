@@ -178,20 +178,28 @@ Codex先提供：
 
 ## SETUP-006　Web Push
 
-Codex完成VAPID key產生與server設定，不要求使用者自行理解加密細節。
+本設定只針對 staging，不修改 production `SETUP-009`，也不新增或修改既有 migration。staging Worker 為 `life-manager-staging`，入口為 `https://life-manager-staging.life-manager.workers.dev/deadlines`；未登入時先完成 Cloudflare Access，本線不得以未授權的登入頁作為 Push 證據。
 
-設定名稱：Worker secrets `WEB_PUSH_VAPID_PRIVATE_KEY`、`WEB_PUSH_VAPID_SUBJECT`（值為`mailto:<使用者本人email>`）；公開Worker var `WEB_PUSH_VAPID_PUBLIC_KEY`；前端build var `VITE_VAPID_PUBLIC_KEY`必須與同一public key完全一致。Codex產生後直接寫入Cloudflare secret／部署環境，不把private key放Git或聊天。
+設定名稱與安全邊界：
 
-每台裝置：
+- [ ] 在 staging Worker 的 Cloudflare「Variables and Secrets」中，以 Secret 建立 `WEB_PUSH_VAPID_PRIVATE_KEY`。
+- [ ] 以 Secret 建立 `WEB_PUSH_VAPID_SUBJECT`，值為 `mailto:<使用者本人email>`；private key 與 subject 不得貼入聊天、Markdown、Git、log、export、bundle 或 source map。
+- [ ] 以公開 Worker var 建立 `WEB_PUSH_VAPID_PUBLIC_KEY`。
+- [ ] 建置 staging client 時，以暫時的公開 build 環境變數 `VITE_VAPID_PUBLIC_KEY` 注入同一 public key；不得把值寫入 `.env`、文件或版本庫。
+- [ ] 用只輸出布林結果的方式核對 Worker public key 與 `VITE_VAPID_PUBLIC_KEY` 完全一致；不得輸出 key 值。`wrangler secret list --env staging` 只能用來核對 secret 名稱／型別，不得讀取 secret 值。
+- [ ] 建置後掃描 `dist/`、source map、正式程式、log、export 與 Git 追蹤檔；確認沒有 `WEB_PUSH_VAPID_PRIVATE_KEY` 的值、VAPID private key、subject 或其他 secret。公開 public key 可存在 client bundle，但 private key 不可存在。
 
-- [ ] 開啟App。
-- [ ] 按「啟用此裝置通知」。
-- [ ] 接受瀏覽器／系統通知權限。
-- [ ] 執行測試通知。
-- [ ] App顯示最後成功時間。
-- [ ] 手機與電腦各完成一次。
+真人驗收必須使用一台真實手機及另一台真實電腦，不能以同一台電腦的兩個瀏覽器代替。每台裝置依序執行，前一步成功後才做下一步：
 
-若裝置不支援Push，App必須明確顯示，不得假裝成功；站內與Email仍可運作。
+1. 開啟上述 staging App 並完成 Access；成功判據是看到「重要期限與多通道警告」且沒有紅色載入／API錯誤。
+2. 在「通知偏好」按「啟用此裝置 Web Push」；成功判據是瀏覽器／系統權限提示出現並可進入允許流程。
+3. 允許瀏覽器／系統通知；成功判據是 App 顯示此裝置 Web Push `READY`／`ACTIVE`，而不是錯誤或假成功。
+4. 在同一畫面選一筆已存在的正式開放期限，按 Web Push「測試發送」；成功判據是收到指定測試通知，且 App 顯示該裝置最後成功時間；失敗時必須顯示具體錯誤狀態。
+5. 另一台裝置重複步驟 1～4；成功判據是兩台都各有自己的成功時間與通知收件紀錄。
+6. 先在其中一台按「停用此裝置 Web Push」；成功判據是該裝置顯示停用，另一台仍為 `READY`／`ACTIVE`。
+7. 再從未停用的另一台執行一次測試發送；成功判據是另一台仍收到通知，停用裝置沒有收到新的測試通知。
+
+驗收紀錄只保存裝置類型（手機／電腦）、操作時間、App 顯示的狀態／錯誤碼及是否收到通知，不保存 endpoint、訂閱 keys、Access 身分或通知內容中的私人資料。若裝置不支援 Push 或拒絕權限，App 必須明確顯示，不得假裝成功；站內與 Email 仍可運作。
 
 ## SETUP-007　Firstrade CSV
 

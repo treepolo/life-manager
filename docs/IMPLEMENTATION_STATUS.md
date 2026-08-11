@@ -56,7 +56,7 @@
 | DDL-005 | VERIFIED | 全站/Home警告UI | 不需 | 最高級中斷式、重要級持續顯示 | 無 |
 | DDL-006 | VERIFIED | W-8BEN schema/UI | `0005_deadlines_notifications.sql` | 2026-04-18→2029-12-31；確認日與試算並存 | 無 |
 | DDL-007 | VERIFIED | tax template/parent child UI | `0005_deadlines_notifications.sql` | 子任務不另啟全站／排程警告 | 無 |
-| DDL-008 | AWAITING_USER_SETUP | Web Push encryption/scheduler/device UI | `0005_deadlines_notifications.sql` | 兩裝置密文訂閱與獨立停用D1契約 | 等待真實手機、電腦權限與接收 |
+| DDL-008 | IN_PROGRESS | Web Push encryption/scheduler/device UI | `0005_deadlines_notifications.sql`；本線不新增或修改migration | `tests/worker/api-d1.test.ts`兩裝置密文訂閱／獨立停用契約通過；乾淨C線已核對`public/sw.js` Push handler、build stamp與秘密邊界，待完成VAPID staging、手機／電腦真實訂閱、測試Push、每裝置最後成功／錯誤與獨立停用驗收 | 外部阻擋：Cloudflare Wrangler登入已過期，尚未完成staging VAPID Secret／public var／client build設定；尚未完成Access授權；尚未完成真實手機瀏覽器／系統通知授權與接收；尚未完成真實電腦瀏覽器／系統通知授權與接收。另發現`src/worker/scheduled/index.ts`未回寫每個Push訂閱成功／錯誤欄位、現有通知頁只顯示channel聚合；屬共用scheduler／期限通知狀態缺陷，依分線規則移交，不在C線搶修；未完成前不得標`VERIFIED` |
 | DDL-009 | AWAITING_USER_SETUP | `src/integrations/resend`, delivery log/test UI | `0005_deadlines_notifications.sql` | adapter、去重、錯誤/重試與secret邊界完成 | 等待Resend key、from及真實收件 |
 | OFF-001 | VERIFIED | manifest、`public/sw.js`、App shell、`src/app/providers/PwaUpdate.tsx`、`src/styles.css`、`scripts/stamp-service-worker.mjs`、`scripts/build-client.mjs` | 不需；本輪不修改D1 migration | app shell內容SHA-256版本、network-first／離線fallback、`updateViaCache: none`、outbox安全接管固定答案；320／390／768／1366／1920五viewport均驗證提示固定在初始可視範圍且手機避開同步列。staging outbox 0時安全更新一次，自動reload後正式CSS為`position: fixed`／`z-index: 30`，資料未清除 | 無 |
 | OFF-002 | VERIFIED | IndexedDB entities/query cache | 不需 | offline-sync unit、Playwright快取資料 | 無 |
@@ -92,7 +92,20 @@
 | 操作 | OPS-004, OPS-005, OPS-006, OPS-007, OPS-009, OPS-010, OPS-011 | AWAITING_USER_SETUP | 保留排程、備份與隔離還原本機通過；等待staging／production外部通道與操作驗收 |
 | 外部設定 | SETUP-002 | VERIFIED | 獨立staging D1／Worker、migration 8、部署版本、未授權302、JWK 200、本人health 200、單一Allow政策及電腦／手機實體App全部通過 | 無；跨裝置資料同步另由`OFF-005`追蹤，不混入本設定閘門 |
 | 外部設定 | SETUP-003 | VERIFIED | Google Project、OAuth client、必要Worker Secret、真實callback、本人頻道、Studio 26天精確核對、Google App「實際運作中」、撤銷／Cron失敗隔離／重連、refresh token續期均通過；2026-08-10版本14安全更新與新版pending UI、MANUAL成功、四類有序per-run raw、snapshot provenance／唯一性、job與財務隔離全數通過 |
-| 外部設定 | SETUP-001, SETUP-004, SETUP-005, SETUP-006, SETUP-007, SETUP-008, SETUP-009 | AWAITING_USER_SETUP | `docs/SETUP_CHECKLIST.md`已填名稱、路徑、secret與驗證；待各自真實帳號、資料、裝置或production階段 |
+| 外部設定 | SETUP-001, SETUP-004, SETUP-005, SETUP-007, SETUP-008, SETUP-009 | AWAITING_USER_SETUP | `docs/SETUP_CHECKLIST.md`已填名稱、路徑、secret與驗證；待各自真實帳號、資料、裝置或production階段 |
+| 外部設定 | SETUP-006 | IN_PROGRESS | `docs/SETUP_CHECKLIST.md`、`docs/OPERATIONS.md`、staging Worker／build設定與Push專屬裝置驗收 | VAPID private key／subject只進Cloudflare Secret；public key一致性與bundle／source map／log／export／Git掃描尚待staging設定；手機與電腦真實授權、測試通知、每裝置最後成功／錯誤及獨立停用尚待真人操作；共用scheduler狀態回寫缺陷已列為移交阻擋；未完成前維持`IN_PROGRESS` |
+
+### 2026-08-11 C線 Web Push 真實驗收開工
+
+- 工作樹：從乾淨`master` HEAD建立`D:\人生管理器-wt-web-push`，branch為`codex/accept-web-push`；未帶入A線Instagram diff。本線不修改production `SETUP-009`、migration或Instagram／YouTube／Firstrade／Resend adapter。
+- 本機證據：`npm run lint`與`npm run typecheck`通過；unit 21/21、Worker/D1 21/21通過；`npm run build:client`產生service worker build version `8055cdeccb4bff11`；第二次`npm run test:e2e`全套13/13 Playwright案例通過（第一次僅因本地Wrangler未在30秒內就緒而停止，未改共用E2E runner，重跑時一個Wrangler內部錯誤由既有runner以全新D1重試後通過）。乾淨source的`public/sw.js`包含Push與notification click handler；D1契約確認兩裝置endpoint以密文保存、停用一台不影響另一台。建置與掃描不得把VAPID private key／subject或其他secret放入bundle、source map、log、export或Git。
+- staging只讀核對：未帶Access session請求收到Cloudflare Access登入頁，不能用作Web Push資產或真人收件證據；目前沒有在本線寫入VAPID Secret／public var，也沒有部署乾淨C線版本，避免覆蓋A／D線共用staging。
+- 共用缺陷移交：`src/worker/scheduled/index.ts`與`sendDeadlineNotificationTest`目前只建立／更新`notification_deliveries`，沒有把每個Push訂閱的`last_success_at`、`last_error_code`及狀態回寫；`/api/v1/notifications/channels`與`DeadlinesPage.tsx`只顯示WEB_PUSH channel聚合。這直接阻擋完成條件「App顯示各裝置最後成功時間及錯誤狀態」，且缺陷位於共用scheduler／期限通知UI/API；C線停止共用檔案修改，交由共用通知／scheduler負責線處理。
+- 外部阻擋：尚未完成staging VAPID key pair與三項設定的一致性核對；尚未完成真實手機授權／訂閱／測試Push／停用；尚未完成真實電腦授權／訂閱／測試Push／停用。兩台裝置必須分開驗收，未完成前`DDL-008`、`SETUP-006`與`AT-PUSH-01`不得標`VERIFIED`。
+
+| 驗收ID | 狀態 | 證據／固定答案 | 阻擋 |
+|---|---|---|---|
+| AT-PUSH-01 | IN_PROGRESS | `tests/worker/api-d1.test.ts`已證明雙裝置密文訂閱與獨立停用；`docs/SETUP_CHECKLIST.md`已列staging設定、手機／電腦逐步操作及固定成功判據 | VAPID staging設定、Access登入、兩台實體裝置實收測試Push與共用scheduler每裝置狀態回寫移交尚未完成 |
 
 ## 2026-08-03 staging雲端接管紀錄
 
