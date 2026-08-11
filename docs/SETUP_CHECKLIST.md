@@ -182,7 +182,7 @@ Codex先提供：
 
 - [x] Wrangler OAuth 已在 C 線專用設定位置成功完成；`whoami` exit code 為 0。
 - [x] staging 已建立 `WEB_PUSH_VAPID_PRIVATE_KEY` 與 `WEB_PUSH_VAPID_SUBJECT` 兩個 `secret_text`；只核對名稱／型別，沒有讀取或輸出值。
-- [ ] `WEB_PUSH_VAPID_PUBLIC_KEY` 尚未加入 staging 的公開 Worker var。
+- [x] `WEB_PUSH_VAPID_PUBLIC_KEY` 已加入 staging 公開 Worker var；版本 `e8bf7b26-f1e2-40b5-b8a4-01e9da0a2d1e` 的 binding 型別為 `plain_text`，唯讀比對值與預期 public key 一致，且已提升至 100% 流量。
 - [ ] `VITE_VAPID_PUBLIC_KEY` 尚未隨不覆蓋 A／D 線的 staging client 版本注入與部署。
 
 本設定只針對 staging，不修改 production `SETUP-009`，也不新增或修改既有 migration。staging Worker 為 `life-manager-staging`，入口為 `https://life-manager-staging.life-manager.workers.dev/deadlines`；未登入時先完成 Cloudflare Access，本線不得以未授權的登入頁作為 Push 證據。

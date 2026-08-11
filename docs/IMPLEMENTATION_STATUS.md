@@ -399,7 +399,7 @@
 
 - Wrangler OAuth 已成功完成，C 線專用設定位置的 `whoami` exit code 為 0；沒有把 OAuth code、token 或帳號識別寫入文件。
 - `wrangler secret list --config wrangler.toml --env staging` 已核對 `WEB_PUSH_VAPID_PRIVATE_KEY` 與 `WEB_PUSH_VAPID_SUBJECT` 均為 `secret_text`；私鑰與 subject 沒有輸出到聊天、文件、Git、log、bundle、source map 或 export。
-- `WEB_PUSH_VAPID_PUBLIC_KEY` 公開 Worker var、`VITE_VAPID_PUBLIC_KEY` client build 注入／部署、Access session 下的手機／電腦實收，以及共用 scheduler 每裝置狀態回寫仍未完成；DDL-008、SETUP-006、AT-PUSH-01 維持 `IN_PROGRESS`。
+- `WEB_PUSH_VAPID_PUBLIC_KEY` 已加入 staging 公開 Worker var；版本 `e8bf7b26-f1e2-40b5-b8a4-01e9da0a2d1e` 與目前版本的 script etag、handlers、assets/runtime 及既有 bindings 一致，已提升至 100% 流量，唯讀比對值與預期 public key 一致。`VITE_VAPID_PUBLIC_KEY` client build 注入／部署、Access session 下的手機／電腦實收，以及共用 scheduler 每裝置狀態回寫仍未完成；DDL-008、SETUP-006、AT-PUSH-01 維持 `IN_PROGRESS`。
 
 ### 未完成清單
 不得填「無」除非所有第一批項目為`VERIFIED`。

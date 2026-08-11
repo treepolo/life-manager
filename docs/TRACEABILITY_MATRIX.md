@@ -89,6 +89,6 @@
 
 ### C線 Web Push staging evidence（2026-08-11）
 
-`DDL-008`／`SETUP-006`／`AT-PUSH-01` 維持 `IN_PROGRESS`。Wrangler OAuth 已成功，staging 已核對 `WEB_PUSH_VAPID_PRIVATE_KEY` 與 `WEB_PUSH_VAPID_SUBJECT` 的 `secret_text` 名稱／型別；公開 Worker var、client build 注入、兩台實體裝置收件及共用 scheduler 每裝置狀態回寫仍待完成。未修改 migration、共用通知 orchestration、scheduler 或 deadline UI/API。
+`DDL-008`／`SETUP-006`／`AT-PUSH-01` 維持 `IN_PROGRESS`。Wrangler OAuth 已成功，staging 已核對 `WEB_PUSH_VAPID_PRIVATE_KEY` 與 `WEB_PUSH_VAPID_SUBJECT` 的 `secret_text` 名稱／型別；`WEB_PUSH_VAPID_PUBLIC_KEY` 已以 `plain_text` binding 部署至 100% staging 流量，且值比對一致。client build 注入、兩台實體裝置收件及共用 scheduler 每裝置狀態回寫仍待完成。未修改 migration、共用通知 orchestration、scheduler 或 deadline UI/API。
 
 需求狀態的唯一權威仍為`IMPLEMENTATION_STATUS.md`；本索引只提供從原意到實際檔案與測試的查找路徑。
