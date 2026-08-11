@@ -11,6 +11,15 @@
 - `EXTERNAL_BLOCKED`
 - `VERIFIED`
 
+## 2026-08-11 Firstrade 真實樣本線開工
+
+- 本線範圍：`INV-002`、`SETUP-007`、`AT-INV-02`～`AT-INV-05`；工作樹為從乾淨 `master` HEAD `0b370f2` 建立的 `codex/accept-firstrade`／`D:\人生管理器-wt-firstrade`，不包含 Instagram 線未提交變更。
+- 開工狀態：`INV-002`／`SETUP-007` 進入本輪 `IN_PROGRESS` 核對；預定檢查 `src/integrations/firstrade-csv/importer.ts`、`src/integrations/firstrade-csv/service.ts`、`src/app/pages/InvestmentImportPanel.tsx`、Firstrade API 路由、`tests/unit/firstrade.test.ts`、`tests/worker/api-d1.test.ts` 及既有 `0003_finance_investments.sql` 契約。
+- 預定測試：AT-INV-02 預覽／編碼／欄位／錯誤列、AT-INV-03 同檔與重疊期間去重、AT-INV-04 七類活動與未知類型原始證據保留；取得官方遮蔽樣本後再做 AT-INV-05 的真實 row count、金額合計、活動類型／幣別及畫面抽樣核對。
+- 外部阻擋：目前沒有來自 Firstrade 官方介面的遮蔽 CSV；未要求、未接收且不得交付未遮蔽 CSV、帳號、姓名、地址或帳密。依停止規則，本輪不臆測正式 profile、不執行真人匯入，正式帳本狀態維持 `AWAITING_USER_SETUP`。
+- 本輪自動驗證：`tests/unit/firstrade.test.ts` 2/2、Firstrade D1 重跑去重契約 1/1 通過（target filter 另有20項未執行）；完整 `npm run verify` 的 lint、typecheck、42/42 unit、21/21 Worker／D1、client build及前兩個Playwright案例通過，但第三個既有離線財務／資產案例在兩次全新D1重試後仍失敗：第一次 `/api/v1/financial-accounts` 回應後 `ECONNRESET`，第二次於 `/api/v1/sync/devices` 等待超時。未修改該案例或共用finance程式，故列為本輪完整E2E閘門阻擋，不冒充Firstrade驗收證據。`npm run scan`、`npm run verify:requirements`（112個需求ID一致）及 `git diff --check` 通過。
+- 本輪實際變更只有本狀態檔、`docs/SETUP_CHECKLIST.md`與`docs/TRACEABILITY_MATRIX.md`；未新增或修改migration、Firstrade importer、API、UI或既有測試。
+
 ## 第一批需求帳本
 
 | 需求ID | 狀態 | 實作路徑 | migration | 測試／證據 | 阻擋／備註 |
@@ -35,7 +44,7 @@
 | FIN-007 | VERIFIED | `src/modules/finance/analytics.ts` | `0003_finance_investments.sql` | 覆蓋率、基準、超過基準月份固定答案 | 無 |
 | FIN-008 | VERIFIED | `FinancePage.tsx`, finance query schema、`MetricLineChart.tsx` | 不需新migration | 月／季／年、原幣/TWD、來源／事業／分類／帳戶篩選API及UI；軸、刻度、單位、圖例、tooltip與設定E2E通過 | 無 |
 | INV-001 | VERIFIED | investment account/snapshot/UI | `0003_finance_investments.sql` | 手動券商總值與現金納入淨值／配置 | 無 |
-| INV-002 | AWAITING_USER_SETUP | `src/integrations/firstrade-csv`, `InvestmentImportPanel.tsx` | `0003_finance_investments.sql` | importer unit、D1重跑2筆不重複、原檔證據 | 等待遮蔽Firstrade真實CSV及畫面核對 |
+| INV-002 | AWAITING_USER_SETUP | `src/integrations/firstrade-csv/importer.ts`, `src/integrations/firstrade-csv/service.ts`, `src/app/pages/InvestmentImportPanel.tsx`, `src/worker/api/index.ts` | `0003_finance_investments.sql`；本輪不新增或修改migration | `tests/unit/firstrade.test.ts`覆蓋AT-INV-02預覽／編碼／總列數與AT-INV-04七類活動／未知類型；`tests/worker/api-d1.test.ts`覆蓋AT-INV-03同檔重跑去重與批次證據；需官方遮蔽CSV後補AT-INV-05 row count、金額合計、活動／幣別與畫面核對 | 缺少官方來源的遮蔽真實CSV；不得以fixture或假CSV代替，未完成AT-INV-05前不可改為`VERIFIED` |
 | INV-003 | VERIFIED | provider policy、scan | 不需 | 無帳密／逆向登入／下單；secret與關鍵字掃描通過 | 無 |
 | INV-004 | VERIFIED | investment schema/import boundary | `0003_finance_investments.sql` | 僅保存來源回報活動，不推導成本或損益 | 無 |
 | SOC-001 | VERIFIED | social resources、entity-tags | `0004_social_integrations.sql` | content/post分離、平台帳號、內容標籤 | 無 |
@@ -92,7 +101,8 @@
 | 操作 | OPS-004, OPS-005, OPS-006, OPS-007, OPS-009, OPS-010, OPS-011 | AWAITING_USER_SETUP | 保留排程、備份與隔離還原本機通過；等待staging／production外部通道與操作驗收 |
 | 外部設定 | SETUP-002 | VERIFIED | 獨立staging D1／Worker、migration 8、部署版本、未授權302、JWK 200、本人health 200、單一Allow政策及電腦／手機實體App全部通過 | 無；跨裝置資料同步另由`OFF-005`追蹤，不混入本設定閘門 |
 | 外部設定 | SETUP-003 | VERIFIED | Google Project、OAuth client、必要Worker Secret、真實callback、本人頻道、Studio 26天精確核對、Google App「實際運作中」、撤銷／Cron失敗隔離／重連、refresh token續期均通過；2026-08-10版本14安全更新與新版pending UI、MANUAL成功、四類有序per-run raw、snapshot provenance／唯一性、job與財務隔離全數通過 |
-| 外部設定 | SETUP-001, SETUP-004, SETUP-005, SETUP-006, SETUP-007, SETUP-008, SETUP-009 | AWAITING_USER_SETUP | `docs/SETUP_CHECKLIST.md`已填名稱、路徑、secret與驗證；待各自真實帳號、資料、裝置或production階段 |
+| 外部設定 | SETUP-001, SETUP-004, SETUP-005, SETUP-006, SETUP-008, SETUP-009 | AWAITING_USER_SETUP | `docs/SETUP_CHECKLIST.md`已填名稱、路徑、secret與驗證；待各自真實帳號、裝置或production階段 |
+| 外部設定 | SETUP-007 | AWAITING_USER_SETUP | `docs/SETUP_CHECKLIST.md`已列官方匯出、遮蔽、不可提交位置、人工畫面核對及正式匯入前備份步驟；AT-INV-02～04已有自動證據，待官方遮蔽CSV後完成AT-INV-05 | 等待使用者先從Firstrade官方介面匯出檔案；未遮蔽原檔不得交給Codex、進Git、進log、snapshot或文件 |
 
 ## 2026-08-03 staging雲端接管紀錄
 
@@ -375,7 +385,7 @@
 - Cloudflare Access：使用者已將真實中文「網域」頁的生產Worker URL由「公開」改為「受限」；無session邊界拒絕、JWK 200及本人登入health 200通過，team domain／application audience與`ACCESS_ALLOWED_EMAIL`皆已設定，部署後Secret名稱仍存在且未讀取值；使用者確認只有本人單一Allow政策，電腦與手機實體App首頁均正常。Staging Access完成；Production Access仍等待SETUP-009。
 - YouTube：Project ID `life-manager-personal-505006`下的Web OAuth client、三個必要Secret、兩項唯讀scope與60分鐘state已完成；第二次真實callback成功並建立AES-GCM access／refresh token密文。修正版真實Cron已成功，D1去敏聚合確認1頻道、31影片、574快照、raw provenance缺失0、同語意鍵重複0；本人重新整理後仍確認job=`READY`／attempt 0、connection=`CONNECTED`／錯誤0。Studio與API對齊2026/7/12至2026/8/6後觀看次數總計布林式精確相等，`AT-YT-04`通過；Google App已切換「實際運作中」且未提交公開驗證，等待AT-YT-05撤銷重連驗收。
 - Instagram：adapter、scope/state測試完成；等待Meta App及真實專業帳號。
-- Firstrade CSV：parser／D1去重完成；等待使用者遮蔽真實CSV與官方畫面抽樣。
+- Firstrade CSV：`tests/unit/firstrade.test.ts`與`tests/worker/api-d1.test.ts`的parser／預覽／七類活動／未知類型／D1去重證據已存在；AT-INV-05仍等待使用者從Firstrade官方介面取得並後續遮蔽的真實CSV與官方畫面抽樣，未遮蔽資料不得進入本線。
 - Web Push手機：密文、多裝置及停用契約完成；等待真實手機接收。
 - Web Push電腦：密文、多裝置及停用契約完成；等待真實電腦接收。
 - Resend Email：adapter、去重、retry完成；等待API key、from與本人收件。
@@ -385,7 +395,7 @@
 ### 未完成清單
 不得填「無」除非所有第一批項目為`VERIFIED`。
 
-- `INV-002`, `SOC-010`, `DDL-008`, `DDL-009`：程式與自動測試完成，等待對應真實資料／帳號／裝置；`SOC-009`的真實YouTube授權、撤銷、重連、同步與來源證據已`VERIFIED`。
+- `INV-002`, `SOC-010`, `DDL-008`, `DDL-009`：程式與自動測試完成；`INV-002`的AT-INV-05等待官方來源遮蔽CSV、人工抽樣與正式匯入前備份，其他項目等待各自真實資料／帳號／裝置；`SOC-009`的真實YouTube授權、撤銷、重連、同步與來源證據已`VERIFIED`。
 - `SEC-001`, `SEC-002`, `SEC-003`, `SEC-004`, `SEC-005`：本機安全邊界完成，等待真實Cloudflare Access與外部通道驗收。
 - `NFR-001`~`NFR-010`, `OPS-001`~`OPS-011`, `SETUP-001`, `SETUP-004`~`SETUP-009`：本機可驗證部分與staging已完成；整組因production部署、外部服務及其真實裝置smoke尚未完成而維持`AWAITING_USER_SETUP`。`SETUP-002`與`SETUP-003`已獨立`VERIFIED`。
 - 唯一下一步：Codex實作並驗證migration 10的provider run↔raw payload完整關聯；使用者保持目前頁面，不重複同步、重新整理或撤銷連線。

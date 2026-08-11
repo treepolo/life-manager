@@ -40,7 +40,7 @@
 | 收入來源是否有上升趨勢 | FIN-003, FIN-007, FIN-008 | 財務時間序列與圖表 | AT-FIN-08 |
 | 多幣別及TWD基準淨值 | FIN-001, FIN-004, FIN-005 | money與FX模型 | AT-FIN-04, AT-FIN-05 |
 | 投資帳戶總值、配置與淨值 | INV-001 | 投資帳戶及快照 | AT-INV-01 |
-| 導入Firstrade帳務資料 | INV-002 | `integrations/firstrade-csv` | AT-INV-02~05 |
+| 導入Firstrade帳務資料 | INV-002 | `src/integrations/firstrade-csv/importer.ts`, `src/integrations/firstrade-csv/service.ts`, `src/app/pages/InvestmentImportPanel.tsx`, `src/worker/api/index.ts`；`0003_finance_investments.sql` | AT-INV-02～04已有`tests/unit/firstrade.test.ts`／`tests/worker/api-d1.test.ts`固定答案；AT-INV-05等待官方來源遮蔽真實CSV的row count、金額合計、活動／幣別與畫面核對 |
 | 不希望不安全、常壞的Firstrade逆向API | INV-003 | provider政策與secret掃描 | AT-SEC-04 |
 | W-8BEN到期與續期追蹤 | DDL-001~006 | `modules/deadlines` | AT-DDL-01~06 |
 | 報稅也能設提醒 | DDL-001, DDL-007 | 期限範本 | AT-DDL-07 |
@@ -78,7 +78,7 @@
 | 需求群組 | 實際程式／資料位置 | 自動驗收證據 | 目前閘門 |
 |---|---|---|---|
 | CORE、TASK | `src/modules/areas`, `src/modules/tasks`, `src/modules/metrics`, `src/modules/events`, `src/app/pages`；`0001`, `0002` | `formula.test.ts`, `tasks-deadlines.test.ts`、七種事業關聯與任務延後Worker契約、Playwright線上／離線寫入 | `VERIFIED` |
-| FIN、INV | `src/modules/finance`, `src/core/money`, `src/integrations/firstrade-csv`, `FinancePage.tsx`；`0003` | `finance.test.ts`, `firstrade.test.ts`、D1篩選／匯率／淨值／去重／完整provenance契約，以及資料更新後圖表點數與路徑改變E2E | `INV-002`等待真實遮蔽CSV；其餘`VERIFIED` |
+| FIN、INV | `src/modules/finance`, `src/core/money`, `src/integrations/firstrade-csv`, `InvestmentImportPanel.tsx`, `FinancePage.tsx`；`0003` | `finance.test.ts`, `tests/unit/firstrade.test.ts`, `tests/worker/api-d1.test.ts`：預覽／七類活動／未知類型／D1去重與原始證據契約；AT-INV-05等待真實遮蔽CSV及官方畫面抽樣 | `INV-002`維持`AWAITING_USER_SETUP`；其餘`VERIFIED` |
 | SOC | `src/modules/social`, `src/integrations/structured-csv`, YouTube／Instagram adapters, `src/worker/api/provider-sync.ts`, `src/worker/api/provider-raw.ts`, `src/worker/scheduled/index.ts`, `src/app/api/client.ts`, `SocialPage.tsx`, `IntegrationsPage.tsx`；`0004`, `0007`, `0009`, `0010` | 首日容許誤差、平均／總和／中位數／五數分布、轉化率、標籤／保存檢視、事件篩選／hover／click、provenance、OAuth scope/state/PKCE、60分鐘state、完整分頁、Pacific日界、token續期／官方撤銷端點、錯誤重試UI與D1 partial unique契約；provider長請求不阻塞outbox、D1 batch、stale recovery、單一job claim及pending UI鎖定固定答案；相同raw全域只存1列但兩個run各有完整有序關聯的D1固定答案；真實Cron、Studio 26天精確核對、Google App「實際運作中」、撤銷／重連均通過；2026-08-10新版真實MANUAL按下約1.6秒內顯示「同步中」並鎖定撤銷，D1 run 19秒成功、fetched 4、四類order 0～3 link各1、linked snapshot 545、語意重複0、job與財務隔離通過 | `SOC-009`已完成真實OAuth、撤銷／排程錯誤隔離／重連、refresh、MANUAL pending UI與per-run raw追溯，為`VERIFIED`；`SOC-010`等待真實授權；其餘維持既有狀態 |
 | DDL | `src/modules/deadlines`, `src/modules/notifications`, `src/integrations/resend`, `src/worker/scheduled`；`0005` | W-8固定答案、範本級別、子任務、dedupe、密文雙裝置Push契約 | `DDL-008/009`等待真實裝置與郵件；其餘`VERIFIED` |
 | OFF | `src/core/offline`, `src/core/sync`, `src/core/network/request-gate.ts`, `public/sw.js`, `PwaUpdate.tsx`, `src/styles.css`, `scripts/stamp-service-worker.mjs`, `DataPage.tsx`；`0006` | 27種核心輸入類型IndexedDB／outbox unit、同步中再次觸發補跑、RESTORE／DELETE tombstone、衝突三解、離線修改／封存／恢復／重開及五viewport；跨裝置真實outbox與D1聚合通過。PWA build固定答案證明同名app shell內容變更會改變SW版本；更新固定答案證明繞過HTTP cache、outbox存在時阻擋、為0才安全接管；320／390／768／1366／1920提示固定可見且手機不壓住同步列。staging outbox 0時只按一次安全更新並自動reload，新CSS固定定位且未清資料 | `OFF-001`～`OFF-006`全部`VERIFIED` |
