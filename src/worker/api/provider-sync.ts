@@ -1,5 +1,6 @@
 import { newId, nowIso } from "@/core/database/d1";
 import { ApiError } from "@/core/errors/api-error";
+import { INSTAGRAM_MEDIA_INSIGHTS_PER_RUN, instagramMetricDefinitionVersion } from "@/integrations/instagram/provider";
 import type { ProviderRawPayload } from "@/integrations/providers/contract";
 import { SYSTEM_PLATFORM_IDS } from "@/modules/social/platforms";
 import { connectionCredentials, refreshConnectionCredentialsIfNeeded } from "@/worker/api/oauth";
@@ -17,6 +18,57 @@ export interface YouTubeDailyMetricPoint {
   metric: typeof YOUTUBE_DAILY_METRICS[number];
   value: string;
   observedAt: string;
+}
+
+export interface InstagramMediaInsightSelection {
+  selectedIds: string[];
+  skippedCount: number;
+}
+
+export async function selectInstagramMediaInsightIds(
+  env: Env,
+  content: ProviderRawPayload[],
+  limit = INSTAGRAM_MEDIA_INSIGHTS_PER_RUN,
+): Promise<InstagramMediaInsightSelection> {
+  const mediaPayload = content.find((entry) => entry.kind === "media")?.payload as {
+    data?: Array<{ id?: unknown }>;
+  } | undefined;
+  const seen = new Set<string>();
+  const candidates = (mediaPayload?.data ?? []).flatMap((media, index) => {
+    const id = typeof media.id === "string" ? media.id : "";
+    if (!id || seen.has(id)) return [];
+    seen.add(id);
+    return [{ id, index }];
+  });
+  const boundedLimit = Math.max(0, Math.min(Math.trunc(limit), INSTAGRAM_MEDIA_INSIGHTS_PER_RUN));
+  if (candidates.length <= boundedLimit) {
+    return { selectedIds: candidates.map((candidate) => candidate.id), skippedCount: 0 };
+  }
+  if (boundedLimit === 0) return { selectedIds: [], skippedCount: candidates.length };
+
+  const placeholders = candidates.map(() => "?").join(", ");
+  const previous = await env.LIFE_DB.prepare(
+    `SELECT pp.external_post_id, MAX(s.observed_at) AS last_observed_at
+     FROM platform_posts pp
+     JOIN social_accounts sa ON sa.id = pp.social_account_id
+     LEFT JOIN social_metric_snapshots s ON s.platform_post_id = pp.id
+     WHERE sa.platform_id = ? AND pp.external_post_id IN (${placeholders})
+     GROUP BY pp.external_post_id`,
+  ).bind(SYSTEM_PLATFORM_IDS.instagram, ...candidates.map((candidate) => candidate.id))
+    .all<{ external_post_id: string; last_observed_at: string | null }>();
+  const lastObservedAt = new Map(previous.results.map((row) => [row.external_post_id, row.last_observed_at]));
+  const selectedIds = [...candidates]
+    .sort((left, right) => {
+      const leftObserved = lastObservedAt.get(left.id) ?? null;
+      const rightObserved = lastObservedAt.get(right.id) ?? null;
+      if (leftObserved === null && rightObserved !== null) return -1;
+      if (leftObserved !== null && rightObserved === null) return 1;
+      if (leftObserved !== rightObserved) return String(leftObserved).localeCompare(String(rightObserved));
+      return left.index - right.index;
+    })
+    .slice(0, boundedLimit)
+    .map((candidate) => candidate.id);
+  return { selectedIds, skippedCount: candidates.length - selectedIds.length };
 }
 
 export async function runD1WriteBatches(env: Env, statements: D1PreparedStatement[]): Promise<void> {
@@ -297,11 +349,12 @@ export async function persistYouTube(env: Env, raw: RawWithId[]): Promise<{ crea
   return { created, updated };
 }
 
-async function persistInstagram(env: Env, raw: RawWithId[]): Promise<{ created: number; updated: number }> {
+export async function persistInstagram(env: Env, raw: RawWithId[]): Promise<{ created: number; updated: number }> {
   const profileRaw = raw.find((entry) => entry.kind === "profile");
-  const profile = profileRaw?.payload as { id?: string; username?: string; name?: string } | undefined;
-  if (!profile?.id) throw new ApiError(422, "PROVIDER_ERROR", "Instagram回應沒有專業帳號識別。");
-  const account = await ensureSocialAccount({ env, providerKey: "instagram", externalId: profile.id, displayName: profile.username ?? profile.name ?? profile.id, accountKind: "PROFESSIONAL" });
+  const profile = profileRaw?.payload as { user_id?: string | number; username?: string; name?: string } | undefined;
+  const profileUserId = profile?.user_id === undefined ? "" : String(profile.user_id);
+  if (!profileUserId) throw new ApiError(422, "PROVIDER_ERROR", "Instagram回應沒有專業帳號識別。");
+  const account = await ensureSocialAccount({ env, providerKey: "instagram", externalId: profileUserId, displayName: profile?.username ?? profile?.name ?? profileUserId, accountKind: "PROFESSIONAL" });
   let created = account.created ? 1 : 0;
   let updated = account.created ? 0 : 1;
   const mediaRaw = raw.find((entry) => entry.kind === "media");
@@ -331,7 +384,7 @@ async function persistInstagram(env: Env, raw: RawWithId[]): Promise<{ created: 
       const definitionId = await ensureMetricDefinition({
         env, platformId: SYSTEM_PLATFORM_IDS.instagram, metricKey, providerName,
         providerDefinition: String(metric.description ?? metric.title ?? providerName),
-        version: `instagram-${insightsRaw.apiVersion}@2026-08-02`, scope: "POST", cumulative: true, sourceType: "INSTAGRAM_API",
+        version: instagramMetricDefinitionVersion(insightsRaw.apiVersion), scope: "POST", cumulative: true, sourceType: "INSTAGRAM_API",
       });
       const values = Array.isArray(metric.values) ? metric.values as Array<{ value?: unknown }> : [];
       const rawValue = values.at(-1)?.value ?? metric.value;
@@ -381,11 +434,18 @@ export async function syncProviderConnection(input: {
       provider,
       credentials: storedCredentials,
     });
-    const payloads = [
-      ...(await provider.fetchAccounts(credentials)),
-      ...(await provider.fetchContent(credentials)),
-      ...(await provider.fetchMetrics(credentials, { from: input.from, to: input.to })),
-    ];
+    const accountPayloads = await provider.fetchAccounts(credentials);
+    const contentPayloads = await provider.fetchContent(credentials);
+    const instagramSelection = provider.key === "instagram"
+      ? await selectInstagramMediaInsightIds(input.env, contentPayloads)
+      : { selectedIds: [] as string[], skippedCount: 0 };
+    const metricPayloads = await provider.fetchMetrics(credentials, {
+      from: input.from,
+      to: input.to,
+      content: contentPayloads,
+      ...(provider.key === "instagram" ? { selectedContentExternalIds: instagramSelection.selectedIds } : {}),
+    });
+    const payloads = [...accountPayloads, ...contentPayloads, ...metricPayloads];
     const stored = await storeRawPayloads(input.env, provider.key, runId, payloads);
     const counts = provider.key === "youtube" ? await persistYouTube(input.env, stored) : await persistInstagram(input.env, stored);
     const completedAt = nowIso();
@@ -395,8 +455,8 @@ export async function syncProviderConnection(input: {
     await input.env.LIFE_DB.batch([
       input.env.LIFE_DB.prepare(
         `UPDATE provider_sync_runs SET status = 'SUCCEEDED', completed_at = ?, fetched_count = ?,
-         created_count = ?, updated_count = ? WHERE id = ?`,
-      ).bind(completedAt, payloads.length, counts.created, counts.updated, runId),
+         created_count = ?, updated_count = ?, ignored_count = ? WHERE id = ?`,
+      ).bind(completedAt, payloads.length, counts.created, counts.updated, instagramSelection.skippedCount, runId),
       input.env.LIFE_DB.prepare(
         "UPDATE provider_connections SET status = 'CONNECTED', last_attempt_at = ?, last_success_at = ?, last_error_code = NULL, last_error_message_redacted = NULL, provider_definition_version = ?, updated_at = ?, version = version + 1 WHERE id = ?",
       ).bind(completedAt, completedAt, provider.definitionVersion, completedAt, input.connectionId),
@@ -404,7 +464,14 @@ export async function syncProviderConnection(input: {
         "UPDATE provider_sync_jobs SET status = 'READY', attempt = 0, next_run_at = ?, last_error_code = NULL, updated_at = ? WHERE connection_id = ?",
       ).bind(nextRunAt, completedAt, input.connectionId),
     ]);
-    return { runId, providerKey: provider.key, status: "SUCCEEDED", fetchedCount: payloads.length, ...counts };
+    return {
+      runId,
+      providerKey: provider.key,
+      status: "SUCCEEDED",
+      fetchedCount: payloads.length,
+      ignoredCount: instagramSelection.skippedCount,
+      ...counts,
+    };
   } catch (error) {
     const code = error instanceof ApiError ? error.code : "PROVIDER_ERROR";
     const status = error instanceof ApiError && error.status === 401 ? "NEEDS_REAUTH" : "ERROR";

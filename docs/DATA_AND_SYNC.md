@@ -114,6 +114,10 @@ Occurrence需可重建但不得因排程修改而抹除歷史。Completion為app
 6. 記錄新增、更新、忽略、重複及錯誤數。
 7. 允許從原始證據重新正規化，不能要求重新向平台抓取才能修正parser。
 
+Instagram Login的帳號profile原始證據使用版本化Graph API `GET /me`，fields至少含`user_id`與`username`；正規化`social_accounts.external_account_id`使用來源回報的`user_id`。不得把舊Instagram Graph API的`id`欄位或OAuth token交換回應中的暫存形態冒充現行profile契約。媒體與insights仍保存各自原始payload、API版本、觀測時間及run關聯。
+
+Instagram每次run只抓一次最新50則媒體清單，帳號profile、媒體清單、帳號Insights各使用一次外部請求，貼文Insights最多再查40則，單次最多43個外部subrequest。超過40則時，先選沒有任何既有snapshot的媒體，再依最後觀測時間由舊到新輪替；來源順序只作同順位的穩定排序。當次未查的媒體數寫入`provider_sync_runs.ignored_count`，後續run會優先補齊；所有50則內容本身仍在每次run正規化，不能把Insights預算解讀成只保存40則內容或永久省略其餘資料。
+
 原始資料的保存期限預設長期保留；若資料量接近免費額度，再提供可預覽的清理功能，不能靜默刪除。
 
 YouTube Data API的每支影片`views`／`likes`／`comments`保存為貼文級累積快照；YouTube Analytics channel day report的`views`／`likes`／`comments`保存為帳號級非累積快照。Analytics來源日是America/Los_Angeles的曆日，`observed_at`必須依當日PST／PDT轉為UTC；值原樣保存有限的帶符號十進位來源值，因平台調整可能讓日區間值為負，不得改寫成0或丟棄整列。每個快照都要指向對應的`provider_raw_payloads`，並保留query組合與`youtube-analytics-v2-channel-daily@2026-08-09`定義版本。

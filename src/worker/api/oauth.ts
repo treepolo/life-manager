@@ -86,9 +86,10 @@ export async function startOAuth(input: {
 
 function accountIdentity(providerKey: string, credentials: Record<string, unknown>, raw: ProviderRawPayload[]): { id: string; name: string } {
   if (providerKey === "instagram") {
-    const profile = raw.find((entry) => entry.kind === "profile")?.payload as { id?: string; username?: string; name?: string } | undefined;
+    const profile = raw.find((entry) => entry.kind === "profile")?.payload as { user_id?: string | number; username?: string; name?: string } | undefined;
+    const profileUserId = profile?.user_id === undefined ? null : String(profile.user_id);
     return {
-      id: profile?.id ?? String(credentials.userId),
+      id: profileUserId || String(credentials.userId),
       name: profile?.username ?? profile?.name ?? String(credentials.userId),
     };
   }

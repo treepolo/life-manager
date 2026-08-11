@@ -111,7 +111,13 @@ YouTube排程以`youtube-data-v3+analytics-v2@2026-08-09`為來源版本。每�
 
 同日第一次新憑證「立即同步」事故：前端送出後，YouTube connection仍為`CONNECTED`，但左下角核心outbox顯示「請求已取消」。去敏D1證明手動run確實建立並寫入4個raw payload、462筆快照後長時間停在`RUNNING`；22:15 Cron又在同一connection啟動，該排程run另行`SUCCEEDED`並新增155筆快照。排程成功不得冒充這次手動run成功。根因有三項：長時間provider請求占用核心request gate，導致30秒outbox逾時；快照逐筆definition查詢／寫入造成過多D1呼叫；手動流程未先取得job執行權，允許Cron重疊。修正後provider請求使用獨立長時間通道，按鈕於pending時停用；metric definition在run內快取且快照每100筆以D1 batch寫入；手動與Cron都以條件式job claim單一執行，並在下次手動／Cron前把超過10分鐘的`RUNNING`標成`FAILED/SYNC_INTERRUPTED`及可重試job。此修正不需migration；真正完成仍須部署後以本人帳號再做一次手動同步，核對該MANUAL run終止為`SUCCEEDED`、job回到`READY`／attempt 0、raw／snapshot來源完整，且左下角不再出現取消錯誤。
 
+Instagram Login callback若已通過同意與token交換，卻在建立connection前回`PROVIDER_ERROR`／`IGApiException`，先核對profile request是否符合現行官方契約：`GET https://graph.instagram.com/{version}/me?fields=user_id,username,...`。`/{token-response-user-id}?fields=id,...`是本專案2026-08-11真實staging失敗原因；修正後OAuth identity與正規化均使用profile的`user_id`。一次性callback code/state不得貼入紀錄、重播或拿來手動試API；完成自動測試及部署後必須由外部連線頁產生新state並重新授權。
+
+Instagram完整同步若回Cloudflare「Too many subrequests by single Worker invocation」，不得把callback時只抓profile的成功run冒充內容／Insights成功。Free plan單次Worker invocation上限為50個外部subrequest；本產品固定只抓一次最新50則媒體清單，每輪最多查40則媒體Insights，加上profile、媒體清單與帳號Insights後最多43次，保留7次錯誤處理／平台行為餘裕。選擇順序為未有snapshot者優先，其次最後觀測時間最舊者；當輪未選數寫入`ignored_count`，下一輪輪替。成功判據包含run=`SUCCEEDED`、connection=`CONNECTED`、job=`READY`／attempt 0、每次run raw link完整、至少一則真實內容與可用Insights snapshot，並以第二次同步證明沒有語意重複且先前略過內容會被選入。
+
 修正部署後的第一個自然Cron於2026-08-09 22:45:13（Asia/Taipei）完成stale recovery：舊MANUAL run成為`FAILED/SYNC_INTERRUPTED`，error count 1；該輪沒有到期provider job或外部provider request，job仍`READY`／attempt 0，connection仍`CONNECTED`且無錯誤。此證據證明復原不會誤觸外部同步、改壞授權或覆蓋排程狀態；仍不能取代下一次本人手動同步。
+
+Instagram budget fix正式驗收結果（2026-08-11）：staging版本`2342cd82-9788-47f8-8c87-a0826003d534`部署成功，remote migration list為`No migrations to apply!`。兩次真實run均`SUCCEEDED`、connection=`CONNECTED`、job=`READY`／attempt 0；首輪`SCHEDULED` fetched 43／created 51／updated 0／ignored 10，次輪`MANUAL` fetched 43／created 0／updated 51／ignored 10。每輪raw與run link各43筆、每輪40篇內容各280筆Insights snapshot，50篇內容均已正規化；兩輪重疊30篇，次輪補入首輪略過的10篇，累計560筆snapshot semantic key唯一。去敏token核對僅確認AES-GCM-256密文存在；未讀取token值。上述結果完成`AT-IG-03`～`AT-IG-05`，連同既有`AT-IG-01`～`AT-IG-02`必要回歸後，`SOC-010`／`SETUP-004`為`VERIFIED`。舊版本50篇Insights造成的subrequest失敗仍保留為歷史run，不得與本次成功混淆。
 
 ## OPS-006　日誌與隱私
 

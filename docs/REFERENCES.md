@@ -17,7 +17,8 @@
 - Cloudflare Access web apps：<https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/>
 - Cloudflare bindings：<https://developers.cloudflare.com/workers/runtime-apis/bindings/>
 - Workers Web Crypto：<https://developers.cloudflare.com/workers/runtime-apis/web-crypto/>
-- Workers limits與internal subrequest／中斷請求限制（2026-08-09查核）：<https://developers.cloudflare.com/workers/platform/limits/>
+- Workers limits與external／internal subrequest限制（2026-08-11查核）：<https://developers.cloudflare.com/workers/platform/limits/>
+- Workers external subrequest計數與2026-02-11調整說明：<https://developers.cloudflare.com/changelog/post/2026-02-11-subrequests-limit/>
 
 ## PWA與瀏覽器
 
@@ -48,6 +49,8 @@
 
 Meta官方維護的Postman API Network集合：
 
+- Instagram API with Instagram Login立即開始（`GET /me`與`user_id`欄位）：<https://developers.facebook.com/docs/instagram-platform/instagram-api-with-instagram-login/get-started/>
+- Instagram Media Insights（Instagram Login使用`graph.instagram.com`、可能回空資料且資料可能延遲）：<https://developers.facebook.com/documentation/instagram-platform/reference/instagram-media/insights>
 - Instagram API documentation：<https://www.postman.com/meta/instagram/documentation/6yqw8pt/instagram-api>
 - Instagram Insights folder：<https://www.postman.com/meta/instagram/folder/23987686-f659d7d1-d74c-44e4-9192-9b1e8694c511>
 

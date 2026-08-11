@@ -22,6 +22,13 @@ export interface NormalizedProviderBatch {
   rawPayloads: ProviderRawPayload[];
 }
 
+export interface ProviderMetricFetchInput {
+  from: string;
+  to: string;
+  content?: ProviderRawPayload[];
+  selectedContentExternalIds?: string[];
+}
+
 export interface IntegrationProvider {
   readonly key: string;
   readonly definitionVersion: string;
@@ -30,7 +37,7 @@ export interface IntegrationProvider {
   refreshCredentials?(connection: unknown): Promise<unknown>;
   fetchAccounts(connection: unknown): Promise<ProviderRawPayload[]>;
   fetchContent(connection: unknown): Promise<ProviderRawPayload[]>;
-  fetchMetrics(connection: unknown, input: { from: string; to: string }): Promise<ProviderRawPayload[]>;
+  fetchMetrics(connection: unknown, input: ProviderMetricFetchInput): Promise<ProviderRawPayload[]>;
   importFile?(file: ArrayBuffer, options: unknown): Promise<ProviderRawPayload[]>;
   normalize(payloads: ProviderRawPayload[]): Promise<NormalizedProviderBatch>;
   healthCheck(connection: unknown): Promise<ProviderHealth>;

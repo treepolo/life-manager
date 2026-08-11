@@ -3,6 +3,7 @@ import type {
   IntegrationProvider,
   NormalizedProviderBatch,
   ProviderHealth,
+  ProviderMetricFetchInput,
   ProviderRawPayload,
 } from "@/integrations/providers/contract";
 
@@ -173,7 +174,7 @@ export class YouTubeProvider implements IntegrationProvider {
     return [...playlistPages, ...videoPages];
   }
 
-  async fetchMetrics(connection: OAuthCredentials, input: { from: string; to: string }): Promise<ProviderRawPayload[]> {
+  async fetchMetrics(connection: OAuthCredentials, input: ProviderMetricFetchInput): Promise<ProviderRawPayload[]> {
     const url = new URL("https://youtubeanalytics.googleapis.com/v2/reports");
     url.searchParams.set("ids", "channel==MINE");
     url.searchParams.set("startDate", input.from);

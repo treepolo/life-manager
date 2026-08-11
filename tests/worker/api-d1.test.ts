@@ -7,8 +7,9 @@ import { decryptSecret, encryptSecret, sha256 } from "@/core/crypto/secrets";
 import type { IntegrationProvider } from "@/integrations/providers/contract";
 import { analyticResultSchema } from "@/core/provenance/analytic-result";
 import { oauthStateTtlMilliseconds, refreshConnectionCredentialsIfNeeded, tokenRefreshRequired } from "@/worker/api/oauth";
-import { claimManualProviderSyncJob, persistYouTube, recoverStaleProviderSyncs, storeRawPayloads, type RawWithId } from "@/worker/api/provider-sync";
+import { claimManualProviderSyncJob, persistInstagram, persistYouTube, recoverStaleProviderSyncs, runD1WriteBatches, selectInstagramMediaInsightIds, storeRawPayloads, type RawWithId } from "@/worker/api/provider-sync";
 import { processRetention } from "@/worker/scheduled";
+import { SYSTEM_PLATFORM_IDS } from "@/modules/social/platforms";
 
 async function jsonRequest(path: string, method = "GET", body?: unknown): Promise<Response> {
   return SELF.fetch(`https://life-manager.test${path}`, {
@@ -284,6 +285,108 @@ describe("正式D1 migration與API契約", () => {
       env.LIFE_DB.prepare("DELETE FROM provider_raw_payloads WHERE sync_run_id = ?").bind(runId),
     ]);
     await env.LIFE_DB.prepare("DELETE FROM provider_sync_runs WHERE id = ?").bind(runId).run();
+  });
+
+  it("Instagram profile使用user_id新增及更新帳號", async () => {
+    const raw: RawWithId[] = [{
+      rawId: uuidv7(),
+      kind: "profile",
+      externalId: null,
+      observedAt: "2026-08-11T00:00:00.000Z",
+      apiVersion: "v23.0",
+      payload: { user_id: "instagram-account", username: "instagram-display" },
+    }];
+
+    expect(await persistInstagram(env, raw)).toEqual({ created: 1, updated: 0 });
+    expect(await persistInstagram(env, raw)).toEqual({ created: 0, updated: 1 });
+    const account = await env.LIFE_DB.prepare(
+      "SELECT id, external_account_id, display_name, account_kind, source_type, version FROM social_accounts WHERE external_account_id = ?",
+    ).bind("instagram-account").first<{
+      id: string; external_account_id: string; display_name: string; account_kind: string; source_type: string; version: number;
+    }>();
+    expect(account).toEqual(expect.objectContaining({
+      external_account_id: "instagram-account",
+      display_name: "instagram-display",
+      account_kind: "PROFESSIONAL",
+      source_type: "INSTAGRAM_API",
+      version: 2,
+    }));
+    await env.LIFE_DB.prepare("DELETE FROM social_accounts WHERE id = ?").bind(account?.id).run();
+  });
+
+  it("Instagram media insights優先輪替未同步與最久未同步內容", async () => {
+    const now = "2026-08-11T00:00:00.000Z";
+    const media = Array.from({ length: 50 }, (_, index) => ({ id: `budget-media-${index + 1}` }));
+    const content = [{
+      kind: "media",
+      externalId: null,
+      observedAt: now,
+      apiVersion: "v23.0",
+      payload: { data: media },
+    }];
+    const first = await selectInstagramMediaInsightIds(env, content);
+    expect(first).toEqual({ selectedIds: media.slice(0, 40).map((item) => item.id), skippedCount: 10 });
+
+    const accountId = uuidv7();
+    const definitionId = uuidv7();
+    const statements: D1PreparedStatement[] = [
+      env.LIFE_DB.prepare(
+         `INSERT INTO social_accounts
+         (id, platform_id, display_name, external_account_id, account_kind, timezone, source_type, created_at, updated_at, version)
+         VALUES (?, ?, 'budget-account', 'budget-account', 'PROFESSIONAL', 'Asia/Taipei', 'INSTAGRAM_API', ?, ?, 1)`,
+      ).bind(accountId, SYSTEM_PLATFORM_IDS.instagram, now, now),
+      env.LIFE_DB.prepare(
+        `INSERT INTO social_metric_definitions
+         (id, platform_id, metric_key, provider_metric_name, provider_definition, provider_definition_version,
+          unit, scope, is_cumulative, comparable_family, source_type, created_at, updated_at, version)
+         VALUES (?, ?, 'budget_views', 'views', 'budget fixture', 'budget-test',
+          'count', 'POST', 1, 'views', 'INSTAGRAM_API', ?, ?, 1)`,
+      ).bind(definitionId, SYSTEM_PLATFORM_IDS.instagram, now, now),
+    ];
+    const contentIds: string[] = [];
+    for (let index = 0; index < 40; index++) {
+      const contentId = uuidv7();
+      const postId = uuidv7();
+      contentIds.push(contentId);
+      const observedAt = new Date(Date.UTC(2026, 5, index + 1)).toISOString();
+      statements.push(
+        env.LIFE_DB.prepare(
+          `INSERT INTO content_assets
+           (id, title, description, topic, style, format, campaign, source_type, created_at, updated_at, version)
+           VALUES (?, ?, '', '', '', 'POST', '', 'INSTAGRAM_API', ?, ?, 1)`,
+        ).bind(contentId, media[index].id, now, now),
+        env.LIFE_DB.prepare(
+          `INSERT INTO platform_posts
+           (id, content_asset_id, social_account_id, external_post_id, platform_format, published_at,
+            published_timezone, source_type, created_at, updated_at, version)
+           VALUES (?, ?, ?, ?, 'POST', ?, 'UTC', 'INSTAGRAM_API', ?, ?, 1)`,
+        ).bind(postId, contentId, accountId, media[index].id, now, now, now),
+        env.LIFE_DB.prepare(
+          `INSERT INTO social_metric_snapshots
+           (id, social_metric_definition_id, platform_post_id, observed_at, value_decimal, is_cumulative,
+            quality, source_type, created_at, updated_at, version)
+           VALUES (?, ?, ?, ?, '1', 1, 'SOURCE_REPORTED', 'INSTAGRAM_API', ?, ?, 1)`,
+        ).bind(uuidv7(), definitionId, postId, observedAt, now, now),
+      );
+    }
+    await runD1WriteBatches(env, statements);
+
+    const second = await selectInstagramMediaInsightIds(env, content);
+    expect(second.skippedCount).toBe(10);
+    expect(second.selectedIds).toEqual([
+      ...media.slice(40).map((item) => item.id),
+      ...media.slice(0, 30).map((item) => item.id),
+    ]);
+
+    await env.LIFE_DB.batch([
+      env.LIFE_DB.prepare("DELETE FROM social_metric_snapshots WHERE social_metric_definition_id = ?").bind(definitionId),
+      env.LIFE_DB.prepare("DELETE FROM platform_posts WHERE social_account_id = ?").bind(accountId),
+    ]);
+    await runD1WriteBatches(env, contentIds.map((id) => env.LIFE_DB.prepare("DELETE FROM content_assets WHERE id = ?").bind(id)));
+    await env.LIFE_DB.batch([
+      env.LIFE_DB.prepare("DELETE FROM social_metric_definitions WHERE id = ?").bind(definitionId),
+      env.LIFE_DB.prepare("DELETE FROM social_accounts WHERE id = ?").bind(accountId),
+    ]);
   });
 
   it("完整JSON以checksum驗證後可還原到空白正式資料庫且不含秘密", async () => {

@@ -453,7 +453,7 @@ test("正式圖表具完整語意、事件互動且D1資料更新會改變曲線
   await expect(page.getByRole("heading", { name: "社群內容、首日比較與轉化" })).toBeVisible({ timeout: 20_000 });
   await page.getByLabel("曝光指標").selectOption(socialMetricKey);
   const comparisonChart = page.locator(`figure[aria-label="各內容風格首日曝光平均"]`);
-  await expect(comparisonChart).toHaveAttribute("data-chart-points", "2");
+  await expect(comparisonChart).toHaveAttribute("data-chart-points", "2", { timeout: 20_000 });
   await comparisonChart.locator("summary").click();
   await expect(comparisonChart).toContainText(`social.first_day.${socialMetricKey}.mean／v1`);
   await expect(comparisonChart).toContainText('"targetHours":24');

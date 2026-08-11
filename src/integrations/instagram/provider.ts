@@ -3,10 +3,22 @@ import type {
   IntegrationProvider,
   NormalizedProviderBatch,
   ProviderHealth,
+  ProviderMetricFetchInput,
   ProviderRawPayload,
 } from "@/integrations/providers/contract";
 
 export const INSTAGRAM_SCOPES = ["instagram_business_basic", "instagram_business_manage_insights"] as const;
+export const INSTAGRAM_MEDIA_INSIGHTS_PER_RUN = 40;
+export const INSTAGRAM_INVALID_TOKEN_CODE = 190;
+export const INSTAGRAM_DEFINITION_VERSION = "2026-08-11-budgeted";
+
+export function instagramProviderDefinitionVersion(apiVersion: string): string {
+  return `instagram-login-${apiVersion}@${INSTAGRAM_DEFINITION_VERSION}`;
+}
+
+export function instagramMetricDefinitionVersion(apiVersion: string): string {
+  return `instagram-${apiVersion}@${INSTAGRAM_DEFINITION_VERSION}`;
+}
 
 interface InstagramCredentials {
   accessToken: string;
@@ -23,7 +35,7 @@ export class InstagramProvider implements IntegrationProvider {
     private readonly clientSecret: string,
     private readonly apiVersion: string,
   ) {
-    this.definitionVersion = `instagram-login-${apiVersion}@2026-08-02`;
+    this.definitionVersion = instagramProviderDefinitionVersion(apiVersion);
   }
 
   authorize(state: string, codeChallenge: string, redirectUri: string): URL {
@@ -67,6 +79,10 @@ export class InstagramProvider implements IntegrationProvider {
     const payload = await response.json();
     if (!response.ok) {
       const error = payload as { error?: { code?: number; type?: string } };
+      const providerCode = error.error?.type ?? error.error?.code ?? response.status;
+      if (error.error?.code === INSTAGRAM_INVALID_TOKEN_CODE) {
+        throw new ApiError(401, "PROVIDER_ERROR", "Instagram access token requires reauthorization.", { providerCode });
+      }
       throw new ApiError(response.status === 401 ? 401 : 502, "PROVIDER_ERROR", `Instagram ${kind}同步失敗。`, {
         providerCode: error.error?.type ?? error.error?.code ?? response.status,
       });
@@ -77,7 +93,7 @@ export class InstagramProvider implements IntegrationProvider {
   async fetchAccounts(connection: InstagramCredentials): Promise<ProviderRawPayload[]> {
     return [
       await this.api(
-        `${encodeURIComponent(connection.userId)}?fields=id,username,name,account_type,profile_picture_url,followers_count,media_count`,
+        "me?fields=user_id,username,name,account_type,profile_picture_url,followers_count,media_count",
         connection.accessToken,
         "profile",
       ),
@@ -94,12 +110,18 @@ export class InstagramProvider implements IntegrationProvider {
     ];
   }
 
-  async fetchMetrics(connection: InstagramCredentials, input: { from: string; to: string }): Promise<ProviderRawPayload[]> {
+  async fetchMetrics(connection: InstagramCredentials, input: ProviderMetricFetchInput): Promise<ProviderRawPayload[]> {
     const path = `${encodeURIComponent(connection.userId)}/insights?metric=reach,profile_views,views,total_interactions&period=day&since=${encodeURIComponent(input.from)}&until=${encodeURIComponent(input.to)}`;
     const result = [await this.api(path, connection.accessToken, "account_insights")];
-    const content = await this.fetchContent(connection);
+    const content = input.content ?? await this.fetchContent(connection);
     const mediaPayload = content[0]?.payload as { data?: Array<{ id?: string }> } | undefined;
-    for (const media of mediaPayload?.data ?? []) {
+    const selectedIds = input.selectedContentExternalIds
+      ? new Set(input.selectedContentExternalIds.slice(0, INSTAGRAM_MEDIA_INSIGHTS_PER_RUN))
+      : null;
+    const selectedMedia = (mediaPayload?.data ?? [])
+      .filter((media) => media.id && (!selectedIds || selectedIds.has(media.id)))
+      .slice(0, INSTAGRAM_MEDIA_INSIGHTS_PER_RUN);
+    for (const media of selectedMedia) {
       if (!media.id) continue;
       result.push(
         await this.api(

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { InstagramProvider, INSTAGRAM_SCOPES } from "@/integrations/instagram/provider";
+import { InstagramProvider, INSTAGRAM_INVALID_TOKEN_CODE, INSTAGRAM_MEDIA_INSIGHTS_PER_RUN, INSTAGRAM_SCOPES, instagramMetricDefinitionVersion } from "@/integrations/instagram/provider";
 import { YouTubeProvider, YOUTUBE_SCOPES } from "@/integrations/youtube/provider";
 
 describe("OAuth provider最小權限與PKCE", () => {
@@ -59,11 +59,82 @@ describe("OAuth provider最小權限與PKCE", () => {
   });
 
   it("Instagram只要求專業帳號基本資料與insights唯讀範圍", () => {
-    const url = new InstagramProvider("client-id", "client-secret", "v23.0").authorize("state-value", "unused-challenge", "https://app.example/oauth/instagram/callback");
+    const provider = new InstagramProvider("client-id", "client-secret", "v23.0");
+    const url = provider.authorize("state-value", "unused-challenge", "https://app.example/oauth/instagram/callback");
     expect(url.origin).toBe("https://www.instagram.com");
     expect(url.searchParams.get("scope")?.split(",").sort()).toEqual([...INSTAGRAM_SCOPES].sort());
     expect(url.searchParams.get("state")).toBe("state-value");
     expect(url.searchParams.get("redirect_uri")).toBe("https://app.example/oauth/instagram/callback");
+    expect(provider.definitionVersion).toBe("instagram-login-v23.0@2026-08-11-budgeted");
+    expect(instagramMetricDefinitionVersion("v23.0")).toBe("instagram-v23.0@2026-08-11-budgeted");
+  });
+
+  it("Instagram profile使用/me與user_id新契約", async () => {
+    const requests: URL[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
+      requests.push(new URL(String(input)));
+      return Response.json({ user_id: "instagram-user", username: "instagram-account" });
+    }));
+
+    const payloads = await new InstagramProvider("client-id", "client-secret", "v23.0").fetchAccounts({
+      accessToken: "test-access-token",
+      userId: "token-response-user",
+    });
+
+    expect(requests).toHaveLength(1);
+    expect(requests[0].origin).toBe("https://graph.instagram.com");
+    expect(requests[0].pathname).toBe("/v23.0/me");
+    expect(requests[0].searchParams.get("fields")?.split(",")).toEqual([
+      "user_id", "username", "name", "account_type", "profile_picture_url", "followers_count", "media_count",
+    ]);
+    expect(requests[0].searchParams.get("access_token")).toBe("test-access-token");
+    expect(payloads).toEqual([
+      expect.objectContaining({ kind: "profile", payload: { user_id: "instagram-user", username: "instagram-account" } }),
+    ]);
+  });
+
+  it("Instagram invalid token code 190 requires reauthorization", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json({ error: { code: INSTAGRAM_INVALID_TOKEN_CODE, type: "OAuthException" } }, { status: 400 })));
+
+    await expect(new InstagramProvider("client-id", "client-secret", "v23.0").fetchAccounts({
+      accessToken: "expired-access-token",
+      userId: "instagram-user",
+    })).rejects.toMatchObject({ status: 401, code: "PROVIDER_ERROR" });
+  });
+
+  it("Instagram完整內容只抓一次並把media insights限制在Worker安全預算", async () => {
+    const media = Array.from({ length: 50 }, (_, index) => ({ id: `media-${index + 1}` }));
+    const requests: URL[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(String(input));
+      requests.push(url);
+      return Response.json({ data: [] });
+    }));
+    const content = [{
+      kind: "media",
+      externalId: null,
+      observedAt: "2026-08-11T00:00:00.000Z",
+      apiVersion: "v23.0",
+      payload: { data: media },
+    }];
+
+    const payloads = await new InstagramProvider("client-id", "client-secret", "v23.0").fetchMetrics(
+      { accessToken: "test-access-token", userId: "instagram-user" },
+      {
+        from: "2026-05-01",
+        to: "2026-08-11",
+        content,
+        selectedContentExternalIds: media.map((item) => item.id),
+      },
+    );
+
+    expect(requests).toHaveLength(1 + INSTAGRAM_MEDIA_INSIGHTS_PER_RUN);
+    expect(requests.filter((url) => url.pathname.endsWith("/media"))).toHaveLength(0);
+    expect(requests[0].pathname).toBe("/v23.0/instagram-user/insights");
+    expect(requests.slice(1).map((url) => url.pathname)).toEqual(
+      Array.from({ length: INSTAGRAM_MEDIA_INSIGHTS_PER_RUN }, (_, index) => `/v23.0/media-${index + 1}/insights`),
+    );
+    expect(payloads).toHaveLength(1 + INSTAGRAM_MEDIA_INSIGHTS_PER_RUN);
   });
 
   it("YouTube Analytics使用官方允許的頻道日報表組合", async () => {

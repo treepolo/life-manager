@@ -141,20 +141,52 @@ Codex先提供：
 Codex先提供：
 
 - Meta App類型與名稱：依Meta Developers當下提供的Instagram API自用情境選`Business`，名稱建議`Life Manager Personal`；若介面已改名，以Instagram Login產品支援的類型為準並把畫面選項記回本檔。
-- Instagram Login redirect URI：`https://life-manager-staging.<實際subdomain>.workers.dev/oauth/instagram/callback`；production另建`https://life-manager.<實際subdomain>.workers.dev/oauth/instagram/callback`。
+- Instagram Login redirect URI：staging為`https://life-manager-staging.life-manager.workers.dev/oauth/instagram/callback`；production另於production階段依實際hostname建立，不把staging callback誤用到production。
 - Deauthorize／data deletion URL（若平台要求）：自用app role驗收階段若Meta未要求則不填；若介面強制要求，停止設定並先新增可驗簽的專用callback，不得把Access內頁或假網址填入。
 - Requested permissions：`instagram_business_basic`、`instagram_business_manage_insights`。
-- Secret名稱：`META_CLIENT_ID`、`META_CLIENT_SECRET`；API版本公開var為`INSTAGRAM_API_VERSION=v23.0`，授權前需在Meta介面再次確認仍支援。
+- Secret名稱：Meta頁面標示的「Instagram應用程式編號」存為`META_CLIENT_ID`，「Instagram應用程式密鑰」存為`META_CLIENT_SECRET`；不得把畫面值貼入聊天或Markdown。API版本公開var為`INSTAGRAM_API_VERSION=v23.0`；2026-08-11已以[Meta官方Graph API版本表](https://developers.facebook.com/docs/graph-api/changelog/)再次確認v23.0仍可用至2027-10-08（當時最新為v26.0），可進入本次staging授權驗收。
 
 使用者操作：
 
-- [ ] 在Meta Developers建立App。
-- [ ] 加入Instagram相關產品／設定。
-- [ ] 貼入redirect URI。
-- [ ] 將Instagram專業帳號加入可測試／管理範圍。
-- [ ] 將client ID／secret以Cloudflare Secret輸入。
-- [ ] 在App按「連接Instagram」完成授權。
-- [ ] Codex執行AT-IG-02及AT-IG-03真實核對。
+- [x] 使用者已登入Meta for Developers並開啟「我的應用程式」頁；尚未建立App、選use case、輸入secret或連接Instagram帳號。
+- [x] 在「我的應用程式」只按一次「建立應用程式」後，Meta顯示新版建立流程首次導覽視窗；背景仍是空白的「應用程式詳細資料」表單（步驟後接「總覽」），尚未填名稱、送出表單或建立App。
+- [x] 關閉首次導覽後確認新版實際步驟為「應用程式詳細資料 → 使用案例 → 商家 → 要求 → 總覽」；名稱欄空白、聯絡電子郵件由Meta預填、「繼續」停用，未修改私人信箱或提交資料。
+- [x] 只在「應用程式名稱」輸入`Life Manager Personal`；未修改Meta預填的聯絡電子郵件、未按「繼續」，App仍未建立。
+- [x] 提交「應用程式詳細資料」後停在「使用案例」頁；Meta顯示精選6項，以及「全部(20)／廣告和營利(7)／內容管理(5)／商務式訊息(3)／其他(5)」篩選。精選清單沒有Instagram，未勾選任何項目。
+- [x] 「其他(5)」只有Facebook登入、資料可攜、募款、ThreatExchange及「建立沒有使用案例的應用程式」；頁尾另有明示即將下線的「其他」舊體驗。沒有Instagram，未選取後備或舊體驗項目。
+- [x] 「內容管理(5)」出現「管理Instagram的訊息和內容」，說明明確連到Instagram API；其餘為Threads、Live Video、oEmbed及粉絲專頁API。尚未勾選。選取此use case不代表要求其列出的發布、留言或訊息權限，後續仍限兩項既定唯讀permission。
+- [x] 只勾選「管理Instagram的訊息和內容」；未選取Threads、Live Video、oEmbed、粉絲專頁或其他use case，尚未按「繼續」。
+- [x] 提交use case後停在「商家」頁；Meta列出兩個既有商家資產管理組合及「我還不想連結商家資產管理組合」，未選取或建立任何組合。自用且只服務本人管理的專業帳號先走Standard Access，不為唯讀同步綁定不明資產。
+- [x] 只選「我還不想連結商家資產管理組合」；未選兩個既有組合、未建立新組合，尚未按「繼續」。
+- [x] 提交延後商家綁定後停在「要求」頁；「發布條件」顯示「找不到條件」，沒有列出商家驗證、App Review或額外permission，尚未按「下一步」。
+- [x] 「總覽」核對：名稱`Life Manager Personal`、聯絡信箱由Meta預填、唯一use case為「管理Instagram的訊息和內容」、商家為「未選擇商家」、要求為「沒有針對此應用程式使用案例的要求」。尚未按「建立應用程式」或接受建立動作。
+- [x] 使用者本人同意頁面列出的Meta條款後只按一次「建立應用程式」；Meta顯示帳號安全密碼重新驗證視窗，尚未輸入或提交密碼，App仍未建立。帳號及密碼值不得記錄或貼入聊天。
+- [x] 使用者直接在Meta原生視窗輸入並提交密碼；`Life Manager Personal`已成功建立並進入應用程式主控板，畫面顯示首次歡迎導覽。密碼、App secret與私人聯絡資訊均未轉錄。
+- [x] 關閉歡迎導覽後確認主控板：App為「尚未發佈」，提供「自訂管理Instagram的訊息和內容」、「測試使用案例」及發佈要求；未進入測試、發佈或「成為技術供應商」。
+- [x] 進入Instagram API自訂頁後確認「新增所有必要權限」預設會加入`instagram_business_basic`、`instagram_business_manage_comments`、`instagram_business_manage_messages`，但不含本產品需要的`instagram_business_manage_insights`；未按此按鈕、未新增帳號、Webhooks或顯示Instagram應用程式密鑰。
+- [x] Codex以已登入瀏覽器唯讀開啟「權限和功能」，確認`instagram_business_basic`與`instagram_business_manage_insights`各自有獨立「新增」操作，留言、訊息、發布及其他permission均可不加入；檢查當時兩項皆尚未新增。畫面曾顯示非secret的App ID但未轉錄，密鑰始終遮蔽。
+- [x] 使用者只按`instagram_business_basic`列的「新增」後，Meta實際結果為`instagram_business_basic`與`instagram_business_manage_insights`同時顯示API呼叫0／「可供測試」／「操作」；`instagram_business_manage_comments`、`instagram_business_manage_messages`、發布及其他權限仍為「新增」。未假設Meta內部綁定原因。
+- [x] Codex以已登入瀏覽器唯讀回到Instagram Login設定並開啟「設定Instagram商家登入」；只在尚未提交的表單填入`https://life-manager-staging.life-manager.workers.dev/oauth/instagram/callback`，逐字核對相符且「儲存」已啟用，尚未按「儲存」。
+- [x] 使用者只按一次「儲存」後，第4步顯示綠色完成並產生Instagram商家登入URL；Webhook欄位仍空白、App仍未發佈、未提交App Review。
+- [x] Codex唯讀開啟「商家登入設定」確認OAuth callback已保存；「取消授權回呼網址」與「資料刪除要求網址」為空且沒有必填標記，只有提交App Review前才要求提供，因此自用Standard Access階段維持空白，不填假網址。
+- [x] Codex唯讀檢查「角色」頁只提供一般App管理員／開發人員／測試人員，沒有另一個Instagram tester設定區；依Instagram Login頁與Meta Standard Access文件，下一步使用第2步「新增帳號」把本人專業帳號加入App Dashboard。
+- [x] 使用者完成Meta原生「新增帳號」流程；一個由本人管理的Instagram專業帳號已出現在第2步清單，尚未按「產生權杖」、未複製token，帳號名稱與平台ID未轉錄到聊天、Git或文件。
+- [x] Meta在帳號加入後自動把該列「Webhook訂閱」切成「開啟」；使用者只按一次該切換鈕後，Codex以已登入瀏覽器唯讀確認帳號列顯示「關閉」且`aria-checked=false`。本產品仍只有排程／手動唯讀同步，沒有新增Webhook接收端；「產生權杖」仍可見且未執行，第3步回呼網址與驗證權杖兩個可見欄位均空白，App也未發佈。
+- [x] 在Meta Developers建立App。
+- [x] 加入Instagram相關產品／設定。
+- [x] 貼入redirect URI。
+- [x] 將Instagram專業帳號加入可測試／管理範圍。
+- [x] 將Instagram應用程式編號以Cloudflare Secret `META_CLIENT_ID`輸入；第一次值錯置後已用Meta頁面16位純數字「Instagram應用程式編號」覆寫。第二次真實OAuth已從錯誤頁成功進入Instagram `/consent/`，證明更正值生效；實際值未記錄或貼入聊天。
+- [x] 將Instagram應用程式密鑰以Cloudflare Secret `META_CLIENT_SECRET`輸入；2026-08-11遠端唯讀`secret list`確認名稱存在且型別為`secret_text`，未讀取或輸出值。兩個Meta Secret與既有Access／Google／token加密金鑰名稱同時存在。
+- [x] 在已開啟的Codex瀏覽器完成Cloudflare Access本人登入；真實staging `/integrations`正常載入，左下為`0 待同步`，Instagram顯示「等待設定／尚未授權專業帳號」及「開始正式授權」，沒有紅色錯誤。email與登入碼未進入聊天。
+- [x] Codex只按一次Instagram「開始正式授權」；導向`www.instagram.com/oauth/authorize`後顯示「很抱歉，此頁面無法使用」，沒有出現App名稱、帳號選擇、權限或同意按鈕，也沒有callback。去敏參數核對確認scope、redirect、response type、state及PKCE結構存在，但實際`client_id`格式與Meta頁面Instagram應用程式編號不符，因此此步是失敗證據，不等於完成授權。
+- [x] 更正`META_CLIENT_ID`後由Codex重新開始Instagram授權；第二次導向成功顯示`Life Manager Personal-IG`正式同意頁，只列出「查看個人檔案和使用影音素材（必要）」與「存取和管理洞察報告」，並明示長期存取；沒有發布、留言、訊息或廣告能力。尚未按「允許／取消」。
+- [x] 使用者本人核對上述App與兩項權限後按「允許」；staging已成功交換授權碼，但隨後profile讀取回`PROVIDER_ERROR`／`IGApiException`，沒有建立connection，故不符合成功判據。官方文件要求`GET /me?fields=user_id,username,...`，現有adapter則使用`/{userId}?fields=id,...`；此runtime契約缺口已修正並由unit及D1固定答案覆蓋。一次性callback code/state不保存、不重播。
+- [x] Codex完成profile修正版完整本機閘門：lint、雙typecheck、43/43 unit、22/22 Worker／D1、client build、13個隔離schema 10 D1 Playwright、正式碼／Secret／skip掃描及diff check均exit 0；requirement gate僅依法拒絕仍為`IN_PROGRESS`的`SOC-010`／`SETUP-004`。Playwright一次Wrangler程序中斷由既定全新D1重試後通過，沒有重試產品斷言或接觸staging D1。
+- [x] Codex已將profile修正版部署至staging：Wrangler exit 0，新版本`8de3abfb-a682-40dc-b308-d6290d7a7ae6`為100%流量；六個必要Secret名稱／型別與既定binding完整、remote migration無待套用、未登入health 302。沒有migration或Secret值讀取。
+- [x] Codex已在既有Access session以新state完成Instagram正式同意與callback；外部連線頁回到`connected=1`，卡片顯示本人專業帳號、`CONNECTED`、無錯誤及「立即同步」。OAuth callback／profile必要回歸已完成；未記錄token、帳號識別值或一次性code/state。
+- [x] AT-IG-01與AT-IG-02必要回歸：Access限制、既定兩項scope、callback、`/me` profile及`user_id`正式帳號識別均有真實／固定答案證據；普通帳號或權限不足的官方錯誤路徑未被假設為成功，也未建立假帳號。
+- [x] Codex已部署本線Instagram budget fix，staging版本`2342cd82-9788-47f8-8c87-a0826003d534`為100%流量；remote migration list回報`No migrations to apply!`。兩次真實同步均`SUCCEEDED`並回到connection=`CONNECTED`、job=`READY`／attempt 0：首輪`SCHEDULED`為fetched 43／created 51／updated 0／ignored 10，次輪`MANUAL`為fetched 43／created 0／updated 51／ignored 10；每輪43筆raw與run link、每輪40篇內容各280筆Insights snapshot，50篇內容均已保存，第二輪補入首輪未選的10篇且兩輪重疊30篇。兩輪後560筆snapshot semantic key唯一，AT-IG-03～05與前述AT-IG-01～02必要回歸全部通過；token僅以AES-GCM-256密文保存。第一次舊版本同步失敗的`ERROR`／`RETRY`紀錄保留為歷史證據，未覆寫成成功。
 
 若Meta要求額外Review但此App只服務使用者自己管理的專業帳號，Codex應先依官方Standard Access／app role方式完成測試；不得假設需要對外公開服務。
 
