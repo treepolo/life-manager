@@ -160,7 +160,7 @@ Codex先提供：
 
 ## SETUP-005　Resend電子郵件
 
-目前狀態：`IN_PROGRESS`（2026-08-11，D線 `codex/accept-resend`；使用者已確認Resend帳號建立，現在進入下一個真人操作）。
+目前狀態：`IN_PROGRESS`（2026-08-12，D線 `codex/accept-resend`；使用者已確認Resend帳號建立及兩個Secret輸入，現在進入下一個真人操作）。
 
 本次真實驗收仍精確缺少：
 

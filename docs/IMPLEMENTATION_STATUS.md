@@ -101,6 +101,7 @@
 - 本線需求：`DDL-009`、`SETUP-005`、`AT-MAIL-01`；免費額度證據支援`AT-OPS-02`，最終由`AT-GATE-08`判定。開工時兩個需求由`AWAITING_USER_SETUP`轉為`IN_PROGRESS`；使用者已確認Resend帳號建立，故目前維持`IN_PROGRESS`並只追蹤剩餘Secret／from／本人收件／真實寄送缺口；`AT-MAIL-01`尚未通過，不提前標示完成。
 - 開工與自動驗證現況：Resend adapter、`notification_deliveries` delivery log、D1唯一`dedupe_key`、Resend `Idempotency-Key`、失敗`RETRY`與設定缺失邊界已存在；本線已補齊Resend測試信標示與安全錯誤映射。`tests/unit/resend.test.ts` 5/5、`tests/worker/resend-d1.test.ts` 1/1、完整unit 15 files／47 tests、完整Worker/D1 2 files／22 tests、lint、兩個typecheck、client build、secret／placeholder掃描均通過。
 - 精確外部阻擋：Resend帳號已由使用者確認建立，staging `RESEND_API_KEY`／`RESEND_FROM`均已存在且只核對名稱／`secret_text`型別；App通知偏好尚未以受Access保護的流程保存本人收件地址；尚未有本人實際收到測試信、信件內容與delivery log成功列的對應證據。任何敏感值不由Codex讀取或輸出。
+- 2026-08-12外部進度：使用者已完成兩次互動式Secret輸入；`wrangler secret list --env staging`只讀回報`RESEND_API_KEY`與`RESEND_FROM`各為`secret_text`，未讀取值。下一個單一步驟是透過Access保護的staging App保存本人收件地址。
 - 預定／實際修改：`src/integrations/resend/client.ts`、`tests/unit/resend.test.ts`、`tests/worker/resend-d1.test.ts`及本節列出的驗收文件；不修改Instagram、YouTube、Firstrade、Web Push、共用通知orchestration、`src/worker/scheduled`、期限UI／API、`wrangler.toml`或migration。
 - 預定驗收：固定測試信含期限名稱、級別、App連結及「這是使用者觸發的測試」；成功delivery保存`SENT`與provider message ID；失敗保存`RETRY`、去敏錯誤並保留重試；相同operation／dedupe不產生未定義重複寄送；掃描確認secret不出現在bundle、source map、console、export、Git或snapshot。
 - 共用E2E環境證據：完整Playwright腳本第一個desktop案例通過；第二個既有離線同步案例在Worker重啟後進入允許的全新D1重試，但本機同時有其他驗收線使用固定`4173`埠，重試程序卡住後停止。本項是共用E2E執行環境阻擋，不是Resend adapter缺陷；D線未修改共用同步／通知程式，也不以此宣稱`AT-MAIL-01`通過。
