@@ -183,10 +183,12 @@ Codex先提供：
 - [x] 以Cloudflare Secret `RESEND_FROM`輸入；使用網域時先完成Resend要求的寄件驗證；若採`onboarding@resend.dev`，只寄到Resend帳號本人地址。
 - [ ] 確認收件地址為Resend帳號本人信箱；若使用`resend.dev`不得寄到他人。
 - [x] 在Access保護的staging App「重要期限 → 通知偏好」保存本人收件地址，畫面只顯示已安全保存；不把地址提供給Codex。
-- [ ] 在App執行測試信；信件主旨／本文必須明確包含期限名稱、重要級別、App連結與「這是使用者觸發的測試」，且不得建立假期限；正式`OPEN`期限已具備。
+- [x] 在App執行測試信（2026-08-12；遠端delivery log已核對`EMAIL`／`USER_TEST`／`SENT`、attempt 1、provider message ID非空、錯誤欄位為空）；信件主旨／本文必須明確包含期限名稱、重要級別、App連結與「這是使用者觸發的測試」，且不得建立假期限；正式`OPEN`期限已具備。
 - [ ] 確認本人實際收到信；Codex只記錄去敏的接收判據、delivery狀態與provider message ID邊界，不記錄地址或完整本文，完成`AT-MAIL-01`。
 
 固定成功判據：Resend API回傳provider message ID；`notification_deliveries`保存一筆`EMAIL`／`USER_TEST`／`SENT`，`provider_message_id`非空，`error_code`與`error_message_redacted`為空；相同operation重送只回放既有結果且不新增delivery。錯誤時保存`RETRY`、去敏錯誤與attempt，API key／from／收件地址不出現在任何輸出。
+
+共用缺陷移交：本次delivery log已成功，但`notification_channels.last_success_at`仍為空，故UI通道摘要仍顯示「尚無成功發送紀錄」；此屬共用通知／scheduler摘要更新缺陷，D線不修改共用檔案。
 
 自動驗證基線（2026-08-11）：Resend unit 5/5、Worker/D1 Resend contract 1/1、完整unit 15 files／47 tests、完整Worker/D1 2 files／22 tests、lint、typecheck、client build及secret／placeholder掃描通過。完整共用Playwright受其他驗收線同時使用固定`4173`埠影響，未把該環境阻擋誤記為Resend真人驗收證據。
 
