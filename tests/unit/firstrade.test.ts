@@ -29,4 +29,20 @@ describe("Firstrade通用CSV adapter", () => {
     const rerun = await normalizeBrokerageRows(parsed, profile, "brokerage-account-1");
     expect(rerun.activities[0].stableDedupeKey).toBe(normalized.activities[0].stableDedupeKey);
   });
+
+  it("同檔完全相同來源列保留兩筆，重跑仍產生相同且不同的穩定鍵", async () => {
+    const duplicateCsv = "Date,Type,Description,Symbol,Quantity,Amount,Currency\n2026-04-16,BUY,Same source trade,MSTU,1,-5.71,USD\n2026-04-16,BUY,Same source trade,MSTU,1,-5.71,USD\n";
+    const parsed = await parseCsv(new TextEncoder().encode(duplicateCsv).buffer);
+    const profile = {
+      date: "Date", type: "Type", description: "Description", symbol: "Symbol", quantity: "Quantity", amount: "Amount", currency: "Currency",
+      typeMap: { BUY: "BUY" }, dateFormat: "AUTO", defaultCurrency: "USD", minorUnitScale: 2,
+    } as const;
+    const normalized = await normalizeBrokerageRows(parsed, profile, "brokerage-account-duplicate-source");
+    const rerun = await normalizeBrokerageRows(parsed, profile, "brokerage-account-duplicate-source");
+    expect(normalized.errors).toEqual([]);
+    expect(normalized.activities).toHaveLength(2);
+    expect(normalized.activities[0].rowHash).toBe(normalized.activities[1].rowHash);
+    expect(normalized.activities[0].stableDedupeKey).not.toBe(normalized.activities[1].stableDedupeKey);
+    expect(rerun.activities.map((activity) => activity.stableDedupeKey)).toEqual(normalized.activities.map((activity) => activity.stableDedupeKey));
+  });
 });
