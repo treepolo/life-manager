@@ -525,5 +525,5 @@
 - 只讀 Cloudflare 核對：staging version `26d3ca9b-c910-452b-b3aa-f6a8c59b9450` 為 100% active；remote migration 為 `No migrations to apply!`；版本 binding metadata 顯示 Worker public VAPID var 為 `plain_text`、private／subject 為 `secret_text`，只核對名稱／型別，沒有讀取或輸出任何值。
 - 現有 Access session 已可用；staging 期限頁成功顯示「重要期限與多通道警告」，沒有紅色 API／載入錯誤。使用者已準備一筆正式 `OPEN` 期限，頁面已出現「測試發送」入口；目前仍為「尚無 Web Push 裝置訂閱」，沒有觸發任何 POST 或建立假訂閱。
 - 使用者已完成真實電腦授權／啟用；D1 只讀聚合顯示 Push `ACTIVE` 訂閱 1 筆、成功／錯誤紀錄皆為 0，`WEB_PUSH` channel 為 enabled／`READY`、成功／錯誤紀錄皆為 0，查詢未寫入資料。瀏覽器原始 handoff 分頁未能重新取得，因此不以新分頁空狀態冒充 UI 證據。
-- 使用者提供的真實電腦畫面證據顯示已收到測試通知；App 顯示 Web Push channel `READY`、裝置 `ACTIVE`、最近成功時間及測試結果成功 1／失敗 0。D1 只讀聚合同步確認訂閱 `ACTIVE` 1／成功 1／錯誤 0，channel `WEB_PUSH=READY` 且有最近成功，`WEB_PUSH` delivery `SENT` 1／錯誤 0；查詢未寫入資料。
-- 外部阻擋：電腦真人收件已完成；仍待手機授權／訂閱／實收、每裝置 last success/error 與獨立停用。`DDL-008`／`SETUP-006`／`AT-PUSH-01` 維持 `IN_PROGRESS`，不執行 `AT-GATE-08`。
+- 使用者提供的真實電腦畫面證據顯示已收到測試通知；App 顯示 Web Push channel `READY`、裝置 `ACTIVE`、最近成功時間及測試結果成功 1／失敗 0。使用者另確認真實手機已允許並收到測試通知。D1 只讀聚合同步確認訂閱 2／不同 device 2／ACTIVE 2，兩台都有成功紀錄、錯誤 0，channel `WEB_PUSH=READY` 且有最近成功，`WEB_PUSH` delivery `SENT` 9／錯誤 0；查詢未寫入資料。
+- 外部阻擋：兩台真人授權、訂閱與收件已完成；仍待停用其中一台後確認另一台不受影響、每裝置狀態讀回與最後獨立測試。`DDL-008`／`SETUP-006`／`AT-PUSH-01` 維持 `IN_PROGRESS`，不執行 `AT-GATE-08`。
