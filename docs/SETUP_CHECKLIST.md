@@ -272,7 +272,8 @@ Codex先提供：
 - [x] 唯讀核對 staging version `26d3ca9b-c910-452b-b3aa-f6a8c59b9450` 為 100% active，remote migration 為 `No migrations to apply!`；VAPID binding 只核對名稱／型別，不讀取 secret 值。
 - [x] 現有 Access session 可載入期限頁；頁面顯示「重要期限與多通道警告」且無紅色 API／載入錯誤。
 - [x] 使用者已在 staging 準備一筆真實正式 `OPEN` 期限；期限清單已出現該期限且「測試發送」入口可用，未建立示範資料。
-- [ ] 真實電腦、真實手機的瀏覽器／系統通知授權、收件、last success/error 與獨立停用。
+- [x] 使用者已完成真實電腦瀏覽器／系統通知授權與啟用；D1 唯讀聚合顯示 1 筆 `ACTIVE` 訂閱、`WEB_PUSH` channel 為 `READY`，尚無成功／錯誤紀錄。
+- [ ] 真實電腦測試 Push 實收；真實手機授權／訂閱／實收；last success/error 與獨立停用。
 
 ## SETUP-007　Firstrade CSV
 

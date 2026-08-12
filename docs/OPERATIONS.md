@@ -210,7 +210,7 @@ App內：
 
 - C 使用最新 A 整合 staging version `26d3ca9b-c910-452b-b3aa-f6a8c59b9450`；唯讀 deployment status 為 100% active，remote migration 為 `No migrations to apply!`。C 未部署、未執行 migration、未讀取 secret 值。
 - 目前 Access session 可載入期限頁；「重要期限與多通道警告」可見且沒有紅色 API／載入錯誤。使用者已準備一筆正式 `OPEN` 期限，頁面已出現「測試發送」入口；Push 訂閱仍為空，符合尚未授權裝置時不得補示範資料的規則。
-- 這個 smoke 尚未宣稱真人 Push 通過；C 下一步依 SETUP-006 先要求真實電腦完成一次授權／訂閱，再進行手機、測試通知、逐裝置狀態、通道摘要與 delivery log 核對。
+- 這個 smoke 尚未宣稱真人 Push 通過；使用者已完成真實電腦授權／訂閱，D1 唯讀聚合顯示 1 筆 `ACTIVE`、`WEB_PUSH=READY`，但尚無 delivery／last success/error。C 下一步依 SETUP-006 只觸發一次電腦測試通知，再進行手機、逐裝置狀態、通道摘要與 delivery log 核對。
 
 ## OPS-010　W-8BEN與報稅提醒排程
 

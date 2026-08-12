@@ -249,7 +249,7 @@ W-8BEN與報稅範本固定最高級；可編輯日期及說明但不能降級�
 
 N線自動固定答案（2026-08-12）：`tests/worker/notifications-writeback-d1.test.ts`以兩個有效訂閱驗證同一 shared test-send operation 只送一次；裝置A收到provider 410時保存`EXPIRED`／`PUSH_SUBSCRIPTION_EXPIRED`，裝置B成功時保存`ACTIVE`／`last_success_at`，共用Web Push channel仍為`READY`且成功摘要可讀回；`GET /api/v1/push-subscriptions`回傳兩台逐裝置狀態。空訂閱回傳`PUSH_SUBSCRIPTION_MISSING`且API為空陣列，不產生示範資料。此為自動化與API/UI資料路徑證據，不取代A部署後由C執行的兩台真人收件、獨立停用與瀏覽器通知授權；本驗收維持`IN_PROGRESS`。
 
-C線 final acceptance checkpoint（2026-08-12）：Access session 下的期限頁唯讀載入成功，標題為「重要期限與多通道警告」且無紅色 API／載入錯誤；使用者已準備一筆正式 `OPEN` 期限，頁面已出現「測試發送」入口，但仍為空 Push 訂閱狀態，尚未觸發任何 POST。下一步依固定流程由真實電腦先完成授權／訂閱，再驗收手機、測試通知、逐裝置狀態讀回及獨立停用；`AT-PUSH-01` 維持 `IN_PROGRESS`。
+C線 final acceptance checkpoint（2026-08-12）：Access session 下的期限頁唯讀載入成功，標題為「重要期限與多通道警告」且無紅色 API／載入錯誤；使用者已準備一筆正式 `OPEN` 期限並完成真實電腦授權／啟用。D1 唯讀聚合確認 1 筆 `ACTIVE` 訂閱與 `WEB_PUSH=READY`，尚無成功／錯誤紀錄；尚未宣稱電腦實收。下一步依固定流程只觸發一次電腦測試通知，再驗收手機、逐裝置狀態讀回及獨立停用；`AT-PUSH-01` 維持 `IN_PROGRESS`。
 
 ### AT-MAIL-01　真實郵件
 
