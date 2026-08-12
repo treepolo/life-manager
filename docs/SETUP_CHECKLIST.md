@@ -220,7 +220,7 @@ Codex先提供：
 
 固定成功判據：Resend API回傳provider message ID；`notification_deliveries`保存一筆`EMAIL`／`USER_TEST`／`SENT`，`provider_message_id`非空，`error_code`與`error_message_redacted`為空；相同operation重送只回放既有結果且不新增delivery。錯誤時保存`RETRY`、去敏錯誤與attempt，API key／from／收件地址不出現在任何輸出。
 
-共用缺陷移交：本次delivery log已成功，但`notification_channels.last_success_at`仍為空，故UI通道摘要仍顯示「尚無成功發送紀錄」；此屬共用通知／scheduler摘要更新缺陷，D線不修改共用檔案。
+基準版本的共用缺陷移交：本次delivery log已成功，但當時部署的`notification_channels.last_success_at`仍為空，故UI通道摘要仍顯示「尚無成功發送紀錄」；此屬共用通知／scheduler摘要更新缺陷。N線已在本分支修正並加入自動回歸證據；尚未部署到staging，因此本設定的真人阻擋仍有效。
 
 自動驗證基線（2026-08-11）：Resend unit 5/5、Worker/D1 Resend contract 1/1、完整unit 15 files／47 tests、完整Worker/D1 2 files／22 tests、lint、typecheck、client build及secret／placeholder掃描通過。完整共用Playwright受其他驗收線同時使用固定`4173`埠影響，未把該環境阻擋誤記為Resend真人驗收證據。
 

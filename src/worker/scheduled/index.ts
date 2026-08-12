@@ -2,6 +2,7 @@ import { decryptSecret } from "@/core/crypto/secrets";
 import { newId, nowIso } from "@/core/database/d1";
 import { localDateAt } from "@/core/time/taipei";
 import { sendDeadlineEmail } from "@/integrations/resend/client";
+import { recordNotificationDeliveryOutcome } from "@/modules/notifications/persistence";
 import { planDeadlineDeliveries } from "@/modules/notifications/scheduler";
 import { sendDeadlinePush } from "@/modules/notifications/push";
 import { recoverStaleProviderSyncs, syncProviderConnection } from "@/worker/api/provider-sync";
@@ -48,15 +49,6 @@ async function createDelivery(env: Env, input: {
   return { id, inserted: (result.meta.changes ?? 0) > 0 };
 }
 
-async function markDelivery(env: Env, id: string, status: "SENT" | "RETRY", providerMessageId: string | null, error: unknown): Promise<void> {
-  const message = error instanceof Error ? error.message.slice(0, 240) : null;
-  await env.LIFE_DB.prepare(
-    `UPDATE notification_deliveries SET status = ?, provider_message_id = ?, attempt = attempt + 1,
-     error_code = ?, error_message_redacted = ?, sent_at = CASE WHEN ? = 'SENT' THEN ? ELSE sent_at END,
-     updated_at = ? WHERE id = ?`,
-  ).bind(status, providerMessageId, error ? "DELIVERY_FAILED" : null, message, status, nowIso(), nowIso(), id).run();
-}
-
 async function processDeadlineNotifications(env: Env, requestId: string, now: Date): Promise<{ sent: number; retries: number; deduped: number }> {
   const preference = await env.LIFE_DB.prepare(
     "SELECT timezone, local_send_time, repeat_interval_hours, confirmed_at, email_recipient_encrypted FROM notification_preferences ORDER BY updated_at DESC LIMIT 1",
@@ -99,7 +91,8 @@ async function processDeadlineNotifications(env: Env, requestId: string, now: Da
       if (!delivery.inserted) { deduped++; continue; }
       try {
         if (plan.channel === "IN_APP") {
-          await markDelivery(env, delivery.id, "SENT", null, null);
+          await recordNotificationDeliveryOutcome({ db: env.LIFE_DB, deliveryId: delivery.id, channel: plan.channel, subscriptionId: null,
+            status: "SENT", providerMessageId: null, error: null, now: now.toISOString() });
         } else if (plan.channel === "EMAIL") {
           const recipient = preference.email_recipient_encrypted
             ? await decryptSecret(preference.email_recipient_encrypted, env.TOKEN_ENCRYPTION_KEY)
@@ -110,7 +103,8 @@ async function processDeadlineNotifications(env: Env, requestId: string, now: Da
             importanceLabel: deadline.importance === "SUPER_CRITICAL" ? "超級無敵重要" : "超級重要",
             applicationUrl: `${applicationUrl.replace(/\/$/, "")}/deadlines`, idempotencyKey: dedupeKey,
           });
-          await markDelivery(env, delivery.id, "SENT", result.providerMessageId, null);
+          await recordNotificationDeliveryOutcome({ db: env.LIFE_DB, deliveryId: delivery.id, channel: plan.channel, subscriptionId: null,
+            status: "SENT", providerMessageId: result.providerMessageId, error: null, now: now.toISOString() });
         } else if (target) {
           await sendDeadlinePush({
             subscription: {
@@ -128,11 +122,13 @@ async function processDeadlineNotifications(env: Env, requestId: string, now: Da
             importance: deadline.importance,
             url: `${applicationUrl.replace(/\/$/, "")}/deadlines`,
           });
-          await markDelivery(env, delivery.id, "SENT", null, null);
+          await recordNotificationDeliveryOutcome({ db: env.LIFE_DB, deliveryId: delivery.id, channel: plan.channel, subscriptionId: target.id,
+            status: "SENT", providerMessageId: null, error: null, now: now.toISOString() });
         }
         sent++;
       } catch (error) {
-        await markDelivery(env, delivery.id, "RETRY", null, error);
+        await recordNotificationDeliveryOutcome({ db: env.LIFE_DB, deliveryId: delivery.id, channel: plan.channel,
+          subscriptionId: target?.id ?? null, status: "RETRY", providerMessageId: null, error, now: now.toISOString() });
         retries++;
       }
     }
@@ -174,19 +170,23 @@ export async function sendDeadlineNotificationTest(input: {
         const result = await sendDeadlineEmail({ apiKey: input.env.RESEND_API_KEY, from: input.env.RESEND_FROM, to: recipient,
           deadlineName: deadline.name, importanceLabel: deadline.importance === "SUPER_CRITICAL" ? "超級無敵重要" : "超級重要",
           applicationUrl, idempotencyKey: dedupeKey });
-        await markDelivery(input.env, delivery.id, "SENT", result.providerMessageId, null);
+        await recordNotificationDeliveryOutcome({ db: input.env.LIFE_DB, deliveryId: delivery.id, channel: input.channel, subscriptionId: null,
+          status: "SENT", providerMessageId: result.providerMessageId, error: null, now });
       } else if (input.channel === "WEB_PUSH" && target) {
         await sendDeadlinePush({ subscription: { endpoint: await decryptSecret(target.endpoint_encrypted, input.env.TOKEN_ENCRYPTION_KEY), expirationTime: null,
           keys: { p256dh: await decryptSecret(target.p256dh_encrypted, input.env.TOKEN_ENCRYPTION_KEY), auth: await decryptSecret(target.auth_encrypted, input.env.TOKEN_ENCRYPTION_KEY) } },
           publicKey: input.env.WEB_PUSH_VAPID_PUBLIC_KEY, privateKey: input.env.WEB_PUSH_VAPID_PRIVATE_KEY, subject: input.env.WEB_PUSH_VAPID_SUBJECT,
           deadlineName: deadline.name, importance: deadline.importance, url: applicationUrl });
-        await markDelivery(input.env, delivery.id, "SENT", null, null);
+        await recordNotificationDeliveryOutcome({ db: input.env.LIFE_DB, deliveryId: delivery.id, channel: input.channel, subscriptionId: target.id,
+          status: "SENT", providerMessageId: null, error: null, now });
       } else {
-        await markDelivery(input.env, delivery.id, "SENT", null, null);
+        await recordNotificationDeliveryOutcome({ db: input.env.LIFE_DB, deliveryId: delivery.id, channel: input.channel, subscriptionId: null,
+          status: "SENT", providerMessageId: null, error: null, now });
       }
       sent++;
     } catch (error) {
-      await markDelivery(input.env, delivery.id, "RETRY", null, error);
+      await recordNotificationDeliveryOutcome({ db: input.env.LIFE_DB, deliveryId: delivery.id, channel: input.channel,
+        subscriptionId: target?.id ?? null, status: "RETRY", providerMessageId: null, error, now });
       failed++;
     }
   }

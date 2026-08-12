@@ -17,6 +17,7 @@ import { financeAnalysis, netWorthAnalysis, netWorthTrend } from "@/modules/fina
 import { financeAnalysisQuerySchema } from "@/modules/finance/schema";
 import { evaluateFormula, formulaMetricKeys, parseFormula } from "@/modules/metrics/formula/engine";
 import { formulaDefinitionInputSchema } from "@/modules/metrics/schema";
+import { notificationChannelOutputSchema, pushSubscriptionStatusOutputSchema } from "@/modules/notifications/schema";
 import { socialComparisonQuery } from "@/modules/social/query";
 import { completeTask, deferTask, listTodayActions } from "@/modules/tasks/service";
 import { handleCrudRoute } from "@/worker/api/crud";
@@ -471,7 +472,8 @@ export async function handleApi(input: {
   if (path === "/api/v1/notifications/preferences" && input.request.method === "POST") return saveNotificationPreferences(input.request, input.env, input.requestId);
   if (path === "/api/v1/notifications/channels" && input.request.method === "GET") {
     const rows = await input.env.LIFE_DB.prepare("SELECT channel_kind, enabled, status, last_success_at, last_error_code, last_error_message_redacted, version FROM notification_channels ORDER BY channel_kind").all();
-    return Response.json({ data: rows.results, meta: { requestId: input.requestId } });
+    const data = notificationChannelOutputSchema.array().parse(rows.results);
+    return Response.json({ data, meta: { requestId: input.requestId } });
   }
   if (path === "/api/v1/notifications/test" && input.request.method === "POST") {
     const body = z.object({ operationId: operationIdSchema, data: z.object({ deadlineId: identifierSchema, channel: z.enum(["IN_APP", "WEB_PUSH", "EMAIL"]) }) }).parse(await jsonBody(input.request));
@@ -482,6 +484,20 @@ export async function handleApi(input: {
     await input.env.LIFE_DB.prepare("INSERT INTO api_idempotency (operation_id, request_hash, resource_type, resource_id, response_status, response_json, created_at) VALUES (?, ?, 'notification-test', ?, 200, ?, ?)")
       .bind(body.operationId, await sha256(JSON.stringify(body.data)), body.data.deadlineId, JSON.stringify(response), now).run();
     return Response.json(response);
+  }
+  if (path === "/api/v1/push-subscriptions" && input.request.method === "GET") {
+    const rows = await input.env.LIFE_DB.prepare(
+      `SELECT id, device_id, user_agent_summary, status, last_success_at, last_error_code, disabled_at, updated_at, version
+       FROM (
+         SELECT id, device_id, user_agent_summary, status, last_success_at, last_error_code, disabled_at, updated_at, version,
+                ROW_NUMBER() OVER (PARTITION BY device_id ORDER BY updated_at DESC, created_at DESC, id DESC) AS row_number
+         FROM push_subscriptions
+       )
+       WHERE row_number = 1
+       ORDER BY device_id`,
+    ).all();
+    const data = pushSubscriptionStatusOutputSchema.array().parse(rows.results);
+    return Response.json({ data, meta: { requestId: input.requestId } });
   }
   if (path === "/api/v1/push-subscriptions" && input.request.method === "POST") return savePushSubscription(input.request, input.env, input.requestId);
   if (path === "/api/v1/push-subscriptions/disable" && input.request.method === "POST") {

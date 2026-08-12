@@ -74,6 +74,15 @@ describe("Resend email adapter", () => {
     expect((error as Error).message).not.toContain(baseInput.apiKey);
   });
 
+  it("成功HTTP回應缺少provider message ID時不得記為成功", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({}), { status: 200 })));
+    await expect(sendDeadlineEmail({ ...baseInput, idempotencyKey: "test:missing-provider-id" })).rejects.toMatchObject({
+      status: 502,
+      code: "PROVIDER_ERROR",
+      details: { providerCode: "HTTP_200" },
+    });
+  });
+
   it("非JSON或網路錯誤仍轉成固定去敏provider錯誤", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response("upstream unavailable", { status: 503 })));
     await expect(sendDeadlineEmail({ ...baseInput, idempotencyKey: "test:non-json" })).rejects.toMatchObject({
