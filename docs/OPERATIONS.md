@@ -188,6 +188,12 @@ App內：
 
 公開設定使用vars：`OAUTH_CALLBACK_BASE_URL`、`OAUTH_STATE_TTL_MINUTES`、`WEB_PUSH_VAPID_PUBLIC_KEY`；瀏覽器build另使用`VITE_VAPID_PUBLIC_KEY`。`OAUTH_STATE_TTL_MINUTES`目前為60，程式只接受10至120分鐘整數；state仍為一次性、使用隨機值與S256 PKCE且逾時即拒絕。真實收件地址由Access保護的App設定頁送入後以`TOKEN_ENCRYPTION_KEY`加密保存，不放vars、Markdown或Git。
 
+### C線 Web Push staging驗收邊界（2026-08-11）
+
+`SETUP-006`只使用`life-manager-staging`與`https://life-manager-staging.life-manager.workers.dev/deadlines`。VAPID private key／subject只能以Cloudflare Secret輸入；`WEB_PUSH_VAPID_PUBLIC_KEY`是Worker公開var，`VITE_VAPID_PUBLIC_KEY`是client build時的公開環境變數，兩者必須完全一致。核對時只輸出名稱、型別或布林結果，不輸出任何secret／subject／endpoint／subscription key值；client bundle可以包含public key，但不得包含private key或secret值。
+
+本線已在乾淨`master` worktree完成Push service worker、build stamp、秘密邊界與D1契約的本機核對；尚未以未授權Access回應宣稱staging資產或真人裝置通過。每台真實手機／電腦需分開完成授權、訂閱、測試通知與停用後另一台仍可收件，固定操作步驟見`SETUP_CHECKLIST.md`的`SETUP-006`。目前共用scheduler只更新delivery結果，未回寫`push_subscriptions.last_success_at`／錯誤欄位，且現有通知頁只讀channel聚合；這會阻擋「每裝置最後成功／錯誤狀態」驗收，依分線規則交由共用通知／scheduler負責線處理，C線不得直接修改。
+
 ## OPS-010　W-8BEN與報稅提醒排程
 
 - 使用一個全域通知時間與重複間隔，預設值需在首次設定時由使用者確認。

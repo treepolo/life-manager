@@ -76,7 +76,7 @@
 | DDL-005 | VERIFIED | 全站/Home警告UI | 不需 | 最高級中斷式、重要級持續顯示 | 無 |
 | DDL-006 | VERIFIED | W-8BEN schema/UI | `0005_deadlines_notifications.sql` | 2026-04-18→2029-12-31；確認日與試算並存 | 無 |
 | DDL-007 | VERIFIED | tax template/parent child UI | `0005_deadlines_notifications.sql` | 子任務不另啟全站／排程警告 | 無 |
-| DDL-008 | AWAITING_USER_SETUP | Web Push encryption/scheduler/device UI | `0005_deadlines_notifications.sql` | 兩裝置密文訂閱與獨立停用D1契約 | 等待真實手機、電腦權限與接收 |
+| DDL-008 | IN_PROGRESS | Web Push encryption/scheduler/device UI | `0005_deadlines_notifications.sql`；本線不新增或修改migration | `tests/worker/api-d1.test.ts`兩裝置密文訂閱／獨立停用契約通過；乾淨C線已核對`public/sw.js` Push handler、build stamp與秘密邊界，待完成VAPID staging、手機／電腦真實訂閱、測試Push、每裝置最後成功／錯誤與獨立停用驗收 | 外部阻擋：Cloudflare Wrangler登入已過期，尚未完成staging VAPID Secret／public var／client build設定；尚未完成Access授權；尚未完成真實手機瀏覽器／系統通知授權與接收；尚未完成真實電腦瀏覽器／系統通知授權與接收。另發現`src/worker/scheduled/index.ts`未回寫每個Push訂閱成功／錯誤欄位、現有通知頁只顯示channel聚合；屬共用scheduler／期限通知狀態缺陷，依分線規則移交，不在C線搶修；未完成前不得標`VERIFIED` |
 | DDL-009 | AWAITING_USER_SETUP | `src/integrations/resend`, delivery log/test UI | `0005_deadlines_notifications.sql` | adapter、去重、錯誤/重試與secret邊界完成 | 等待Resend key、from及真實收件 |
 | OFF-001 | VERIFIED | manifest、`public/sw.js`、App shell、`src/app/providers/PwaUpdate.tsx`、`src/styles.css`、`scripts/stamp-service-worker.mjs`、`scripts/build-client.mjs` | 不需；本輪不修改D1 migration | app shell內容SHA-256版本、network-first／離線fallback、`updateViaCache: none`、outbox安全接管固定答案；320／390／768／1366／1920五viewport均驗證提示固定在初始可視範圍且手機避開同步列。staging outbox 0時安全更新一次，自動reload後正式CSS為`position: fixed`／`z-index: 30`，資料未清除 | 無 |
 | OFF-002 | VERIFIED | IndexedDB entities/query cache | 不需 | offline-sync unit、Playwright快取資料 | 無 |
@@ -113,8 +113,21 @@
 | 外部設定 | SETUP-002 | VERIFIED | 獨立staging D1／Worker、migration 8、部署版本、未授權302、JWK 200、本人health 200、單一Allow政策及電腦／手機實體App全部通過 | 無；跨裝置資料同步另由`OFF-005`追蹤，不混入本設定閘門 |
 | 外部設定 | SETUP-003 | VERIFIED | Google Project、OAuth client、必要Worker Secret、真實callback、本人頻道、Studio 26天精確核對、Google App「實際運作中」、撤銷／Cron失敗隔離／重連、refresh token續期均通過；2026-08-10版本14安全更新與新版pending UI、MANUAL成功、四類有序per-run raw、snapshot provenance／唯一性、job與財務隔離全數通過 |
 | 外部設定 | SETUP-004 | VERIFIED | Meta App、兩項最小permission、staging callback、本人專業帳號、關閉越界Webhook、兩個Secret、本人同意與OAuth callback/profile connection均已完成；第3步Webhook欄位空白、Review／發佈未啟用符合自用Standard Access範圍。budget fix已部署，兩次真實Instagram同步成功，AT-IG-01～05、raw／run link／snapshot、冪等及輪替證據完整；不需migration | A線完成；不涉及production資源或SETUP-009 |
-| 外部設定 | SETUP-001, SETUP-005, SETUP-006, SETUP-008, SETUP-009 | AWAITING_USER_SETUP | `docs/SETUP_CHECKLIST.md`已填名稱、路徑、secret與驗證；待各自真實帳號、裝置或production階段 |
+| 外部設定 | SETUP-001, SETUP-005, SETUP-008, SETUP-009 | AWAITING_USER_SETUP | `docs/SETUP_CHECKLIST.md`已填名稱、路徑、secret與驗證；待各自真實帳號、裝置或production階段 |
 | 外部設定 | SETUP-007 | AWAITING_USER_SETUP | `docs/SETUP_CHECKLIST.md`已記錄官方匯出、遮蔽副本位置、不可提交邊界、staging App預覽與Firstrade官方紀錄證據；正式staging D1 SQL／App完整JSON備份已完成並有bytes／SHA-256／JSON checksum證據；修正版staging版本`7d7171c5-7be9-49c8-a28b-e7e0b2dfbe18`已部署並完成唯讀smoke | 遮蔽副本已放置且預覽顯示486列／0錯誤；下一步唯一人工操作為正式匯入，之後才核對App畫面金額合計完成AT-INV-05；未遮蔽原檔與完整JSON不得交給Codex、進Git、進log、snapshot或文件 |
+| 外部設定 | SETUP-006 | IN_PROGRESS | `docs/SETUP_CHECKLIST.md`、`docs/OPERATIONS.md`、staging Worker／build設定與Push專屬裝置驗收 | VAPID private key／subject只進Cloudflare Secret；public key一致性與bundle／source map／log／export／Git掃描尚待staging設定；手機與電腦真實授權、測試通知、每裝置最後成功／錯誤及獨立停用尚待真人操作；共用scheduler狀態回寫缺陷已列為移交阻擋；未完成前維持`IN_PROGRESS` |
+
+### 2026-08-11 C線 Web Push 真實驗收開工
+
+- 工作樹：從乾淨`master` HEAD建立`D:\人生管理器-wt-web-push`，branch為`codex/accept-web-push`；未帶入A線Instagram diff。本線不修改production `SETUP-009`、migration或Instagram／YouTube／Firstrade／Resend adapter。
+- 本機證據：`npm run lint`與`npm run typecheck`通過；unit 21/21、Worker/D1 21/21通過；`npm run build:client`產生service worker build version `8055cdeccb4bff11`；第二次`npm run test:e2e`全套13/13 Playwright案例通過（第一次僅因本地Wrangler未在30秒內就緒而停止，未改共用E2E runner，重跑時一個Wrangler內部錯誤由既有runner以全新D1重試後通過）。乾淨source的`public/sw.js`包含Push與notification click handler；D1契約確認兩裝置endpoint以密文保存、停用一台不影響另一台。建置與掃描不得把VAPID private key／subject或其他secret放入bundle、source map、log、export或Git。
+- staging只讀核對：未帶Access session請求收到Cloudflare Access登入頁，不能用作Web Push資產或真人收件證據；目前沒有在本線寫入VAPID Secret／public var，也沒有部署乾淨C線版本，避免覆蓋A／D線共用staging。
+- 共用缺陷移交：`src/worker/scheduled/index.ts`與`sendDeadlineNotificationTest`目前只建立／更新`notification_deliveries`，沒有把每個Push訂閱的`last_success_at`、`last_error_code`及狀態回寫；`/api/v1/notifications/channels`與`DeadlinesPage.tsx`只顯示WEB_PUSH channel聚合。這直接阻擋完成條件「App顯示各裝置最後成功時間及錯誤狀態」，且缺陷位於共用scheduler／期限通知UI/API；C線停止共用檔案修改，交由共用通知／scheduler負責線處理。
+- 外部阻擋：尚未完成staging VAPID key pair與三項設定的一致性核對；尚未完成真實手機授權／訂閱／測試Push／停用；尚未完成真實電腦授權／訂閱／測試Push／停用。兩台裝置必須分開驗收，未完成前`DDL-008`、`SETUP-006`與`AT-PUSH-01`不得標`VERIFIED`。
+
+| 驗收ID | 狀態 | 證據／固定答案 | 阻擋 |
+|---|---|---|---|
+| AT-PUSH-01 | IN_PROGRESS | `tests/worker/api-d1.test.ts`已證明雙裝置密文訂閱與獨立停用；`docs/SETUP_CHECKLIST.md`已列staging設定、手機／電腦逐步操作及固定成功判據 | VAPID staging設定、Access登入、兩台實體裝置實收測試Push與共用scheduler每裝置狀態回寫移交尚未完成 |
 
 ## 2026-08-03 staging雲端接管紀錄
 
@@ -434,6 +447,19 @@
 - Resend Email：adapter、去重、retry完成；等待API key、from與本人收件。
 - PWA離線：自動化五種viewport通過；等待production手機加入主畫面實測。
 - 跨裝置同步：兩邏輯裝置與衝突自動測試通過；手機真實離線領域outbox `0→1→0`、不同實體電腦取得同一資料且`0 待同步`，D1聚合證明1筆已套用operation、0筆未套用、2台有效裝置與兩個游標皆到1，`OFF-005`已`VERIFIED`。
+
+### 2026-08-11 C線 Web Push staging OAuth／Secret 證據補充
+
+- Wrangler OAuth 已成功完成，C 線專用設定位置的 `whoami` exit code 為 0；沒有把 OAuth code、token 或帳號識別寫入文件。
+- `wrangler secret list --config wrangler.toml --env staging` 已核對 `WEB_PUSH_VAPID_PRIVATE_KEY` 與 `WEB_PUSH_VAPID_SUBJECT` 均為 `secret_text`；私鑰與 subject 沒有輸出到聊天、文件、Git、log、bundle、source map 或 export。
+- `WEB_PUSH_VAPID_PUBLIC_KEY` 已加入 staging 公開 Worker var；版本 `e8bf7b26-f1e2-40b5-b8a4-01e9da0a2d1e` 與目前版本的 script etag、handlers、assets/runtime 及既有 bindings 一致，已提升至 100% 流量，唯讀比對值與預期 public key 一致。`VITE_VAPID_PUBLIC_KEY` client build 注入／部署、Access session 下的手機／電腦實收，以及共用 scheduler 每裝置狀態回寫仍未完成；DDL-008、SETUP-006、AT-PUSH-01 維持 `IN_PROGRESS`。
+
+### 2026-08-12 C線責任邊界與A整合線 handoff
+
+- 判斷：C 線可以並已完成 staging VAPID Secret、Worker public var 與只含設定變更的安全啟用；C 線不能安全獨立部署 `VITE_VAPID_PUBLIC_KEY` client build。原因是該步驟發布整個共用 Worker／assets 版本，而 C worktree 是乾淨 master，不能覆蓋 A／D 線整合內容。
+- A 整合線責任：從包含最新 A／D 整合內容的 branch 建置時以暫時環境變數注入 `VITE_VAPID_PUBLIC_KEY`，不把 public key 寫入 `.env`、`wrangler.toml`、source 或 Git；執行既定受影響測試與 secret／placeholder scan；以 `wrangler deploy --config wrangler.toml --env staging --keep-vars` 部署且不執行 migration；回報整合 commit SHA、active version 100%、bundle public-key 布林核對及 private key／subject／secret scan。
+- C 線恢復條件：收到 A 線 deployment evidence 後，先唯讀確認 staging client bundle／service worker 已更新，再依既有 SETUP-006 固定答案一次驗收真實電腦、再驗收真實手機，最後做單台停用不影響另一台的 AT-PUSH-01；每一步只要求一個真人操作。
+- 另一項未移除的 D／共用通知 handoff：`src/worker/scheduled/index.ts`、共用通知 API 與 `DeadlinesPage.tsx` 尚未提供每台裝置最後成功時間／錯誤狀態；C 線不修改這些共用檔案。即使 A 完成 client deployment，DDL-008／AT-PUSH-01 在該狀態回寫缺陷完成前仍不得標 `VERIFIED`。
 
 ### 未完成清單
 不得填「無」除非所有第一批項目為`VERIFIED`。
