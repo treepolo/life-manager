@@ -161,6 +161,7 @@ export async function normalizeBrokerageRows(
   }
   const activities: NormalizedActivity[] = [];
   const errors: Array<{ rowNumber: number; message: string }> = [];
+  const occurrenceByBaseDedupeKey = new Map<string, number>();
   for (const [index, row] of preview.rows.entries()) {
     const rowNumber = index + 2;
     try {
@@ -176,9 +177,12 @@ export async function normalizeBrokerageRows(
       const transactionId = profile.transactionId ? row[profile.transactionId]?.trim() ?? "" : "";
       const rawSerialized = JSON.stringify(row);
       const rowHash = await sha256(rawSerialized);
-      const stableDedupeKey = await sha256(
+      const baseDedupeKey = await sha256(
         [accountStableId, occurredAt, activityType, amountMinor, currencyCode, symbol ?? "", quantityDecimal ?? "", transactionId, rowHash].join("|"),
       );
+      const duplicateOccurrence = occurrenceByBaseDedupeKey.get(baseDedupeKey) ?? 0;
+      occurrenceByBaseDedupeKey.set(baseDedupeKey, duplicateOccurrence + 1);
+      const stableDedupeKey = await sha256([baseDedupeKey, duplicateOccurrence].join("|"));
       activities.push({
         rowNumber,
         rowHash,

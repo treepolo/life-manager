@@ -229,13 +229,20 @@ Codex完成VAPID key產生與server設定，不要求使用者自行理解加密
 
 使用者不提供帳密。
 
-- [ ] 從Firstrade官方介面下載帳務／歷史CSV。
-- [ ] 建立遮蔽副本，移除帳號、姓名、地址及不需的識別資料，但保留欄名、格式、活動類型與測試金額。
-- [ ] 將檔案放入Codex可讀的本機測試位置，確認不commit。
-- [ ] Codex建立／修正Firstrade mapping profile。
-- [ ] 使用者選定數筆與Firstrade畫面人工核對。
-- [ ] 完成AT-INV-05。
-- [ ] 正式匯入前先做D1／JSON備份。
+目前狀態：`AWAITING_USER_SETUP`。`INV-002`的通用 importer、預覽、驗證、活動正規化、未知類型原始證據與 D1 去重契約已有自動測試；遮蔽真實副本已完成staging App預覽與Firstrade官方唯讀紀錄核對，正式staging D1 SQL／App完整JSON備份也已完成並核對。修正版staging版本`7d7171c5-7be9-49c8-a28b-e7e0b2dfbe18`已部署，未登入health為302、已登入`/finance`唯讀smoke正常、遠端migration無待套用。未遮蔽原檔、帳號、姓名、地址與帳密不得交給 Codex，也不得進入 Git、log、snapshot 或文件。
+
+遮蔽樣本證據：staging App預覽顯示486列、UTF-8逗號、0 parse errors；Firstrade官方帳戶紀錄完整日期範圍顯示總數486，唯讀篩選也確認第39、40列是兩筆官方來源交易。本機D1首次匯入486新增／0同檔重複，重跑0新增／486重複；`Other` 27列保留原始證據，Amount合計USD 17.81。CSV沒有Currency欄，USD目前只是mapping profile的default設定，不能冒充來源欄位。
+
+本輪部署閘門已完成：不套用migration、不執行D1寫入、不讀取Secret值，也未按正式匯入。下一個且唯一的操作閘門：在已部署的staging執行正式匯入；匯入後再另行核對App畫面金額合計。不要貼任何CSV內容，也不要把後續人工核對合併進下一步。
+
+- [x] 從Firstrade官方介面下載帳務／歷史CSV。
+- [x] 建立遮蔽副本，移除帳號、姓名、地址及不需的識別資料，但保留欄名、格式、活動類型與測試金額。
+- [x] 將檔案放入Codex可讀的本機測試位置，確認不commit。
+- [x] Codex完成Firstrade mapping profile的真實預覽核對，並修正同檔完全相同來源列的決定性stable key。
+- [x] Codex以Firstrade官方唯讀帳戶紀錄核對完整列數及第39、40列的兩筆來源交易；未要求使用者貼CSV或提供秘密。
+- [x] 含修正版本的staging部署完成：版本`7d7171c5-7be9-49c8-a28b-e7e0b2dfbe18`承接100%流量；未登入health回302，已登入`/finance`載入正常空資料狀態，遠端migration無待套用。
+- [ ] 在上述staging執行正式匯入，並於匯入後核對App畫面金額合計以完成AT-INV-05。
+- [x] 正式匯入前先做D1／JSON備份；SQL與App JSON檔案均在被Git忽略的`backups/`，已核對bytes、SHA-256 sidecar與JSON內部checksum，未提交內容。
 
 ## SETUP-008　通知偏好首次設定
 
