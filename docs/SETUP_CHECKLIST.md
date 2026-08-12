@@ -220,7 +220,7 @@ Codex先提供：
 
 固定成功判據：Resend API回傳provider message ID；`notification_deliveries`保存一筆`EMAIL`／`USER_TEST`／`SENT`，`provider_message_id`非空，`error_code`與`error_message_redacted`為空；相同operation重送只回放既有結果且不新增delivery。錯誤時保存`RETRY`、去敏錯誤與attempt，API key／from／收件地址不出現在任何輸出。
 
-基準版本的共用缺陷移交：本次delivery log已成功，但當時部署的`notification_channels.last_success_at`仍為空，故UI通道摘要仍顯示「尚無成功發送紀錄」；此屬共用通知／scheduler摘要更新缺陷。N線已在本分支修正並加入自動回歸證據；尚未部署到staging，因此本設定的真人阻擋仍有效。
+基準版本的共用缺陷移交：本次delivery log已成功，但當時部署的`notification_channels.last_success_at`仍為空，故UI通道摘要仍顯示「尚無成功發送紀錄」；此屬共用通知／scheduler摘要更新缺陷。N線已在本分支修正並加入自動回歸證據；A已隨整合版本部署到staging version`26d3ca9b-c910-452b-b3aa-f6a8c59b9450`，因此本設定的真人阻擋只剩Access session與兩台裝置驗收。
 
 自動驗證基線（2026-08-11）：Resend unit 5/5、Worker/D1 Resend contract 1/1、完整unit 15 files／47 tests、完整Worker/D1 2 files／22 tests、lint、typecheck、client build及secret／placeholder掃描通過。完整共用Playwright受其他驗收線同時使用固定`4173`埠影響，未把該環境阻擋誤記為Resend真人驗收證據。
 
@@ -231,7 +231,9 @@ Codex先提供：
 - [x] Wrangler OAuth 已在 C 線專用設定位置成功完成；`whoami` exit code 為 0。
 - [x] staging 已建立 `WEB_PUSH_VAPID_PRIVATE_KEY` 與 `WEB_PUSH_VAPID_SUBJECT` 兩個 `secret_text`；只核對名稱／型別，沒有讀取或輸出值。
 - [x] `WEB_PUSH_VAPID_PUBLIC_KEY` 已加入 staging 公開 Worker var；版本 `e8bf7b26-f1e2-40b5-b8a4-01e9da0a2d1e` 的 binding 型別為 `plain_text`，唯讀比對值與預期 public key 一致，且已提升至 100% 流量。
-- [ ] `VITE_VAPID_PUBLIC_KEY` 尚未隨不覆蓋 A／D 線的 staging client 版本注入與部署。
+- [x] `VITE_VAPID_PUBLIC_KEY` 已由A在建置程序暫時注入不覆蓋A／D線的staging client版本；值與既有Worker public var以布林結果核對一致，未寫入`.env`、`wrangler.toml`、source、Git或文件。
+- [x] A以`wrangler deploy --config wrangler.toml --env staging --keep-vars`完成部署；version`26d3ca9b-c910-452b-b3aa-f6a8c59b9450`為100% active，remote migration list為`No migrations to apply!`；bundle含public key且未發現private／subject／其他secret identifier，既有VAPID Secret只核對名稱／型別。
+- [ ] 本階段現有瀏覽器Access session已失效，未授權期限頁與通知／Push／整合GET只核對到Access 302；未把登入頁當成授權API smoke，待可用Access session後由C依固定順序完成真人裝置驗收。
 
 ### C線→A整合線 handoff（2026-08-12）
 
