@@ -77,7 +77,7 @@
 | DDL-006 | VERIFIED | W-8BEN schema/UI | `0005_deadlines_notifications.sql` | 2026-04-18→2029-12-31；確認日與試算並存 | 無 |
 | DDL-007 | VERIFIED | tax template/parent child UI | `0005_deadlines_notifications.sql` | 子任務不另啟全站／排程警告 | 無 |
 | DDL-008 | IN_PROGRESS | Web Push encryption/scheduler/device UI | `0005_deadlines_notifications.sql`；本線不新增或修改migration | `tests/worker/api-d1.test.ts`兩裝置密文訂閱／獨立停用契約通過；乾淨C線已核對`public/sw.js` Push handler、build stamp與秘密邊界，待完成VAPID staging、手機／電腦真實訂閱、測試Push、每裝置最後成功／錯誤與獨立停用驗收 | 外部阻擋：Cloudflare Wrangler登入已過期，尚未完成staging VAPID Secret／public var／client build設定；尚未完成Access授權；尚未完成真實手機瀏覽器／系統通知授權與接收；尚未完成真實電腦瀏覽器／系統通知授權與接收。另發現`src/worker/scheduled/index.ts`未回寫每個Push訂閱成功／錯誤欄位、現有通知頁只顯示channel聚合；屬共用scheduler／期限通知狀態缺陷，依分線規則移交，不在C線搶修；未完成前不得標`VERIFIED` |
-| DDL-009 | AWAITING_USER_SETUP | `src/integrations/resend`, delivery log/test UI | `0005_deadlines_notifications.sql` | adapter、去重、錯誤/重試與secret邊界完成 | 等待Resend key、from及真實收件 |
+| DDL-009 | VERIFIED | `src/integrations/resend`, delivery log/test UI | `0005_deadlines_notifications.sql`，本線不需新migration | adapter、去重、錯誤/重試與secret邊界既有自動測試；Resend測試信標示與安全錯誤映射已補齊，兩個staging Secret均已由只讀清單核對為`secret_text`，遠端D1已核對Email `READY`；真實測試已產生`EMAIL`／`USER_TEST`／`SENT` delivery，使用者確認在垃圾郵件收到測試信 | Resend帳號已由使用者確認建立，`RESEND_API_KEY`／`RESEND_FROM` Secret名稱／型別已核對（不讀取值）；遠端D1只讀核對`recipient_encrypted=1`、Email enabled／`READY`、delivery attempt 1、provider message ID非空、錯誤欄位為空；不記錄地址、完整本文或完整provider ID。共用通道摘要仍顯示`last_success_at=NULL`，已停止D線共用檔案修改並移交；API key／from／收件地址不進聊天、Git、log或snapshot |
 | OFF-001 | VERIFIED | manifest、`public/sw.js`、App shell、`src/app/providers/PwaUpdate.tsx`、`src/styles.css`、`scripts/stamp-service-worker.mjs`、`scripts/build-client.mjs` | 不需；本輪不修改D1 migration | app shell內容SHA-256版本、network-first／離線fallback、`updateViaCache: none`、outbox安全接管固定答案；320／390／768／1366／1920五viewport均驗證提示固定在初始可視範圍且手機避開同步列。staging outbox 0時安全更新一次，自動reload後正式CSS為`position: fixed`／`z-index: 30`，資料未清除 | 無 |
 | OFF-002 | VERIFIED | IndexedDB entities/query cache | 不需 | offline-sync unit、Playwright快取資料 | 無 |
 | OFF-003 | VERIFIED | `src/core/sync`, `src/core/network/request-gate.ts`, offline CRUD UI + outbox | `0006_sync.sql`，不需新migration | 27種核心輸入類型離線建立／修改／封存／恢復unit；UI離線修改→重開→封存→重開→恢復→D1 E2E；任務、財務、資產、指標、事件、社群、期限流程E2E | 無 |
@@ -116,8 +116,9 @@
 | 外部設定 | SETUP-001, SETUP-005, SETUP-008, SETUP-009 | AWAITING_USER_SETUP | `docs/SETUP_CHECKLIST.md`已填名稱、路徑、secret與驗證；待各自真實帳號、裝置或production階段 |
 | 外部設定 | SETUP-007 | AWAITING_USER_SETUP | `docs/SETUP_CHECKLIST.md`已記錄官方匯出、遮蔽副本位置、不可提交邊界、staging App預覽與Firstrade官方紀錄證據；正式staging D1 SQL／App完整JSON備份已完成並有bytes／SHA-256／JSON checksum證據；修正版staging版本`7d7171c5-7be9-49c8-a28b-e7e0b2dfbe18`已部署並完成唯讀smoke | 遮蔽副本已放置且預覽顯示486列／0錯誤；下一步唯一人工操作為正式匯入，之後才核對App畫面金額合計完成AT-INV-05；未遮蔽原檔與完整JSON不得交給Codex、進Git、進log、snapshot或文件 |
 | 外部設定 | SETUP-006 | IN_PROGRESS | `docs/SETUP_CHECKLIST.md`、`docs/OPERATIONS.md`、staging Worker／build設定與Push專屬裝置驗收 | VAPID private key／subject只進Cloudflare Secret；public key一致性與bundle／source map／log／export／Git掃描尚待staging設定；手機與電腦真實授權、測試通知、每裝置最後成功／錯誤及獨立停用尚待真人操作；共用scheduler狀態回寫缺陷已列為移交阻擋；未完成前維持`IN_PROGRESS` |
+| 外部設定 | SETUP-005 | VERIFIED | `docs/SETUP_CHECKLIST.md`、`src/integrations/resend`、通知測試入口；本線不需migration | 自動驗證已完成；兩個Secret、加密收件地址、Email `READY`與1筆正式`OPEN`期限均已核對；App測試請求由delivery log證明寄送成功，使用者確認在垃圾郵件收到測試信；共用通道摘要顯示缺陷已移交，不在D線修正 |
 
-### 2026-08-11 C線 Web Push 真實驗收開工
+## A～D整合線外部證據補充（2026-08-12）
 
 - 工作樹：從乾淨`master` HEAD建立`D:\人生管理器-wt-web-push`，branch為`codex/accept-web-push`；未帶入A線Instagram diff。本線不修改production `SETUP-009`、migration或Instagram／YouTube／Firstrade／Resend adapter。
 - 本機證據：`npm run lint`與`npm run typecheck`通過；unit 21/21、Worker/D1 21/21通過；`npm run build:client`產生service worker build version `8055cdeccb4bff11`；第二次`npm run test:e2e`全套13/13 Playwright案例通過（第一次僅因本地Wrangler未在30秒內就緒而停止，未改共用E2E runner，重跑時一個Wrangler內部錯誤由既有runner以全新D1重試後通過）。乾淨source的`public/sw.js`包含Push與notification click handler；D1契約確認兩裝置endpoint以密文保存、停用一台不影響另一台。建置與掃描不得把VAPID private key／subject或其他secret放入bundle、source map、log、export或Git。
@@ -128,6 +129,22 @@
 | 驗收ID | 狀態 | 證據／固定答案 | 阻擋 |
 |---|---|---|---|
 | AT-PUSH-01 | IN_PROGRESS | `tests/worker/api-d1.test.ts`已證明雙裝置密文訂閱與獨立停用；`docs/SETUP_CHECKLIST.md`已列staging設定、手機／電腦逐步操作及固定成功判據 | VAPID staging設定、Access登入、兩台實體裝置實收測試Push與共用scheduler每裝置狀態回寫移交尚未完成 |
+
+## D線 Resend 正式驗收開工（2026-08-11）
+
+- 獨立工作樹：`D:\人生管理器-wt-resend`；branch：`codex/accept-resend`；基準為乾淨`master`／`origin/master` HEAD `0b370f224b2374c786f10fd94e1d7a4b326513b6`。未帶入A線Instagram dirty diff。
+- 本線需求：`DDL-009`、`SETUP-005`、`AT-MAIL-01`；免費額度證據支援`AT-OPS-02`，最終由`AT-GATE-08`判定。開工時兩個需求由`AWAITING_USER_SETUP`轉為`IN_PROGRESS`；截至2026-08-12已完成Secret、from、收件設定、真實寄送與本人收件，`DDL-009`、`SETUP-005`及`AT-MAIL-01`均標為`VERIFIED`。共用通道摘要缺陷仍依規則移交，不在D線修正。
+- 開工與自動驗證現況：Resend adapter、`notification_deliveries` delivery log、D1唯一`dedupe_key`、Resend `Idempotency-Key`、失敗`RETRY`與設定缺失邊界已存在；本線已補齊Resend測試信標示與安全錯誤映射。`tests/unit/resend.test.ts` 5/5、`tests/worker/resend-d1.test.ts` 1/1、完整unit 15 files／47 tests、完整Worker/D1 2 files／22 tests、lint、兩個typecheck、client build、secret／placeholder掃描均通過。
+- 外部驗收結果：Resend帳號已由使用者確認建立，staging `RESEND_API_KEY`／`RESEND_FROM`均已存在且只核對名稱／`secret_text`型別；遠端D1已只讀核對Email偏好加密收件地址存在、通道`READY`且錯誤欄位為空，並已有1筆未刪除／未封存`OPEN`期限。任何敏感值不由Codex讀取或輸出。
+- 2026-08-12 Secret設定證據：使用者完成兩次互動式Secret輸入；`wrangler secret list --env staging`只讀回報`RESEND_API_KEY`與`RESEND_FROM`各為`secret_text`，未讀取值。
+- 2026-08-12收件設定證據：使用者在staging App完成保存；遠端D1唯讀查詢只回報`recipient_encrypted=1`、Email `enabled=1/status=READY`、`last_error_code`與去敏錯誤為空，未輸出地址或密文。
+- 2026-08-12按鈕前置條件證據：使用者完成正式期限後，遠端D1按`status`分組回報1筆`OPEN`；Email通道仍為`READY`且無錯誤，已滿足`src/app/pages/DeadlinesPage.tsx:48`／`:52`的既有按鈕前置條件。D線未修改共用程式。
+- 2026-08-12真實寄送與收件證據：遠端D1唯讀核對最新`notification_deliveries`為`EMAIL`／`USER_TEST`／`SENT`、attempt 1、provider message ID非空、`error_code`與`error_message_redacted`皆為空；使用者確認在垃圾郵件收到測試信。未將地址、完整本文、截圖或完整provider ID複製到文件或聊天。
+- 共用缺陷移交：同一遠端D1的`notification_channels`仍為Email `READY`但`last_success_at=NULL`，所以UI顯示「尚無成功發送紀錄」。`DeadlinesPage`讀取該摘要欄位，而`src/worker/scheduled`的測試寄送流程只更新`notification_deliveries`，未同步通道摘要；此屬共用通知／scheduler顯示缺陷，D線停止修改並移交C線處理。
+- 預定／實際修改：`src/integrations/resend/client.ts`、`tests/unit/resend.test.ts`、`tests/worker/resend-d1.test.ts`及本節列出的驗收文件；不修改Instagram、YouTube、Firstrade、Web Push、共用通知orchestration、`src/worker/scheduled`、期限UI／API、`wrangler.toml`或migration。
+- 實際驗收：固定測試信含期限名稱、級別、App連結及「這是使用者觸發的測試」；成功delivery保存`SENT`與provider message ID；失敗保存`RETRY`、去敏錯誤並保留重試；相同operation／dedupe不產生未定義重複寄送；掃描確認secret不出現在bundle、source map、console、export、Git或snapshot。
+- 共用E2E環境證據：完整Playwright腳本第一個desktop案例通過；第二個既有離線同步案例在Worker重啟後進入允許的全新D1重試，但本機同時有其他驗收線使用固定`4173`埠，重試程序卡住後停止。本項是共用E2E執行環境阻擋，不是Resend adapter缺陷；D線未修改共用同步／通知程式；此環境結果不影響已由遠端D1及真人收件證據完成的`AT-MAIL-01`。
+- 文件衝突核對結果：`SETUP_CHECKLIST.md`要求測試郵件明確含使用者觸發標示；已以Resend adapter內既有`test:` idempotency key界線補上標示，避免修改共用通知流程。
 
 ## 2026-08-03 staging雲端接管紀錄
 
@@ -395,7 +412,6 @@
 - Google OAuth client憑證Secret、真實YouTube頻道授權與同步證據。
 - Meta App與真實Instagram專業帳號授權。
 - 使用者提供不進Git的Firstrade遮蔽實際CSV。
-- Resend帳號、API key、使用者本人收件信箱。
 - 手機及電腦的Web Push權限與真實接收。
 - 兩台真實裝置的PWA離線與跨裝置驗收。
 
@@ -444,7 +460,7 @@
 - Firstrade CSV：parser／D1去重完成；遮蔽真實樣本已完成486列／0 parse errors／UTF-8逗號的staging App預覽，官方帳戶紀錄總數亦為486；第39、40列經官方唯讀篩選確認為兩筆來源交易，importer已以決定性 occurrence ordinal保留同檔相同列，`Other` 27列保留原始證據，重跑0新增／486重複。正式staging D1 SQL／App完整JSON備份已完成並核對bytes、檔案SHA-256與JSON checksum；修正版staging已部署並完成未登入302／已登入`/finance`／migration唯讀smoke；AT-INV-05仍等待正式匯入後App畫面金額合計核對，`INV-002`／`SETUP-007`維持`AWAITING_USER_SETUP`。
 - Web Push手機：密文、多裝置及停用契約完成；等待真實手機接收。
 - Web Push電腦：密文、多裝置及停用契約完成；等待真實電腦接收。
-- Resend Email：adapter、去重、retry完成；等待API key、from與本人收件。
+- Resend Email：adapter、去重、retry、Secret、真實寄送與真人收件完成；`DDL-009`、`SETUP-005`、`AT-MAIL-01`均為`VERIFIED`。共用通道摘要缺陷已移交。
 - PWA離線：自動化五種viewport通過；等待production手機加入主畫面實測。
 - 跨裝置同步：兩邏輯裝置與衝突自動測試通過；手機真實離線領域outbox `0→1→0`、不同實體電腦取得同一資料且`0 待同步`，D1聚合證明1筆已套用operation、0筆未套用、2台有效裝置與兩個游標皆到1，`OFF-005`已`VERIFIED`。
 
@@ -464,7 +480,7 @@
 ### 未完成清單
 不得填「無」除非所有第一批項目為`VERIFIED`。
 
-- `INV-002`, `DDL-008`, `DDL-009`：程式與自動測試完成，等待對應真實資料／帳號／裝置；Firstrade遮蔽樣本與staging證據已完成但AT-INV-05仍等待正式匯入後人工畫面核對；`SOC-009`的真實YouTube授權、撤銷、重連、同步與來源證據已`VERIFIED`；本輪A線`SOC-010`亦已`VERIFIED`。
-- `SEC-001`, `SEC-002`, `SEC-003`, `SEC-004`, `SEC-005`：本機安全邊界完成，等待真實Cloudflare Access與外部通道驗收。
-- `NFR-001`~`NFR-010`, `OPS-001`~`OPS-011`, `SETUP-001`, `SETUP-005`~`SETUP-009`：本機可驗證部分與staging已完成；整組因production部署、外部服務及其真實裝置smoke尚未完成而維持`AWAITING_USER_SETUP`。`SETUP-002`、`SETUP-003`與本輪`SETUP-004`已獨立`VERIFIED`；`SETUP-007`由`INV-002`追蹤為`AWAITING_USER_SETUP`。
-- A線已完成：已部署budget fix、唯讀核對remote migration list為無待套用項目、完成兩次真實Instagram同步與AT-IG-01～05證據；本輪不執行AT-GATE-08，亦不合併B、C、D。
+- `INV-002`：Firstrade遮蔽真實樣本、staging備份與固定答案證據已完成，但AT-INV-05仍等待正式匯入後的App畫面金額合計核對；因此`INV-002`／`SETUP-007`維持`AWAITING_USER_SETUP`。
+- `DDL-008`／`SETUP-006`／`AT-PUSH-01`：Push staging設定、client build、真人手機／電腦實收與每裝置共用scheduler狀態回寫仍未完成，維持`IN_PROGRESS`；共用通知摘要缺陷已保留證據並移交唯一N線，不在本階段修正。
+- `SOC-009`、`SOC-010`與`DDL-009`／`SETUP-005`／`AT-MAIL-01`均依各線真實證據標為`VERIFIED`；`SEC-001`~`SEC-005`、`NFR-001`~`NFR-010`及其他尚未完成的`OPS`／`SETUP`項目仍依正式表維持未完成狀態。
+- A整合線第一階段已納入B、C、D的已推送歷史與驗收證據；本階段不部署、不執行migration、不做Firstrade正式匯入、不做Push真人驗收、不執行`AT-GATE-08`，並停止於可供N線起始的no-deploy整合基準。

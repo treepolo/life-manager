@@ -192,6 +192,14 @@ Codex先提供：
 
 ## SETUP-005　Resend電子郵件
 
+目前狀態：`VERIFIED`（2026-08-12，D線 `codex/accept-resend`；帳號、兩個Secret、收件設定、正式`OPEN`期限、真實寄送與本人收件均已完成）。
+
+本次真實驗收結果：
+
+- 使用者已確認在垃圾郵件收到測試信；遠端delivery log為`SENT`且provider message ID非空。只記錄去敏判據，不記錄本人email、完整本文、截圖或完整provider ID。
+
+上述值不得貼入聊天、Markdown、Git、log、bundle、source map、export或測試snapshot。每次人工操作只完成下一個必要步驟，並以本節固定成功判據回報。
+
 Codex先提供：
 
 - Resend帳號使用的收件地址：使用者本人建立Resend帳號的email；在App「重要期限 → 通知偏好」輸入後加密保存，不貼在聊天或設定檔。
@@ -201,12 +209,20 @@ Codex先提供：
 
 使用者操作：
 
-- [ ] 建立Resend帳號。
-- [ ] 建立API key。
-- [ ] 以Cloudflare Secret輸入。
-- [ ] 確認收件地址為Resend帳號本人信箱；若使用`resend.dev`不得寄到他人。
-- [ ] 在App執行測試信。
-- [ ] 確認收件並完成AT-MAIL-01。
+- [x] 建立Resend帳號（使用者已確認；不記錄帳號資料）。
+- [x] 建立API key（使用者已完成；不記錄key值）。
+- [x] 以Cloudflare Secret `RESEND_API_KEY`輸入；Codex只核對名稱與`secret_text`型別，不讀取值。
+- [x] 以Cloudflare Secret `RESEND_FROM`輸入；使用網域時先完成Resend要求的寄件驗證；若採`onboarding@resend.dev`，只寄到Resend帳號本人地址。
+- [x] 使用者確認收件地址為Resend帳號本人信箱；若使用`resend.dev`不得寄到他人；不記錄地址。
+- [x] 在Access保護的staging App「重要期限 → 通知偏好」保存本人收件地址，畫面只顯示已安全保存；不把地址提供給Codex。
+- [x] 在App執行測試信（2026-08-12；遠端delivery log已核對`EMAIL`／`USER_TEST`／`SENT`、attempt 1、provider message ID非空、錯誤欄位為空）；信件主旨／本文必須明確包含期限名稱、重要級別、App連結與「這是使用者觸發的測試」，且不得建立假期限；正式`OPEN`期限已具備。
+- [x] 使用者確認本人已在垃圾郵件收到信；Codex只記錄去敏的接收判據、delivery狀態與provider message ID邊界，不記錄地址或完整本文，完成`AT-MAIL-01`。
+
+固定成功判據：Resend API回傳provider message ID；`notification_deliveries`保存一筆`EMAIL`／`USER_TEST`／`SENT`，`provider_message_id`非空，`error_code`與`error_message_redacted`為空；相同operation重送只回放既有結果且不新增delivery。錯誤時保存`RETRY`、去敏錯誤與attempt，API key／from／收件地址不出現在任何輸出。
+
+共用缺陷移交：本次delivery log已成功，但`notification_channels.last_success_at`仍為空，故UI通道摘要仍顯示「尚無成功發送紀錄」；此屬共用通知／scheduler摘要更新缺陷，D線不修改共用檔案。
+
+自動驗證基線（2026-08-11）：Resend unit 5/5、Worker/D1 Resend contract 1/1、完整unit 15 files／47 tests、完整Worker/D1 2 files／22 tests、lint、typecheck、client build及secret／placeholder掃描通過。完整共用Playwright受其他驗收線同時使用固定`4173`埠影響，未把該環境阻擋誤記為Resend真人驗收證據。
 
 ## SETUP-006　Web Push
 
