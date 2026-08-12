@@ -95,4 +95,8 @@
 
 `VITE_VAPID_PUBLIC_KEY` 的 client build／共用 staging deployment 由 A 整合線負責：使用包含最新 A／D 內容的整合 branch，以暫時 build env 注入、保留 dashboard vars 的 `wrangler deploy --keep-vars` 發布，並回報 commit／active version／bundle scan 證據。C 線不以乾淨 master 覆蓋整合 staging；收到證據後恢復 AT-PUSH-01 的真實電腦→手機→獨立停用順序。每台裝置狀態回寫仍由 D／共用通知線處理。
 
+### A整合線第一階段 no-deploy baseline（2026-08-12）
+
+A線已以保留歷史的merge納入B `4f7b1cb`、C `7853ed9`、D `4bc74a8`；C只有文件／設定證據，沒有新增runtime。`SOC-010`／`SETUP-004`為`VERIFIED`，`INV-002`／`SETUP-007`為`AWAITING_USER_SETUP`，`DDL-008`／`SETUP-006`／`AT-PUSH-01`為`IN_PROGRESS`，`DDL-009`／`SETUP-005`／`AT-MAIL-01`為`VERIFIED`。本階段僅完成local gate與隔離Playwright，不部署、不跑remote migration、不執行`AT-GATE-08`；共用通知摘要與每裝置狀態回寫缺陷移交N線。
+
 需求狀態的唯一權威仍為`IMPLEMENTATION_STATUS.md`；本索引只提供從原意到實際檔案與測試的查找路徑。
