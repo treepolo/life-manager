@@ -109,6 +109,6 @@ A以no-ff merge commit`edc1cd25de07da237d08cd958457701d24723212`保留N commit`1
 
 ### C線 final acceptance 唯讀 checkpoint（2026-08-12）
 
-最新 A 整合版本已由 C 唯讀確認為 staging 100% active，remote migration 無待套用；目前 Access session 可載入期限頁且無紅色 API／載入錯誤。使用者已準備一筆真實正式 `OPEN` 期限並完成真實電腦授權／啟用；D1 唯讀聚合確認 1 筆 `ACTIVE` Push 訂閱與 `WEB_PUSH=READY`，尚無成功／錯誤紀錄，尚未宣稱真人實收。`DDL-008`／`SETUP-006`／`AT-PUSH-01` 仍為 `IN_PROGRESS`；下一步只觸發一次電腦測試通知，再完成手機與獨立停用驗收。
+最新 A 整合版本已由 C 唯讀確認為 staging 100% active，remote migration 無待套用；目前 Access session 可載入期限頁且無紅色 API／載入錯誤。使用者已準備一筆真實正式 `OPEN` 期限並完成真實電腦授權／啟用；使用者畫面證明電腦收到測試通知，App 顯示 `READY`／`ACTIVE`、最近成功時間、成功 1／失敗 0，D1 唯讀聚合確認訂閱成功 1／錯誤 0、`WEB_PUSH=READY`、delivery `SENT` 1。`DDL-008`／`SETUP-006`／`AT-PUSH-01` 仍為 `IN_PROGRESS`；下一步只完成手機與獨立停用驗收。
 
 需求狀態的唯一權威仍為`IMPLEMENTATION_STATUS.md`；本索引只提供從原意到實際檔案與測試的查找路徑。
