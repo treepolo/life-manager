@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import { applyD1Migrations } from "cloudflare:test";
+import { applyD1Migrations, SELF } from "cloudflare:test";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { v7 as uuidv7 } from "uuid";
 
@@ -31,6 +31,9 @@ describe("Resend delivery D1 contract", () => {
       RESEND_FROM: "onboarding@resend.dev",
       RESEND_TO: "owner@example.test",
     } as Env;
+    await env.LIFE_DB.prepare(
+      "UPDATE notification_channels SET enabled = 1, status = 'READY', last_success_at = NULL, last_error_code = NULL, last_error_message_redacted = NULL WHERE channel_kind = 'EMAIL'",
+    ).run();
     const successFetch = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
       const payload = JSON.parse(String(init?.body)) as Record<string, unknown>;
       expect(payload.subject).toContain("使用者測試");
@@ -59,6 +62,21 @@ describe("Resend delivery D1 contract", () => {
       error_code: null,
       error_message_redacted: null,
     });
+    const successfulChannel = await env.LIFE_DB.prepare(
+      "SELECT status, last_success_at, last_error_code, last_error_message_redacted FROM notification_channels WHERE channel_kind = 'EMAIL'",
+    ).first();
+    expect(successfulChannel).toEqual(expect.objectContaining({
+      status: "READY",
+      last_success_at: expect.any(String),
+      last_error_code: null,
+      last_error_message_redacted: null,
+    }));
+    const channelResponse = await SELF.fetch("https://life-manager.test/api/v1/notifications/channels");
+    expect(channelResponse.status).toBe(200);
+    const channelBody = await channelResponse.json() as { data: Array<Record<string, unknown>> };
+    expect(channelBody.data).toEqual(expect.arrayContaining([
+      expect.objectContaining({ channel_kind: "EMAIL", status: "READY", last_success_at: expect.any(String) }),
+    ]));
 
     const failureFetch = vi.fn(async () => new Response(JSON.stringify({ name: "rate_limit_exceeded", message: "quota reached" }), { status: 429 }));
     vi.stubGlobal("fetch", failureFetch);
@@ -77,6 +95,28 @@ describe("Resend delivery D1 contract", () => {
     });
     expect(JSON.stringify(retryRow)).not.toContain("test-resend-key");
     expect(JSON.stringify(retryRow)).not.toContain("owner@example.test");
+    const failedChannel = await env.LIFE_DB.prepare(
+      "SELECT status, last_error_code, last_error_message_redacted FROM notification_channels WHERE channel_kind = 'EMAIL'",
+    ).first();
+    expect(failedChannel).toEqual({
+      status: "ERROR",
+      last_error_code: "PROVIDER_ERROR",
+      last_error_message_redacted: "Resend寄信失敗（rate_limit_exceeded）。",
+    });
+
+    const recoveryFetch = vi.fn(async () => new Response(JSON.stringify({ id: "provider-message-d1-recovery" }), { status: 200 }));
+    vi.stubGlobal("fetch", recoveryFetch);
+    const recovered = await sendDeadlineNotificationTest({ env: emailEnv, deadlineId, channel: "EMAIL", operationId: "recovery-operation" });
+    expect(recovered).toEqual({ sent: 1, failed: 0 });
+    const recoveredChannel = await env.LIFE_DB.prepare(
+      "SELECT status, last_success_at, last_error_code, last_error_message_redacted FROM notification_channels WHERE channel_kind = 'EMAIL'",
+    ).first();
+    expect(recoveredChannel).toEqual(expect.objectContaining({
+      status: "READY",
+      last_success_at: expect.any(String),
+      last_error_code: null,
+      last_error_message_redacted: null,
+    }));
 
     await env.LIFE_DB.batch([
       env.LIFE_DB.prepare("DELETE FROM notification_deliveries WHERE deadline_item_id = ?").bind(deadlineId),

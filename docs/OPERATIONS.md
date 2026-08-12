@@ -194,7 +194,11 @@ App內：
 
 `SETUP-006`只使用`life-manager-staging`與`https://life-manager-staging.life-manager.workers.dev/deadlines`。VAPID private key／subject只能以Cloudflare Secret輸入；`WEB_PUSH_VAPID_PUBLIC_KEY`是Worker公開var，`VITE_VAPID_PUBLIC_KEY`是client build時的公開環境變數，兩者必須完全一致。核對時只輸出名稱、型別或布林結果，不輸出任何secret／subject／endpoint／subscription key值；client bundle可以包含public key，但不得包含private key或secret值。
 
-本線已在乾淨`master` worktree完成Push service worker、build stamp、秘密邊界與D1契約的本機核對；尚未以未授權Access回應宣稱staging資產或真人裝置通過。每台真實手機／電腦需分開完成授權、訂閱、測試通知與停用後另一台仍可收件，固定操作步驟見`SETUP_CHECKLIST.md`的`SETUP-006`。目前共用scheduler只更新delivery結果，未回寫`push_subscriptions.last_success_at`／錯誤欄位，且現有通知頁只讀channel聚合；這會阻擋「每裝置最後成功／錯誤狀態」驗收，依分線規則交由共用通知／scheduler負責線處理，C線不得直接修改。
+本線已在乾淨`master` worktree完成Push service worker、build stamp、秘密邊界與D1契約的本機核對；尚未以未授權Access回應宣稱staging資產或真人裝置通過。每台真實手機／電腦需分開完成授權、訂閱、測試通知與停用後另一台仍可收件，固定操作步驟見`SETUP_CHECKLIST.md`的`SETUP-006`。基準版本曾有共用scheduler只更新delivery、未回寫`push_subscriptions.last_success_at`／錯誤欄位且通知頁只讀channel聚合的缺陷；N線已在`codex/fix-notification-shared`修正 shared writeback 與逐裝置讀回，尚待A整合部署後由C真人驗收。
+
+### N線 shared notification writeback（2026-08-12）
+
+`recordNotificationDeliveryOutcome`以D1 batch同步`notification_deliveries`、`notification_channels`及（Web Push時）指定`push_subscriptions`。成功寫入時間並清除同一通道的錯誤；provider error保存去敏錯誤；404／410標記該訂閱`EXPIRED`，仍有其他ACTIVE訂閱時通道保持`READY`。`GET /api/v1/push-subscriptions`只回傳每台最新安全欄位，Deadlines頁面顯示成功時間／錯誤代碼／狀態；空訂閱不產生示範資料。這些是本機固定答案，不能替代staging VAPID設定、Access及兩台真人裝置收件。
 
 ## OPS-010　W-8BEN與報稅提醒排程
 
