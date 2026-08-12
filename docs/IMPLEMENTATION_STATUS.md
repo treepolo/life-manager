@@ -527,4 +527,5 @@
 - 使用者已完成真實電腦授權／啟用；D1 只讀聚合顯示 Push `ACTIVE` 訂閱 1 筆、成功／錯誤紀錄皆為 0，`WEB_PUSH` channel 為 enabled／`READY`、成功／錯誤紀錄皆為 0，查詢未寫入資料。瀏覽器原始 handoff 分頁未能重新取得，因此不以新分頁空狀態冒充 UI 證據。
 - 使用者提供的真實電腦畫面證據顯示已收到測試通知；App 顯示 Web Push channel `READY`、裝置 `ACTIVE`、最近成功時間及測試結果成功 1／失敗 0。使用者另確認真實手機已允許並收到測試通知。D1 只讀聚合同步確認訂閱 2／不同 device 2／ACTIVE 2，兩台都有成功紀錄、錯誤 0，channel `WEB_PUSH=READY` 且有最近成功，`WEB_PUSH` delivery `SENT` 9／錯誤 0；查詢未寫入資料。
 - 使用者已停用手機；D1 只讀聚合確認手機 1 筆 `DISABLED` 且保留成功紀錄，電腦 1 筆 `ACTIVE` 且保留成功紀錄，兩者錯誤皆為 0；`WEB_PUSH` channel 仍 enabled／`READY`，delivery 仍為 `SENT` 9／錯誤 0，查詢未寫入資料。
-- 外部阻擋：手機獨立停用與電腦保持啟用已完成；仍待從未停用電腦發送最後一次測試，確認電腦仍收件且停用手機不再收件，之後才能完成 `AT-PUSH-01`。`DDL-008`／`SETUP-006`／`AT-PUSH-01` 維持 `IN_PROGRESS`，不執行 `AT-GATE-08`。
+- 驗收失敗／移交（2026-08-12）：依預期最後一次測試應由未停用電腦收件、停用手機不收件，且電腦 UI 維持 `ACTIVE`。使用者回報電腦未收到，且電腦 UI 顯示 `DISABLED`。D1 唯讀核對卻顯示 computer-like 訂閱 `ACTIVE` 1、mobile-like 訂閱 `DISABLED` 1，`WEB_PUSH=READY`，最後一次後 delivery `SENT` 10／錯誤 0；查詢寫入 0。這是 UI／共用通知狀態與實際收件證據的矛盾，停止真人驗收並移交主線，禁止修改 shared notification、scheduler、deadline UI/API 或部署。
+- 外部阻擋：`DDL-008`／`SETUP-006`／`AT-PUSH-01` 維持 `IN_PROGRESS`，不得標 `VERIFIED`；待主線釐清最小重現後重新部署／驗收。`AT-GATE-08` 不執行。

@@ -111,4 +111,8 @@ A以no-ff merge commit`edc1cd25de07da237d08cd958457701d24723212`保留N commit`1
 
 最新 A 整合版本已由 C 唯讀確認為 staging 100% active，remote migration 無待套用；目前 Access session 可載入期限頁且無紅色 API／載入錯誤。使用者已準備一筆真實正式 `OPEN` 期限並完成真實電腦與手機授權／啟用及兩台收件；使用者已停用手機，D1 唯讀聚合確認手機 `DISABLED`、電腦 `ACTIVE`、兩台既有成功紀錄／錯誤 0、`WEB_PUSH=READY`、delivery `SENT` 9。`DDL-008`／`SETUP-006`／`AT-PUSH-01` 仍為 `IN_PROGRESS`；下一步只從未停用電腦做最後測試，確認手機不再收件。
 
+### C線最後獨立性測試失敗（2026-08-12）
+
+預期未停用電腦收到、停用手機不收到且電腦維持 `ACTIVE`；使用者實際回報電腦未收到並在 UI 看到 `DISABLED`。D1 唯讀卻顯示 computer-like=`ACTIVE` 1、mobile-like=`DISABLED` 1、`WEB_PUSH=READY`、delivery `SENT` 10／錯誤 0。此矛盾涉及 Push 狀態讀回／共用通知驗收路徑，C 線停止、不修改 shared code、不部署，移交主線後再驗收；需求仍為 `IN_PROGRESS`。
+
 需求狀態的唯一權威仍為`IMPLEMENTATION_STATUS.md`；本索引只提供從原意到實際檔案與測試的查找路徑。

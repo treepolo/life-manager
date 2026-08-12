@@ -276,7 +276,7 @@ Codex先提供：
 - [x] 真實電腦已收到測試 Push；App 顯示 `READY`／`ACTIVE`、最近成功時間、成功 1／失敗 0；D1 只讀聚合確認訂閱成功 1／錯誤 0、channel `READY`、delivery `SENT` 1。
 - [x] 真實手機已完成通知允許、Push 啟用並收到測試通知（使用者確認）；D1 只讀聚合確認 2 個不同 device、2 筆 `ACTIVE`、兩台成功紀錄、錯誤 0。
 - [x] 使用者已停用手機；D1 唯讀聚合確認手機 `DISABLED`、電腦 `ACTIVE`，`WEB_PUSH` channel 仍 `READY`，兩台既有成功紀錄與錯誤 0。
-- [ ] 從未停用電腦發送最後一次測試，確認電腦收到且停用手機不再收到；完成 AT-PUSH-01。
+- [ ] 最後一次獨立性測試失敗：使用者由未停用電腦發送後未收到，且電腦 UI 顯示 `DISABLED`；D1 唯讀卻顯示電腦 `ACTIVE`、手機 `DISABLED`、channel `READY`、delivery `SENT` 10／錯誤 0。已停止，不重複發送，移交主線釐清 UI／共用通知狀態矛盾後再恢復。
 
 ## SETUP-007　Firstrade CSV
 
