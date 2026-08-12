@@ -523,5 +523,5 @@
 
 - C 線已從最新 A 整合基準建立乾淨 worktree `D:\人生管理器-wt-web-push-final`／branch `codex/accept-web-push-final`，HEAD 為 A 整合 commit `95b60075fda3fb6afd209b19177d9363bd9c3c87`；本次沒有修改程式、shared notification、migration 或部署設定。
 - 只讀 Cloudflare 核對：staging version `26d3ca9b-c910-452b-b3aa-f6a8c59b9450` 為 100% active；remote migration 為 `No migrations to apply!`；版本 binding metadata 顯示 Worker public VAPID var 為 `plain_text`、private／subject 為 `secret_text`，只核對名稱／型別，沒有讀取或輸出任何值。
-- 現有 Access session 已可用；staging 期限頁成功顯示「重要期限與多通道警告」，沒有紅色 API／載入錯誤。頁面目前為真實空資料狀態：「尚無期限」及「尚無 Web Push 裝置訂閱」；沒有觸發任何 POST，也沒有建立示範期限或假訂閱。
-- 外部阻擋：依既定 AT-PUSH-01 必須先有一筆使用者提供的正式 `OPEN` 期限，才能觸發指定測試 Push；其後仍待真實電腦／手機通知授權、各自收件、每裝置 last success/error 與獨立停用。`DDL-008`／`SETUP-006`／`AT-PUSH-01` 維持 `IN_PROGRESS`，不執行 `AT-GATE-08`。
+- 現有 Access session 已可用；staging 期限頁成功顯示「重要期限與多通道警告」，沒有紅色 API／載入錯誤。使用者已準備一筆正式 `OPEN` 期限，頁面已出現「測試發送」入口；目前仍為「尚無 Web Push 裝置訂閱」，沒有觸發任何 POST 或建立假訂閱。
+- 外部阻擋：正式 `OPEN` 期限前置條件已完成；仍待真實電腦／手機通知授權、各自收件、每裝置 last success/error 與獨立停用。`DDL-008`／`SETUP-006`／`AT-PUSH-01` 維持 `IN_PROGRESS`，不執行 `AT-GATE-08`。
