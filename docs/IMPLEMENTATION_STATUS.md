@@ -485,3 +485,10 @@
 - `DDL-008`／`SETUP-006`／`AT-PUSH-01`：Push staging設定、client build、真人手機／電腦實收與每裝置共用scheduler狀態回寫仍未完成，維持`IN_PROGRESS`；共用通知摘要缺陷已保留證據並移交唯一N線，不在本階段修正。
 - `SOC-009`、`SOC-010`與`DDL-009`／`SETUP-005`／`AT-MAIL-01`均依各線真實證據標為`VERIFIED`；`SEC-001`~`SEC-005`、`NFR-001`~`NFR-010`及其他尚未完成的`OPS`／`SETUP`項目仍依正式表維持未完成狀態。
 - A整合線第一階段已納入B、C、D的已推送歷史與驗收證據；本階段不部署、不執行migration、不做Firstrade正式匯入、不做Push真人驗收、不執行`AT-GATE-08`，並停止於可供N線起始的no-deploy整合基準。
+
+### 2026-08-12 A整合線第二階段開工（最小安全整合與staging部署）
+
+- 本階段需求狀態維持：`DDL-008`／`SETUP-006`／`AT-PUSH-01`為`IN_PROGRESS`；`INV-002`／`SETUP-007`為`AWAITING_USER_SETUP`；`SOC-010`／`SETUP-004`／`AT-IG-01`～`AT-IG-05`及`DDL-009`／`SETUP-005`／`AT-MAIL-01`維持`VERIFIED`。不執行`AT-GATE-08`，不重做Instagram、YouTube或Resend真人驗收。
+- 預定整合與核對：保留N線`1e5bc687df538cc0e761b7fcb5eb646cd40cfe39`的no-ff歷史；確認shared notification writeback只涵蓋共用通知API／排程／期限頁、直接unit／Worker-D1測試與證據文件；不新增或執行migration；以暫時`VITE_VAPID_PUBLIC_KEY`程序環境完成client build，並依`OPERATIONS.md`以`--keep-vars`部署staging。
+- 預定測試與掃描：lint（排除並保護ignored backups）、client／worker雙typecheck、unit、Worker／D1／API contract、client build、完整隔離Playwright E2E、正式碼／secret／fake／skip／未完成標記及需求ID掃描；部署後只做無副作用health、期限／Push訂閱／共用通知GET smoke。
+- 外部阻擋：Push兩台真實裝置的授權、訂閱、測試通知、每裝置狀態與停用仍由C線後續完成；Firstrade正式匯入與AT-INV-05仍由B線完成；本階段不讀取或修改任何secret值、不要求使用者操作。
