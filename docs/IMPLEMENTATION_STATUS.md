@@ -518,3 +518,10 @@
 - build／秘密邊界：暫時從C既有staging public binding注入`VITE_VAPID_PUBLIC_KEY`；bundle含public key布林核對為true，dist／source map未發現private／subject／其他secret identifier，`.env`未新增；新版本public var與C既有binding完全一致。`WEB_PUSH_VAPID_PRIVATE_KEY`與`WEB_PUSH_VAPID_SUBJECT`只以名稱／型別核對存在，未讀取值。
 - staging：依`wrangler deploy --config wrangler.toml --env staging --keep-vars`完成上傳；CLI在上傳成功後受Windows既有程序問題以`0xC0000409`結束，但唯讀deployment status確認`26d3ca9b-c910-452b-b3aa-f6a8c59b9450`承接100%流量，新version public binding存在、既有VAPID Secret名稱存在，remote `d1 migrations list --remote`回報`No migrations to apply!`。
 - smoke與未完成：未授權GET `/deadlines`、`/api/v1/notifications/channels`、`/api/v1/push-subscriptions`及`/api/v1/integrations`均受Access邊界回302；本階段沒有可用的Access session，故未把登入頁當成授權API／期限頁通過證據，也未觸發任何POST、真人Email、Push或Firstrade匯入。C可在取得既有Access session後依SETUP-006繼續兩台真人裝置驗收；`AT-GATE-08`不執行。
+
+### 2026-08-12 C線 final acceptance checkpoint（唯讀 smoke）
+
+- C 線已從最新 A 整合基準建立乾淨 worktree `D:\人生管理器-wt-web-push-final`／branch `codex/accept-web-push-final`，HEAD 為 A 整合 commit `95b60075fda3fb6afd209b19177d9363bd9c3c87`；本次沒有修改程式、shared notification、migration 或部署設定。
+- 只讀 Cloudflare 核對：staging version `26d3ca9b-c910-452b-b3aa-f6a8c59b9450` 為 100% active；remote migration 為 `No migrations to apply!`；版本 binding metadata 顯示 Worker public VAPID var 為 `plain_text`、private／subject 為 `secret_text`，只核對名稱／型別，沒有讀取或輸出任何值。
+- 現有 Access session 已可用；staging 期限頁成功顯示「重要期限與多通道警告」，沒有紅色 API／載入錯誤。頁面目前為真實空資料狀態：「尚無期限」及「尚無 Web Push 裝置訂閱」；沒有觸發任何 POST，也沒有建立示範期限或假訂閱。
+- 外部阻擋：依既定 AT-PUSH-01 必須先有一筆使用者提供的正式 `OPEN` 期限，才能觸發指定測試 Push；其後仍待真實電腦／手機通知授權、各自收件、每裝置 last success/error 與獨立停用。`DDL-008`／`SETUP-006`／`AT-PUSH-01` 維持 `IN_PROGRESS`，不執行 `AT-GATE-08`。

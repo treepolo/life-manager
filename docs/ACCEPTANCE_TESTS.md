@@ -249,6 +249,8 @@ W-8BEN與報稅範本固定最高級；可編輯日期及說明但不能降級�
 
 N線自動固定答案（2026-08-12）：`tests/worker/notifications-writeback-d1.test.ts`以兩個有效訂閱驗證同一 shared test-send operation 只送一次；裝置A收到provider 410時保存`EXPIRED`／`PUSH_SUBSCRIPTION_EXPIRED`，裝置B成功時保存`ACTIVE`／`last_success_at`，共用Web Push channel仍為`READY`且成功摘要可讀回；`GET /api/v1/push-subscriptions`回傳兩台逐裝置狀態。空訂閱回傳`PUSH_SUBSCRIPTION_MISSING`且API為空陣列，不產生示範資料。此為自動化與API/UI資料路徑證據，不取代A部署後由C執行的兩台真人收件、獨立停用與瀏覽器通知授權；本驗收維持`IN_PROGRESS`。
 
+C線 final acceptance checkpoint（2026-08-12）：Access session 下的期限頁唯讀載入成功，標題為「重要期限與多通道警告」且無紅色 API／載入錯誤；目前真實帳戶為空期限／空 Push 訂閱狀態，尚未觸發任何 POST。依固定流程，下一步必須先準備一筆既有正式 `OPEN` 期限，才可在真實電腦與真實手機分開完成授權、測試通知、逐裝置狀態讀回及獨立停用；在此之前 `AT-PUSH-01` 維持 `IN_PROGRESS`。
+
 ### AT-MAIL-01　真實郵件
 
 Resend寄到使用者本人信箱，收到測試信；錯誤與message ID保存。正式日誌不得包含API key。

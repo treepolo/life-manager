@@ -266,6 +266,14 @@ Codex先提供：
 
 驗收紀錄只保存裝置類型（手機／電腦）、操作時間、App 顯示的狀態／錯誤碼及是否收到通知，不保存 endpoint、訂閱 keys、Access 身分或通知內容中的私人資料。若裝置不支援 Push 或拒絕權限，App 必須明確顯示，不得假裝成功；站內與 Email 仍可運作。
 
+### C線 final acceptance checkpoint（2026-08-12）
+
+- [x] 從最新 A 整合 commit `95b60075fda3fb6afd209b19177d9363bd9c3c87` 建立乾淨 acceptance worktree；不使用舊 C runtime、不部署、不修改 shared notification。
+- [x] 唯讀核對 staging version `26d3ca9b-c910-452b-b3aa-f6a8c59b9450` 為 100% active，remote migration 為 `No migrations to apply!`；VAPID binding 只核對名稱／型別，不讀取 secret 值。
+- [x] 現有 Access session 可載入期限頁；頁面顯示「重要期限與多通道警告」且無紅色 API／載入錯誤。
+- [ ] staging 帳戶目前尚無正式 `OPEN` 期限；在建立／保留一筆使用者真實期限前，不觸發測試發送、不產生示範資料。
+- [ ] 真實電腦、真實手機的瀏覽器／系統通知授權、收件、last success/error 與獨立停用。
+
 ## SETUP-007　Firstrade CSV
 
 使用者不提供帳密。

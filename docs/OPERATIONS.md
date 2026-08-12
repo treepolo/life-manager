@@ -206,6 +206,12 @@ App內：
 - 依`wrangler deploy --config wrangler.toml --env staging --keep-vars`上傳後，CLI在Windows既有程序問題下回`0xC0000409`，但唯讀deployment status確認`life-manager-staging` version`26d3ca9b-c910-452b-b3aa-f6a8c59b9450`為100%流量；新version保留public VAPID binding與既有兩個VAPID Secret名稱／型別，remote `d1 migrations list --remote`為`No migrations to apply!`。
 - 未授權GET `/deadlines`、`/api/v1/notifications/channels`、`/api/v1/push-subscriptions`與`/api/v1/integrations`均受Access邊界回302。當時沒有可用Access session，因此不把此結果解讀成授權API通過；沒有觸發任何POST、真人Email／Push或Firstrade匯入。C收到本部署證據後依`SETUP-006`恢復兩台真人驗收。
 
+### C線 final acceptance 唯讀 smoke（2026-08-12）
+
+- C 使用最新 A 整合 staging version `26d3ca9b-c910-452b-b3aa-f6a8c59b9450`；唯讀 deployment status 為 100% active，remote migration 為 `No migrations to apply!`。C 未部署、未執行 migration、未讀取 secret 值。
+- 目前 Access session 可載入期限頁；「重要期限與多通道警告」可見且沒有紅色 API／載入錯誤。頁面回報「尚無期限」及「尚無 Web Push 裝置訂閱」，符合空資料不得補示範資料的規則。
+- 這個 smoke 尚未宣稱真人 Push 通過；在使用者準備正式 `OPEN` 期限後，C 才能依 SETUP-006 的單一步驟順序觸發兩台實體裝置驗收，並核對逐裝置狀態、通道摘要與 delivery log。
+
 ## OPS-010　W-8BEN與報稅提醒排程
 
 - 使用一個全域通知時間與重複間隔，預設值需在首次設定時由使用者確認。

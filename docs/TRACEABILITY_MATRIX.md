@@ -107,4 +107,8 @@ A線已以保留歷史的merge納入B `4f7b1cb`、C `7853ed9`、D `4bc74a8`；C�
 
 A以no-ff merge commit`edc1cd25de07da237d08cd958457701d24723212`保留N commit`1e5bc687df538cc0e761b7fcb5eb646cd40cfe39`，依`wrangler deploy --config wrangler.toml --env staging --keep-vars`部署；version`26d3ca9b-c910-452b-b3aa-f6a8c59b9450`經唯讀deployment status確認100% active。`VITE_VAPID_PUBLIC_KEY`只在建置程序注入，bundle public-key presence、與C既有Worker public binding一致性及private／subject／其他secret identifier排除均以布林結果核對；既有VAPID Secret只核對名稱／型別，未讀取值。remote D1 migration list為`No migrations to apply!`。未授權GET頁面與期限／通知／Push／整合API均由Access邊界回302；本階段沒有可用Access session，因此不把登入頁當成授權API smoke，也不把`DDL-008`或`AT-PUSH-01`升級；未執行任何POST、真人Email、Push、Firstrade匯入或`AT-GATE-08`。
 
+### C線 final acceptance 唯讀 checkpoint（2026-08-12）
+
+最新 A 整合版本已由 C 唯讀確認為 staging 100% active，remote migration 無待套用；目前 Access session 可載入期限頁且無紅色 API／載入錯誤。真實帳戶目前顯示「尚無期限」與「尚無 Web Push 裝置訂閱」，因此尚未觸發測試發送或建立示範資料。`DDL-008`／`SETUP-006`／`AT-PUSH-01` 仍為 `IN_PROGRESS`；下一步只等待一筆使用者真實正式 `OPEN` 期限，之後再依序完成真實電腦、真實手機與獨立停用驗收。
+
 需求狀態的唯一權威仍為`IMPLEMENTATION_STATUS.md`；本索引只提供從原意到實際檔案與測試的查找路徑。
