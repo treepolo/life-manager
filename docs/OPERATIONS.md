@@ -210,7 +210,7 @@ App內：
 
 - C 使用最新 A 整合 staging version `26d3ca9b-c910-452b-b3aa-f6a8c59b9450`；唯讀 deployment status 為 100% active，remote migration 為 `No migrations to apply!`。C 未部署、未執行 migration、未讀取 secret 值。
 - 目前 Access session 可載入期限頁；「重要期限與多通道警告」可見且沒有紅色 API／載入錯誤。使用者已準備一筆正式 `OPEN` 期限，頁面已出現「測試發送」入口；Push 訂閱仍為空，符合尚未授權裝置時不得補示範資料的規則。
-- 兩台真人收件已完成：使用者畫面顯示電腦測試通知已收到、channel `READY`、裝置 `ACTIVE`、最近成功時間及成功 1／失敗 0；使用者確認手機也已收到。D1 唯讀聚合顯示 2 個不同 device、2 筆 `ACTIVE`、兩台成功紀錄／錯誤 0、`WEB_PUSH=READY`、delivery `SENT` 9／錯誤 0。C 下一步依 SETUP-006 只做停用其中一台後另一台仍可收件的獨立性核對。
+- 兩台真人收件已完成：使用者畫面顯示電腦測試通知已收到、channel `READY`、裝置 `ACTIVE`、最近成功時間及成功 1／失敗 0；使用者確認手機也已收到。使用者已停用手機；D1 唯讀聚合顯示手機 `DISABLED`、電腦 `ACTIVE`、兩台成功紀錄／錯誤 0、`WEB_PUSH=READY`、delivery `SENT` 9／錯誤 0。C 下一步依 SETUP-006 只從未停用電腦做最後一次測試，確認手機不再收件。
 
 ## OPS-010　W-8BEN與報稅提醒排程
 
