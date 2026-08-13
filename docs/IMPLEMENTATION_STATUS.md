@@ -13,6 +13,8 @@
 
 > 最新 A 整合線狀態（2026-08-13）：N2 與 C final 證據已以 no-ff merge 納入；staging 最新 active version 為 `db41ff0c-7864-43d2-9a98-54000cebfa92`（100%）。本檔較早段落中的 `26d3ca9b-c910-452b-b3aa-f6a8c59b9450` 是 N1 歷史部署，不是目前 active version；最新部署證據以本檔末段為準。
 
+> A 最終整合 gate（2026-08-13）目前 `IN_PROGRESS`：待納入已推送的 B `codex/accept-firstrade@300b3d71742024bb28915f6bd55d29a9110237b6` 與 C `codex/accept-web-push-final@f032a5bd60c5b6ecd8d09d38c5ec381c811bd1ec` 去識別完成證據，逐項保留既有歷史與不降級狀態；待完成完整測試／掃描、112-ID coverage、`AT-GATE-08`、staging／remote migration 唯讀核對及精確 worktree 清理資格核對後，再將本檔末段更新為最終結果。此段不代表任何需求狀態降級。
+
 ## 2026-08-12 N線 shared notification writeback 修正開工
 
 - 基準：由已推送整合基準 `b7f947a1be71598ef40809db8b44457a73f65b81` 建立獨立 branch `codex/fix-notification-shared`；開工時工作樹乾淨，未從 `master` 或 C／D 舊基準開始。
