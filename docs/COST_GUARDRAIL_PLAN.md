@@ -10,7 +10,7 @@
 
 本計畫不記錄卡片資料、末四碼、帳戶 email、付款識別、截圖原始路徑或可重建付款資料。一般官方 onboarding 文件所說的 Free 基本方案不收基礎費用，不能推翻這個帳戶特定的結帳授權；帳戶訂閱摘要也不能取代結帳頁的授權狀態核對。
 
-既有唯讀 dashboard 摘要曾顯示 Workers Free 與 Zero Trust／Teams Free Base 的使用中方案，當時沒有看到 Workers Paid 項目；這只能描述該次摘要，不能證明沒有 checkout overage authorization。實際本帳戶的 current usage、產品級 alert、Budget alert 與 billing authorization 是否仍一致，保留為 `SETUP-010` 未完成的外部核對。
+2026-08-14 的 SETUP-010 唯讀核對確認訂閱頁仍顯示 Workers Free 與 Zero Trust／Teams Free Base 使用中，Zero Trust 設定頁顯示 Zero Trust Free、$0／月、1／50 seat；沒有看到 Workers Paid 項目。Billable Usage 僅提供每日更新的估算且沒有本專案 Workers／D1 current usage，Notifications 頁沒有既有通知項目，也未顯示 Budget alert／hard cap。先前帳戶特定 checkout 證據仍優先，`auto_overage_authorization=EXISTS`；current usage、reset、billing cycle、alert 與 hard cap 仍 UNKNOWN。
 
 ### 0.2 只澄清既有要求
 
@@ -22,7 +22,7 @@
 
 目前 `wrangler.toml` 使用 Workers、D1 與 `*/15 * * * *` Cron；沒有 KV、R2、Queues 或 Cloudflare Email binding。程式已有部分運算護欄：D1 寫入批次上限 100、Instagram 每輪最多 40 篇 Insights、該同步路徑最多 43 次外部 subrequest、provider job claim／stale recovery、YouTube 分頁與 Resend idempotency key。這些是請求或資料一致性護欄，**不是帳戶 quota meter、不是付款 hard cap，也不是 Cloudflare 帳戶扣款防止器**。
 
-本輪 gap audit 的結論是：Workers、D1、YouTube Data API、Resend 有官方 baseline，但目前沒有本帳戶 exact included／remaining／reset／billing evidence；YouTube Analytics、Instagram、Zero Trust／Access 的 exact allowance 或可用 metric 仍是 `UNKNOWN`。因此官方 baseline 只進入 contract provenance，不直接放行。Phase 0–2 已新增 allowlist／drift audit、versioned contract、append-only D1 ledger、原子 reservation／commit／release、shared provider gate、狀態 API／UI 與 synthetic tests；這些是 App 的保守 admission ledger，不是 provider invoice truth，也不能阻止 Workers invocation 或 Cloudflare 帳戶扣款。未完成部分是帳戶級 `SETUP-010`、權威 usage collector／對帳與 production 證據。
+本輪 gap audit 與 SETUP-010 的結論是：Workers／D1 的帳戶方案頁提供 included baseline，Zero Trust 提供 seat 1／50；但 current usage／remaining／authoritative reset／billing evidence 仍不足，YouTube Analytics、Instagram、Resend 的帳戶證據也未取得。官方或方案頁 baseline 只進入 contract provenance，不直接放行。Phase 0–2 已新增 allowlist／drift audit、versioned contract、append-only D1 ledger、原子 reservation／commit／release、shared provider gate、狀態 API／UI 與 synthetic tests；這些是 App 的保守 admission ledger，不是 provider invoice truth，也不能阻止 Workers invocation 或 Cloudflare 帳戶扣款。未完成部分是權威 usage collector／對帳與 production 證據。
 
 ### 0.4 後續單一修正線
 
@@ -121,9 +121,9 @@
 
 ### Phase 4：production 前人工帳務閘門
 
-- 先完成 `SETUP-010` 的一次唯讀帳務核對：Cloudflare 中文介面核對訂閱／方案、超額授權、Billable Usage、Notifications／Budget alerts 與已啟用產品；只記去識別摘要。
-- 若仍不能證明付款授權、產品 allowlist、quota source 與 hard-stop 邊界，production 維持 `AWAITING_USER_SETUP`／`EXTERNAL_BLOCKED`，不部署、不啟用非必要資源。
-- 人工核對不是本輪要求的使用者操作；本輪只規劃，不開啟 dashboard、不修改設定。
+- `SETUP-010` 已於 2026-08-14 完成一次唯讀核對：訂閱／方案、Zero Trust seat、Workers／D1 plan included、Billable Usage、Notifications 與 Access app 清單均保存去識別摘要；checkout 超額授權仍以帳戶特定第一手證據為準。
+- 因 current usage／remaining／authoritative reset／billing period／invoice cutoff／告警／hard cap 仍 UNKNOWN，production 維持 `AWAITING_USER_SETUP`／`EXTERNAL_BLOCKED`，不部署、不啟用非必要資源。
+- SETUP-010 的 VERIFIED 只代表人工唯讀核對完成，不代表 NFR-001／OPS-002 或帳務安全完成；後續由主線決定 staging migration/deploy 與 synthetic acceptance。
 
 ### 部署、回復與 migration 判斷
 
@@ -168,4 +168,4 @@
 - `AT-OPS-20` 指標品質、來源版本與告警 window 稽核。
 - `AT-OPS-21` 逐資源 risk class／reserve 固定答案；`AT-OPS-22` 原子 reservation／競態；`AT-OPS-23` local ledger 與 provider mismatch；`AT-OPS-24` 告警失敗不解除 breaker；`AT-OPS-25` quota reset 與 billing cycle 分離；`AT-OPS-26` expiry override／audit；`AT-OPS-27` provider gate 與 account-control 邊界；`AT-OPS-28` config drift 與 production 停止點。
 
-唯一規劃中的真人設定閘門是 `SETUP-010`；本輪不要求使用者執行。
+`SETUP-010` 已完成並標為 `VERIFIED`（僅代表人工唯讀核對完成）；後續仍需權威 usage collector、帳務對帳與 production evidence，無需因本核對再要求使用者操作。

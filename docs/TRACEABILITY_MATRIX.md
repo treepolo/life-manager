@@ -38,9 +38,9 @@
 ## 2026-08-13 NFR-001／OPS-002 成本防線文件計畫
 
 - 使用者提供的 Cloudflare 結帳頁是本帳戶特定第一手證據：超出包含額度的使用量按月計費，且已出現授權超額扣款的選項。這項去識別證據優先於先前「Zero Trust Free 超額不會自動扣款」的稽核結論；本矩陣不記錄付款資料、帳戶 email、末四碼或圖片路徑。
-- `NFR-001`／`OPS-002` 仍為 `IN_PROGRESS`（runtime Phase 0–2 已實作，但帳戶級與 production evidence 未完成）。Cloudflare／Resend／Google／Meta 的一般 Free 或 quota 文件只能證明官方 baseline，不能取代本帳戶 checkout authorization、plan／SKU、usage、alert 與 invoice 核對。
+- `NFR-001`／`OPS-002` 仍為 `IN_PROGRESS`（runtime Phase 0–2 已實作；`SETUP-010` 的人工唯讀核對已完成，但帳戶 authoritative usage／reset／billing／production evidence 未完成）。Cloudflare／Resend／Google／Meta 的一般 Free 或 quota 文件只能證明官方 baseline，不能取代本帳戶 checkout authorization、plan／SKU、usage、alert 與 invoice 核對。
 - 新增 runtime：`src/modules/cost-guardrail/contracts.ts`、`src/modules/cost-guardrail/service.ts`、`scripts/verify-cost-guardrail-config.mjs`、status／observation／override API、Integrations 成本狀態 UI；新增 append-only `0011_cost_guardrails.sql`／`0012_cost_guardrail_atomic_transitions.sql`，尚未套用 staging／production。
-- 新增固定答案驗收：`AT-OPS-03`～`AT-OPS-28`；唯一真人設定閘門仍是 `SETUP-010`。本輪不執行 `SETUP-010`，不部署、不修改 Cloudflare 帳務／方案／付款／Secrets／vars／Access。
+- 新增固定答案驗收：`AT-OPS-03`～`AT-OPS-28`；`SETUP-010` 已於 2026-08-14 完成一次唯讀核對並保存去識別摘要，不部署、不修改 Cloudflare 帳務／方案／付款／Secrets／vars／Access。
 - 目前 contract 只將 exact account observation 放行；local conservative ledger 明確不是 provider invoice truth。D1、YouTube、Instagram、Resend provider gates、scheduled／manual shared reservation、drift／UNKNOWN／breaker evidence 已覆蓋；Workers inbound、Access／Zero Trust 與帳務仍是 `OBSERVE_ONLY`／`ACCOUNT_CONTROL_REQUIRED`。外部 metric／API 失效、period/reset 不明或 billing authorization 不明時預期仍是 `UNKNOWN`／fail-closed。
 
 規格衝突紀錄：本檔原有一列寫作`ARCH-001~008`，但`ARCHITECTURE.md`目前只定義`ARCH-001`、`ARCH-002`、`ARCH-003`。未定義的`ARCH-004~008`不列入虛構需求；原列保留供規格擁有者修正。

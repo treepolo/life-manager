@@ -15,13 +15,23 @@
 
 > A 最終整合 gate（2026-08-13）已 `PASSED`：B `codex/accept-firstrade@300b3d71742024bb28915f6bd55d29a9110237b6` 與 C `codex/accept-web-push-final@f032a5bd60c5b6ecd8d09d38c5ec381c811bd1ec` 的完成證據已逐項保留並整合；`INV-002`／`SETUP-007`、`DDL-008`／`SETUP-006`／`AT-PUSH-01`已收斂為`VERIFIED`，`AT-GATE-08`已通過。staging version與100% active、remote migration、完整測試／掃描及未部署理由見本檔最終整合段落；worktree清理另依`WORKTREE_CLEANUP_TODO.md`的安全順序執行。
 
+## 2026-08-14 SETUP-010 帳戶級唯讀核對完成（SETUP-010 VERIFIED；NFR-001／OPS-002 仍 IN_PROGRESS）
+
+- 已在現有已登入 Cloudflare in-app browser tab 完成一次唯讀核對，沒有新增 tab、登入、OTP、同步、變更、部署或 migration；只保存去識別摘要，不保存付款資料、末四碼、email、完整帳戶識別、secret 或圖片原始路徑。頁面未提供 audit id，故 `audit_id=UNKNOWN`。
+- 訂閱頁顯示 `Workers Free` 與 `Zero Trust Teams Free Base` 使用中；Zero Trust 設定頁顯示 `Zero Trust Free`、每月 `$0`、名額 `1 / 50`。Workers 方案頁顯示目前 Free plan 的 Workers／D1 included 值：100,000 requests／日、10 ms CPU／invocation、50 external subrequests／invocation、5 Cron／account、D1 5,000,000 rows read／日、100,000 rows written／日、5 GB storage；未把這些值當 current usage 或 provider invoice truth。
+- Zero Trust 概觀顯示 1 位使用者／50 個可用授權、1 個 application；Access 清單只有 `life-manager-staging` 自我裝載 app 與 1 個 policy。這支持 `cloudflare.access` 的 seat 觀測，但沒有提供超額單價、計費單位、reset 或 hard cap。
+- Billable Usage 頁明示每日更新、僅供估算，月曆檢視可能與 billing cycle 不同；當頁未提供本專案 Workers／D1 current usage、remaining、authoritative reset_at／timezone、billing period 或 invoice cutoff，均為 `UNKNOWN`。Notifications 頁沒有既有通知項目，只顯示建立入口；未看到 Budget alert 或 hard spend cap，平台能力是否存在仍為 `UNKNOWN`。
+- 帳戶特定 checkout 去識別證據優先於 Free label：先前第一手證據表示超出包含額度按月計費且已授權超額扣款，故 `auto_overage_authorization=EXISTS`。目前 plan／subscription 頁沒有重新顯示 checkbox，不能以 `$0` 覆寫該風險。
+- contract 對照：`cloudflare.access` 的 seat `1/50` 可作為帳戶觀測，但仍 `ACCOUNT_CONTROL_REQUIRED`；Workers／D1 的 plan／included 可作為 account-observed candidate，usage／reset／billing 仍 `UNKNOWN`；Resend／YouTube／Instagram 沒有本次帳戶證據，維持 `UNKNOWN`；KV／R2／Queues／Cloudflare Email 維持 allowlist／drift 的 `ACCOUNT_CONTROL_REQUIRED`。沒有直接改 production contract。
+- 結論：`SETUP-010` 只因人工唯讀核對完成而標 `VERIFIED`；`NFR-001`／`OPS-002` 不得標 `VERIFIED`。自動超額授權、缺 current usage／authoritative reset／billing cycle／hard cap／可用告警，仍阻擋 production；後續需主線決定 staging migration/deploy 與 synthetic acceptance。
+
 ## 2026-08-14 成本防線 Phase 0–2 實作（NFR-001／OPS-002 仍 IN_PROGRESS）
 
 - 結帳頁一手、去識別證據優先於先前稽核結論：Zero Trust Free 帳戶按月授權超出包含額度計費；本檔不記付款資料、末四碼、帳戶 email、秘密或圖片原始路徑。
 - 本輪已實作：`src/modules/cost-guardrail/contracts.ts`（versioned contract、risk class、period/reset/billing/provenance、80/70/80 與 85/75/85 policy、reserve formula）、`src/modules/cost-guardrail/service.ts`（exact evidence gate、local ledger、atomic admission、alert dedupe、breaker、expiry override、drift audit）、`migrations/0011_cost_guardrails.sql`、`migrations/0012_cost_guardrail_atomic_transitions.sql`、`scripts/verify-cost-guardrail-config.mjs`、provider request gates、D1 persistence gate、cost status／observation／override API 與 Integrations UI。
 - provider 範圍：YouTube Data、Instagram Graph、Resend 只在 exact contract observation 後放行；YouTube Analytics、Workers inbound／CPU／subrequest／Cron、Zero Trust／Access 與帳戶 billing 維持 `UNKNOWN`／`OBSERVE_ONLY`／`ACCOUNT_CONTROL_REQUIRED`，不宣稱 App 可阻止 invocation 或 Cloudflare 扣款。
 - 預定／實際測試：`tests/unit/cost-guardrail.test.ts`、`tests/worker/cost-guardrail.test.ts`、Resend synthetic contract fixture、雙 typecheck、lint、unit／Worker-D1、client build、config／假秘密掃描、requirements／traceability、`git diff --check`。不部署 production、不套用 staging／production migration。
-- 外部阻擋：本帳戶 exact plan／SKU／remaining／reset／billing cycle／alert 與 production usage 對帳尚未取得；`SETUP-010` 仍是唯一必要真人設定閘門，本輪不要求使用者操作。NFR-001／OPS-002 不得標 `VERIFIED`。
+- 外部阻擋：`SETUP-010` 人工唯讀核對已完成並標 `VERIFIED`，但本帳戶 current usage／remaining／authoritative reset／billing cycle／alert／hard cap 與 production usage 對帳仍未取得；NFR-001／OPS-002 不得標 `VERIFIED`。
 
 ## 2026-08-13 成本防線文件計畫開工（NFR-001／OPS-002）
 
@@ -29,8 +39,8 @@
 - 使用者提供的 Cloudflare 結帳頁一手、去識別證據優先於先前稽核結論：畫面明示超出包含額度的額外使用量按月計費，並授權每月向付款卡收取超出免費限制的使用量直到取消。因此本輪明確記錄「Zero Trust Free 帳戶存在自動超額計費風險」，不再以 seat 額滿阻擋、一般 Free onboarding 或目前沒有用量否定此風險。
 - 去識別邊界：本檔與新增文件不記錄卡片資料／末四碼、帳戶 email、付款識別、秘密、完整帳號識別或結帳／截圖原始路徑；只保存證據類型、結論、官方來源與查核日期。
 - （歷史文件階段紀錄）預定修改檔案為上述文件；後續 Phase 0–2 已依新 gap audit 實作 runtime／append-only migration，仍不新增產品需求、不修改 `wrangler.toml`／Secrets／vars／Access、不部署 production。
-- 固定測試與外部阻擋：執行文件／requirements／traceability一致性、官方來源／quota固定答案檢查、假秘密／付款資料掃描與`git diff --check`；不跑與純文件無關的整套部署。實際帳戶 plan／SKU／checkout authorization／usage／alert 狀態仍需未來 `SETUP-010` 的一次唯讀人工核對；本輪不要求使用者操作，未核對前 production 維持未完成。
-- （歷史文件階段缺口，已部分收斂）D1 batch、Instagram 40篇／run、43 subrequests、provider claim 仍不是帳戶 quota；Phase 0–2 已補 App local ledger、告警去重、降載／internal stop、通知失敗安全狀態與管理者 expiry audit，但 authoritative account collector／production reconciliation／SETUP-010 仍未完成。
+- 固定測試與外部阻擋（2026-08-13 開工時）：執行文件／requirements／traceability一致性、官方來源／quota固定答案檢查、假秘密／付款資料掃描與`git diff --check`；當時實際帳戶 plan／SKU／checkout authorization／usage／alert 狀態仍需 `SETUP-010` 唯讀核對，未核對前 production 維持未完成。
+- （歷史文件階段缺口，已部分收斂）D1 batch、Instagram 40篇／run、43 subrequests、provider claim 仍不是帳戶 quota；Phase 0–2 已補 App local ledger、告警去重、降載／internal stop、通知失敗安全狀態與管理者 expiry audit。SETUP-010 已於上方完成，但 authoritative account collector／production reconciliation 仍未完成。
 
 ## 2026-08-12 N線 shared notification writeback 修正開工
 
@@ -134,7 +144,7 @@
 | UI-CHART-001~010 | VERIFIED | `src/components/charts`, finance/social/metrics pages | 不需 | Recharts wrapper；圖名、雙軸語意、刻度、單位、圖例、鍵盤tooltip、資料品質、完整provenance、事件互動、D1更新曲線E2E逐項通過 | 無 |
 | SEC-001~005 | AWAITING_USER_SETUP | Access JWT、AES-GCM、OAuth state/PKCE、export/scan | 視需要 | access/oauth unit+D1、秘密/假資料/RSC掃描通過 | 等待Cloudflare Access真實政策與production檢查 |
 | OPS-001, OPS-003, OPS-008 | AWAITING_USER_SETUP | `wrangler.toml`, `package.json`, `docs/OPERATIONS.md`, `docs/SETUP_CHECKLIST.md` | staging D1已由9→10套用新增`0010`；既有migration未修改 | lint、雙typecheck、38 unit、21 Worker/D1、build、12個隔離D1 Playwright與掃描；staging schema 10／raw 14與回填link 14／孤立0／migration list空；Worker `9a72219e-7880-4ec4-b673-0cb99b64791d` 100%、Access未授權302、四個Secret名稱／型別及既有本人政策／兩台實體App證據保留 | staging建置完成；production尚未建立 |
-| OPS-002 | IN_PROGRESS | `src/modules/cost-guardrail/*`, `src/worker/api/provider-sync.ts`, `src/worker/api/oauth.ts`, `src/worker/scheduled/index.ts`, `src/integrations/{youtube,instagram,resend}`, `migrations/0011_cost_guardrails.sql`, `migrations/0012_cost_guardrail_atomic_transitions.sql`, `docs/COST_GUARDRAIL_PLAN.md`, `docs/OPERATIONS.md`, `docs/ACCEPTANCE_TESTS.md` | 新增 append-only migration 0011／0012；只完成 local migration／tests，未套用 staging／production | Phase 0–2 runtime、exact gate、local conservative ledger、atomic reservation、50／70／75／80／85 alert dedupe、70／75 degrade、80／85 internal stop、UNKNOWN fail-closed、provider／D1 gate、drift／override audit 已實作；AT-OPS-03～28 持續驗收；未完成 authoritative account usage／production evidence／SETUP-010 | 使用者結帳頁證據顯示超額按月計費授權；實際 plan／SKU／usage／alert 狀態與 production 帳務核對仍待唯一人工閘門 |
+| OPS-002 | IN_PROGRESS | `src/modules/cost-guardrail/*`, `src/worker/api/provider-sync.ts`, `src/worker/api/oauth.ts`, `src/worker/scheduled/index.ts`, `src/integrations/{youtube,instagram,resend}`, `migrations/0011_cost_guardrails.sql`, `migrations/0012_cost_guardrail_atomic_transitions.sql`, `docs/COST_GUARDRAIL_PLAN.md`, `docs/OPERATIONS.md`, `docs/ACCEPTANCE_TESTS.md` | 新增 append-only migration 0011／0012；只完成 local migration／tests，未套用 staging／production | Phase 0–2 runtime、exact gate、local conservative ledger、atomic reservation、50／70／75／80／85 alert dedupe、70／75 degrade、80／85 internal stop、UNKNOWN fail-closed、provider／D1 gate、drift／override audit 已實作；AT-OPS-03～28 持續驗收；未完成 authoritative account usage／production evidence | SETUP-010 已完成並標 `VERIFIED`：Workers Free、Zero Trust Free／Teams Free Base、Zero Trust seat 1/50 與 Workers／D1 plan included 已觀測；checkout 超額按月授權仍存在，current usage／reset／billing／alert／hard cap／production 對帳仍未知 |
 | OPS-004, OPS-005, OPS-006, OPS-007, OPS-009, OPS-010, OPS-011 | AWAITING_USER_SETUP | scheduled retention、provider health、scripts、`docs/OPERATIONS.md` | 不需 | local build/test/13項D1/backup/restore gate通過 | 等待staging／production外部通道、備份及災難流程真實驗收 |
 
 ### 跨域第一批ID狀態索引
@@ -530,7 +540,7 @@
 - `INV-002`／`SETUP-007`：已於2026-08-13完成正式匯入與AT-INV-05；486／486／0／0、D1 USD 17.81、Firstrade官方總數486及兩筆MSTU BUY核對一致，狀態為`VERIFIED`。
 - `DDL-008`／`SETUP-006`／`AT-PUSH-01`：已於2026-08-13完成staging真人驗收並標為`VERIFIED`；兩台真實裝置各自成功訂閱／收件，手機獨立停用後電腦仍為`ACTIVE`並收件，最新delivery只送至電腦，UI／Push API／D1均一致。`AT-GATE-08`已於最終整合 gate通過。
 - `SOC-009`、`SOC-010`與`DDL-009`／`SETUP-005`／`AT-MAIL-01`均依各線真實證據標為`VERIFIED`；`SEC-001`~`SEC-005`、`NFR-001`~`NFR-010`及其他尚未完成的`OPS`／`SETUP`項目仍依正式表維持未完成狀態。
-- `NFR-001`／`OPS-002`：2026-08-14仍為`IN_PROGRESS`；結帳頁一手證據顯示Zero Trust Free帳戶存在超額按月計費授權風險。`AT-OPS-03`～`AT-OPS-28`已有本機／synthetic實作與驗收，帳戶 authoritative collector、production reconciliation與`SETUP-010`尚未完成，故不得`VERIFIED`。
+- `SETUP-010`：2026-08-14 已完成一次 Cloudflare 帳戶級唯讀核對並標為`VERIFIED`；去識別證據保存於本檔與`docs/SETUP_CHECKLIST.md`，未知欄位逐項保留，沒有保存付款資料或帳戶識別。`NFR-001`／`OPS-002` 仍為`IN_PROGRESS`：結帳頁一手證據顯示自動超額按月計費授權，且 current usage、authoritative reset、billing cycle、alert、hard cap 與 production reconciliation 尚未充分取得。
 - A整合線第一階段已納入B、C、D的已推送歷史與驗收證據；該階段不部署、不執行migration、不做Firstrade正式匯入、不做Push真人驗收、不執行`AT-GATE-08`，並形成可供N線起始的no-deploy整合基準。此為歷史階段紀錄，不是最終 gate 狀態。
 
 ### 2026-08-12 A整合線第二階段開工（最小安全整合與staging部署）
