@@ -233,6 +233,14 @@ App內：
 - 實際：使用者回報電腦未收到，且電腦 UI 顯示 `DISABLED`。D1 唯讀卻顯示 computer-like 訂閱 `ACTIVE` 1、mobile-like 訂閱 `DISABLED` 1，`WEB_PUSH` channel `READY`，delivery 從 9 增至 `SENT` 10、錯誤 0；查詢未寫入。
 - 決定：這是未解的 UI／共用通知狀態與真人收件矛盾。C 線停止驗收，不修改 shared notification、scheduler、期限 UI/API 或部署；移交主線釐清後再恢復 AT-PUSH-01。
 
+### C線 Web Push final acceptance（2026-08-13）
+
+- A/N2整合commit `007768fae8f56893072cc056a007766cac462595` 的 staging version `db41ff0c-7864-43d2-9a98-54000cebfa92`為100% active；remote migration為`No migrations to apply!`。C線只做唯讀部署／API／D1核對與真人驗收，未部署、未執行migration、未讀取secret值。
+- Worker public VAPID var與client build public key只以一致性布林結果核對；private key／subject只存在Cloudflare Secret。Service Worker build stamp為`774d9ed6db971987`，placeholder不存在；未在文件保存任何secret、endpoint或subscription key。
+- 真人驗收：手機與電腦兩台不同真實裝置各自授權、訂閱並收到測試Push；手機獨立停用後，未停用電腦維持`ACTIVE`並收到唯一一次最後測試，使用者確認停用手機未收到。
+- 唯讀一致性：UI與`GET /api/v1/push-subscriptions`均讀回手機`DISABLED`、電腦`ACTIVE`、兩台last success存在且error為空；D1 `WEB_PUSH` channel為enabled／`READY`且last success存在、error為空；最新delivery為`SENT` 1、to active 1、to disabled 0、error 0，查詢`rows_written=0`。
+- 結論：`DDL-008`、`SETUP-006`、`AT-PUSH-01`均為`VERIFIED`；不執行`AT-GATE-08`，不修改production`SETUP-009`或其他整合線。
+
 ## OPS-010　W-8BEN與報稅提醒排程
 
 - 使用一個全域通知時間與重複間隔，預設值需在首次設定時由使用者確認。

@@ -258,6 +258,7 @@ C線最後獨立性測試失敗（2026-08-12）：預期未停用電腦收到、
 N2 `724fa63b9588130b7719b92713cfaa36d83278fb` 已由 A 以 no-ff merge `a8781085d33b515360455570d320f17ef8369144` 納入；C final `441b9d3c6941a6571d3660d4fce3359191ff5223` 只納入去識別失敗／移交證據，merge `6362929d9f7cf782a562bee51388bf2cb93dc714`，沒有 C runtime。N2 固定答案已覆蓋每裝置最新列、停用裝置遮蔽舊列、同 endpoint 重訂閱、裝置改名與 provider accepted 語意，但不替代真人收件。
 
 A 以 process-only `VITE_VAPID_PUBLIC_KEY` 完成 client build 並部署 staging version `db41ff0c-7864-43d2-9a98-54000cebfa92`；唯讀 status 為 100% active，remote migration 為 `No migrations to apply!`，未執行 migration。bundle 實際含 public key，未發現 private／subject／其他 secret identifier；未授權 `/`、期限頁及通知／Push／整合 GET 均由 Access 回 `302`。因此 `DDL-008`／`SETUP-006`／`AT-PUSH-01` 仍為 `IN_PROGRESS`，待主線喚醒 C 依 `SETUP-006` 重做真人雙裝置驗收；`AT-GATE-08` 不執行。
+C線 final acceptance（2026-08-13）：N2整合後staging version `db41ff0c-7864-43d2-9a98-54000cebfa92`為100% active，remote migration無待套用；使用者已在真實電腦完成client安全更新。手機與電腦兩台真實裝置各自訂閱並收到測試Push，手機之後獨立停用；從未停用電腦只發送一次最後測試，電腦收到且手機未收到。UI顯示Web Push `READY`、電腦`ACTIVE`及最新成功時間、手機`DISABLED`及既有成功時間；Push API回讀兩台逐裝置狀態與成功／錯誤欄位；D1最新delivery為`SENT` 1、只送至`ACTIVE`電腦、停用手機0筆，通道摘要`READY`且錯誤0。`AT-PUSH-01`完成，`DDL-008`／`SETUP-006`標為`VERIFIED`；不執行`AT-GATE-08`。
 
 ### AT-MAIL-01　真實郵件
 
