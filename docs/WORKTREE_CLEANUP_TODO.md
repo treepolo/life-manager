@@ -17,13 +17,14 @@
 
 - `C:\Users\gg013\.codex\worktrees\ef2b\人生管理器-n2`
   - 目前 branch：`codex/fix-notification-shared-2`
-  - N2 尚在進行，存在未提交修改；必須等 N2 測試完成、commit 並 push 後才能清理。
+  - N2 source `724fa63b9588130b7719b92713cfaa36d83278fb` 已測試、commit 並 push；在 B／C／D 全部收斂及主線確認前仍不得清理。
 - 任何 `git status` 非乾淨、尚未 push、或尚未整合回正式 D 槽專案的 worktree。
 
 ## 收斂順序
 
-- [ ] N2 完成測試、commit 並 push `codex/fix-notification-shared-2`。
-- [ ] 在 `D:\人生管理器` 核對遠端 N2 commit，完成既定整合、staging 重部署與 C 線重驗。
+- [x] N2 完成測試、commit 並 push `codex/fix-notification-shared-2`（`724fa63b9588130b7719b92713cfaa36d83278fb`）。
+- [x] 在 `D:\人生管理器` 核對遠端 N2 commit，完成 N2／C final 證據整合與 staging 重部署；最新 version `db41ff0c-7864-43d2-9a98-54000cebfa92` 為 100% active，未執行 migration。
+- [ ] 由主線喚醒 C 線，依 `SETUP-006` 重驗兩台真人裝置及 `AT-PUSH-01`；本項尚未完成，不得將 Push 需求升為 `VERIFIED`。
 - [ ] B／C 最終驗收完成，所有相關正式文件與證據合併回 `D:\人生管理器`。
 - [ ] 最終整合與 `AT-GATE-08` 完成，確認 canonical branch 已 push。
 - [ ] 逐一核對所有輔助 worktree：branch、HEAD、`git status`、遠端 HEAD 與合併狀態。

@@ -2,6 +2,8 @@
 
 本表確保每一項主要需求都有對應的正式要求與驗收，不得只出現在說明文字中。
 
+> 最新 A 整合線部署（2026-08-13）為 staging version `db41ff0c-7864-43d2-9a98-54000cebfa92`、100% active。下方 `26d3ca9b-c910-452b-b3aa-f6a8c59b9450` 僅屬 2026-08-12 N1 歷史證據；需求狀態仍以最新整合段落及 `IMPLEMENTATION_STATUS.md` 為準。
+
 ## 第一批需求ID覆蓋索引
 
 下列索引使用完整ID（不依賴`~`範圍的隱含展開），供部署閘門與`IMPLEMENTATION_STATUS.md`交叉檢查。各ID的實作位置與驗收證據仍以本檔下方矩陣及狀態帳本的逐項紀錄為準。
@@ -103,7 +105,7 @@ A線已以保留歷史的merge納入B `4f7b1cb`、C `7853ed9`、D `4bc74a8`；C�
 
 由整合基準`b7f947a1be71598ef40809db8b44457a73f65b81`建立`codex/fix-notification-shared`。根因是共用`src/worker/scheduled/index.ts`及使用者測試通知只更新`notification_deliveries`，沒有在同一寫入交易同步`notification_channels`摘要與Web Push逐裝置欄位；因此不是Resend adapter或UI文字問題。新增`src/modules/notifications/persistence.ts`集中保存成功／provider error／410失效結果，`src/modules/notifications/schema.ts`提供API輸出契約，新增Push逐裝置GET並在`DeadlinesPage.tsx`顯示真實狀態；核對`0005_deadlines_notifications.sql`已有正式欄位，本線不新增migration、不修改既有migration。自動證據為Email與Push Worker-D1/API固定答案、Email缺少provider message ID unit、完整unit／lint／雙typecheck／client build；A部署後仍由C完成真人AT-PUSH-01，需求狀態不提前改為`VERIFIED`。
 
-### A整合線第二階段 staging部署（2026-08-12）
+### A整合線第二階段 staging部署（2026-08-12；N1歷史紀錄）
 
 A以no-ff merge commit`edc1cd25de07da237d08cd958457701d24723212`保留N commit`1e5bc687df538cc0e761b7fcb5eb646cd40cfe39`，依`wrangler deploy --config wrangler.toml --env staging --keep-vars`部署；version`26d3ca9b-c910-452b-b3aa-f6a8c59b9450`經唯讀deployment status確認100% active。`VITE_VAPID_PUBLIC_KEY`只在建置程序注入，bundle public-key presence、與C既有Worker public binding一致性及private／subject／其他secret identifier排除均以布林結果核對；既有VAPID Secret只核對名稱／型別，未讀取值。remote D1 migration list為`No migrations to apply!`。未授權GET頁面與期限／通知／Push／整合API均由Access邊界回302；本階段沒有可用Access session，因此不把登入頁當成授權API smoke，也不把`DDL-008`或`AT-PUSH-01`升級；未執行任何POST、真人Email、Push、Firstrade匯入或`AT-GATE-08`。
 
@@ -120,3 +122,11 @@ A以no-ff merge commit`edc1cd25de07da237d08cd958457701d24723212`保留N commit`1
 ### N2 shared notification independence 修正（2026-08-13）
 
 從A整合基準`95b60075fda3fb6afd209b19177d9363bd9c3c87`建立`codex/fix-notification-shared-2`，C `441b9d3`只作去識別驗收證據，未合併C runtime。根因分為三部分：API／UI沒有把`sync_devices.display_name`作為每台裝置的明確標籤；AES-GCM隨機IV使同 endpoint 不能直接以密文判重，且scheduler／API在取`ACTIVE`前未先按裝置挑最新列；shared writeback的channel摘要與 late provider outcome缺乏按每裝置最新狀態的穩定聚合。修正涉及`src/worker/api/index.ts`、`src/modules/notifications/schema.ts`、`src/modules/notifications/persistence.ts`、`src/modules/notifications/push.ts`、`src/worker/scheduled/index.ts`、`src/app/pages/DeadlinesPage.tsx`及直接Worker-D1/API測試；`0005`既有欄位足夠，不新增migration。固定答案覆蓋手機`DISABLED`／電腦`ACTIVE`、只送活動裝置、provider成功／失敗、同 endpoint重訂閱、改名、同timestamp排序、idempotency、空資料與缺少provider message ID；Push 2xx只標示provider accepted，不宣稱真人收件。`DDL-008`／`SETUP-006`／`AT-PUSH-01`維持`IN_PROGRESS`，等A重部署與C真人驗收。
+
+### A整合線 N2／C final 最小安全整合與 staging 部署（2026-08-13）
+
+- 保留歷史：N2 `724fa63b9588130b7719b92713cfaa36d83278fb` 以 merge `a8781085d33b515360455570d320f17ef8369144` 納入；C final `441b9d3c6941a6571d3660d4fce3359191ff5223` 以 merge `6362929d9f7cf782a562bee51388bf2cb93dc714` 納入，C 僅提供去識別驗收證據，沒有 runtime／migration 變更。
+- `DDL-008`／`SETUP-006`／`AT-PUSH-01` 仍為 `IN_PROGRESS`：N2 固定答案已覆蓋每裝置最新狀態、停用裝置遮蔽舊列、同 endpoint 重訂閱、裝置改名、provider accepted 與 channel 聚合；C 的真人最後獨立性測試仍是未解矛盾，不能由自動測試或部署證據取代。
+- A 已從既有 staging public binding 以程序環境注入 `VITE_VAPID_PUBLIC_KEY`，keyed client build 799 modules 通過；bundle 實際包含同一 public key，未發現 private／subject／其他 secret identifier，VAPID private／subject 僅核對 secret 名稱／型別，不讀取值。
+- staging version `db41ff0c-7864-43d2-9a98-54000cebfa92` 唯讀確認 100% active；部署使用 `wrangler deploy --config wrangler.toml --env staging --keep-vars`，未執行或新增 migration，remote migration list 前後均為 `No migrations to apply!`。
+- 整合 gate：lint、雙 typecheck、unit 15 files／52 tests、Worker/D1/API 3 files／27 tests、完整隔離 Playwright 13/13、scan 與 `git diff --check` 通過；`verify:requirements` 僅因上述兩個 Push setup 狀態仍未完成而維持非零。未授權 GET `/deadlines`、通知／Push 訂閱／整合 API 均受 Access 回 302；未觸發真人操作或 `AT-GATE-08`。

@@ -220,13 +220,13 @@ Codex先提供：
 
 固定成功判據：Resend API回傳provider message ID；`notification_deliveries`保存一筆`EMAIL`／`USER_TEST`／`SENT`，`provider_message_id`非空，`error_code`與`error_message_redacted`為空；相同operation重送只回放既有結果且不新增delivery。錯誤時保存`RETRY`、去敏錯誤與attempt，API key／from／收件地址不出現在任何輸出。
 
-基準版本的共用缺陷移交：本次delivery log已成功，但當時部署的`notification_channels.last_success_at`仍為空，故UI通道摘要仍顯示「尚無成功發送紀錄」；此屬共用通知／scheduler摘要更新缺陷。N線已在本分支修正並加入自動回歸證據；A已隨整合版本部署到staging version`26d3ca9b-c910-452b-b3aa-f6a8c59b9450`，因此本設定的真人阻擋只剩Access session與兩台裝置驗收。
+基準版本的共用缺陷移交：本次delivery log已成功，但當時部署的`notification_channels.last_success_at`仍為空，故UI通道摘要仍顯示「尚無成功發送紀錄」；此屬共用通知／scheduler摘要更新缺陷。N線已在本分支修正並加入自動回歸證據；最新A整合版本已部署到staging version`db41ff0c-7864-43d2-9a98-54000cebfa92`，因此本設定的真人阻擋只剩Access session與兩台裝置驗收。
 
 自動驗證基線（2026-08-11）：Resend unit 5/5、Worker/D1 Resend contract 1/1、完整unit 15 files／47 tests、完整Worker/D1 2 files／22 tests、lint、typecheck、client build及secret／placeholder掃描通過。完整共用Playwright受其他驗收線同時使用固定`4173`埠影響，未把該環境阻擋誤記為Resend真人驗收證據。
 
 ## SETUP-006　Web Push
 
-### C線目前證據（2026-08-11）
+### C線目前證據（2026-08-11；N1歷史證據，最新N2部署見下）
 
 - [x] Wrangler OAuth 已在 C 線專用設定位置成功完成；`whoami` exit code 為 0。
 - [x] staging 已建立 `WEB_PUSH_VAPID_PRIVATE_KEY` 與 `WEB_PUSH_VAPID_SUBJECT` 兩個 `secret_text`；只核對名稱／型別，沒有讀取或輸出值。
@@ -268,7 +268,7 @@ N2 自動固定答案補充：App列出的每台裝置狀態由伺服器保存�
 
 驗收紀錄只保存裝置類型（手機／電腦）、操作時間、App 顯示的狀態／錯誤碼及是否收到通知，不保存 endpoint、訂閱 keys、Access 身分或通知內容中的私人資料。若裝置不支援 Push 或拒絕權限，App 必須明確顯示，不得假裝成功；站內與 Email 仍可運作。
 
-### C線 final acceptance checkpoint（2026-08-12）
+### C線 final acceptance checkpoint（2026-08-12；N1歷史紀錄，N2部署見上）
 
 - [x] 從最新 A 整合 commit `95b60075fda3fb6afd209b19177d9363bd9c3c87` 建立乾淨 acceptance worktree；不使用舊 C runtime、不部署、不修改 shared notification。
 - [x] 唯讀核對 staging version `26d3ca9b-c910-452b-b3aa-f6a8c59b9450` 為 100% active，remote migration 為 `No migrations to apply!`；VAPID binding 只核對名稱／型別，不讀取 secret 值。
@@ -279,6 +279,14 @@ N2 自動固定答案補充：App列出的每台裝置狀態由伺服器保存�
 - [x] 真實手機已完成通知允許、Push 啟用並收到測試通知（使用者確認）；D1 只讀聚合確認 2 個不同 device、2 筆 `ACTIVE`、兩台成功紀錄、錯誤 0。
 - [x] 使用者已停用手機；D1 唯讀聚合確認手機 `DISABLED`、電腦 `ACTIVE`，`WEB_PUSH` channel 仍 `READY`，兩台既有成功紀錄與錯誤 0。
 - [ ] 最後一次獨立性測試失敗：使用者由未停用電腦發送後未收到，且電腦 UI 顯示 `DISABLED`；D1 唯讀卻顯示電腦 `ACTIVE`、手機 `DISABLED`、channel `READY`、delivery `SENT` 10／錯誤 0。已停止，不重複發送，移交主線釐清 UI／共用通知狀態矛盾後再恢復。
+
+### A整合線 N2 部署進度（2026-08-13）
+
+- [x] N2 `724fa63b9588130b7719b92713cfaa36d83278fb` 已合併至 A（merge `a8781085d33b515360455570d320f17ef8369144`）；C final `441b9d3c6941a6571d3660d4fce3359191ff5223` 只納入去識別證據（merge `6362929d9f7cf782a562bee51388bf2cb93dc714`），未納入 C runtime。
+- [x] 已以既有 staging public binding 做 process-only `VITE_VAPID_PUBLIC_KEY` build；public key 實際進入 bundle 且與 Worker binding 一致，private／subject／其他 secret identifier 未進 bundle，程序環境已清除，沒有寫入 `.env`、`wrangler.toml`、source、Git 或文件。
+- [x] A 已以 `wrangler deploy --config wrangler.toml --env staging --keep-vars` 部署整合版本 `db41ff0c-7864-43d2-9a98-54000cebfa92`，唯讀確認 100% active；部署前後 remote migration 均為 `No migrations to apply!`，沒有新增或執行 migration。兩個 VAPID secret 只核對名稱／`secret_text` 型別，不讀值。
+- [x] 無登入副作用 smoke：`/`、`/deadlines`、通知／Push訂閱／整合 GET 均受 Access 回 `302`；沒有把登入頁當成授權成功證據，也未觸發 POST、真人 Push／Email 或 Firstrade 匯入。
+- [ ] 由主線喚醒 C，以可用 Access session 依固定順序完成真實電腦、真實手機、各自收件、停用一台及另一台仍可收件；完成前 `DDL-008`／`SETUP-006`／`AT-PUSH-01` 維持 `IN_PROGRESS`。
 
 ## SETUP-007　Firstrade CSV
 

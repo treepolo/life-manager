@@ -11,6 +11,8 @@
 - `EXTERNAL_BLOCKED`
 - `VERIFIED`
 
+> 最新 A 整合線狀態（2026-08-13）：N2 與 C final 證據已以 no-ff merge 納入；staging 最新 active version 為 `db41ff0c-7864-43d2-9a98-54000cebfa92`（100%）。本檔較早段落中的 `26d3ca9b-c910-452b-b3aa-f6a8c59b9450` 是 N1 歷史部署，不是目前 active version；最新部署證據以本檔末段為準。
+
 ## 2026-08-12 N線 shared notification writeback 修正開工
 
 - 基準：由已推送整合基準 `b7f947a1be71598ef40809db8b44457a73f65b81` 建立獨立 branch `codex/fix-notification-shared`；開工時工作樹乾淨，未從 `master` 或 C／D 舊基準開始。
@@ -86,7 +88,7 @@
 | DDL-005 | VERIFIED | 全站/Home警告UI | 不需 | 最高級中斷式、重要級持續顯示 | 無 |
 | DDL-006 | VERIFIED | W-8BEN schema/UI | `0005_deadlines_notifications.sql` | 2026-04-18→2029-12-31；確認日與試算並存 | 無 |
 | DDL-007 | VERIFIED | tax template/parent child UI | `0005_deadlines_notifications.sql` | 子任務不另啟全站／排程警告 | 無 |
-| DDL-008 | IN_PROGRESS | Web Push encryption/scheduler/device UI | `0005_deadlines_notifications.sql`；本線不新增或修改migration | `tests/worker/api-d1.test.ts`兩裝置密文訂閱／獨立停用契約通過；`tests/worker/notifications-writeback-d1.test.ts`固定答案證明shared test-send成功／410失效逐裝置寫回、同operation去重、channel摘要與GET API讀回；`DeadlinesPage.tsx`顯示真實逐裝置狀態；乾淨C線已核對`public/sw.js` Push handler、build stamp與秘密邊界；A整合版本已以暫時build env注入public key並部署至staging version`26d3ca9b-c910-452b-b3aa-f6a8c59b9450`、100%流量 | 外部阻擋：尚未完成Access session下的期限／通知GET授權smoke；尚未完成真實手機／電腦瀏覽器與系統通知授權、測試Push、每裝置實收及獨立停用。shared writeback程式、自動驗證、bundle public-key布林核對及既有VAPID Secret名稱核對已完成，但真人驗收前不得標`VERIFIED` |
+| DDL-008 | IN_PROGRESS | Web Push encryption/scheduler/device UI | `0005_deadlines_notifications.sql`；本線不新增或修改migration | N2固定答案涵蓋雙裝置最新列、停用遮蔽舊列、同endpoint重訂閱、裝置改名、provider accepted與channel聚合；A整合版已以process-only public key完成799 modules build並部署staging version`db41ff0c-7864-43d2-9a98-54000cebfa92`、100%流量；bundle含public key且未發現private／subject／secret identifier | 外部阻擋：尚未完成可用Access session下的期限／通知GET授權smoke與真實手機／電腦瀏覽器通知授權、測試Push、每裝置實收及獨立停用；未完成前不得標`VERIFIED` |
 | DDL-009 | VERIFIED | `src/integrations/resend`, delivery log/test UI, shared notification writeback | `0005_deadlines_notifications.sql`，本線不需新migration | adapter、去重、錯誤/重試與secret邊界既有自動測試；Resend測試信標示與安全錯誤映射已補齊，N線新增Email成功後channel摘要更新／失敗後恢復的Worker-D1固定答案，兩個staging Secret均已由只讀清單核對為`secret_text`，遠端D1已核對Email `READY`；真實測試已產生`EMAIL`／`USER_TEST`／`SENT` delivery，使用者確認在垃圾郵件收到測試信 | Resend帳號已由使用者確認建立，`RESEND_API_KEY`／`RESEND_FROM` Secret名稱／型別已核對（不讀取值）；遠端D1只讀核對`recipient_encrypted=1`、Email enabled／`READY`、delivery attempt 1、provider message ID非空、錯誤欄位為空；不記錄地址、完整本文或完整provider ID。`VERIFIED`只代表既有Resend真人驗收，N線未重做、未降級、未修改provider adapter；shared writeback已由A整合部署，未重做真人寄信 |
 | OFF-001 | VERIFIED | manifest、`public/sw.js`、App shell、`src/app/providers/PwaUpdate.tsx`、`src/styles.css`、`scripts/stamp-service-worker.mjs`、`scripts/build-client.mjs` | 不需；本輪不修改D1 migration | app shell內容SHA-256版本、network-first／離線fallback、`updateViaCache: none`、outbox安全接管固定答案；320／390／768／1366／1920五viewport均驗證提示固定在初始可視範圍且手機避開同步列。staging outbox 0時安全更新一次，自動reload後正式CSS為`position: fixed`／`z-index: 30`，資料未清除 | 無 |
 | OFF-002 | VERIFIED | IndexedDB entities/query cache | 不需 | offline-sync unit、Playwright快取資料 | 無 |
@@ -125,7 +127,7 @@
 | 外部設定 | SETUP-004 | VERIFIED | Meta App、兩項最小permission、staging callback、本人專業帳號、關閉越界Webhook、兩個Secret、本人同意與OAuth callback/profile connection均已完成；第3步Webhook欄位空白、Review／發佈未啟用符合自用Standard Access範圍。budget fix已部署，兩次真實Instagram同步成功，AT-IG-01～05、raw／run link／snapshot、冪等及輪替證據完整；不需migration | A線完成；不涉及production資源或SETUP-009 |
 | 外部設定 | SETUP-001, SETUP-008, SETUP-009 | AWAITING_USER_SETUP | `docs/SETUP_CHECKLIST.md`已填名稱、路徑、secret與驗證；待各自真實帳號、裝置或production階段 |
 | 外部設定 | SETUP-007 | AWAITING_USER_SETUP | `docs/SETUP_CHECKLIST.md`已記錄官方匯出、遮蔽副本位置、不可提交邊界、staging App預覽與Firstrade官方紀錄證據；正式staging D1 SQL／App完整JSON備份已完成並有bytes／SHA-256／JSON checksum證據；修正版staging版本`7d7171c5-7be9-49c8-a28b-e7e0b2dfbe18`已部署並完成唯讀smoke | 遮蔽副本已放置且預覽顯示486列／0錯誤；下一步唯一人工操作為正式匯入，之後才核對App畫面金額合計完成AT-INV-05；未遮蔽原檔與完整JSON不得交給Codex、進Git、進log、snapshot或文件 |
-| 外部設定 | SETUP-006 | IN_PROGRESS | `docs/SETUP_CHECKLIST.md`、`docs/OPERATIONS.md`、staging Worker／build設定與Push專屬裝置驗收 | VAPID private key／subject只進Cloudflare Secret；C線既有public var與兩個Secret名稱／型別仍存在，A已以只輸出布林結果核對同一public key進入client bundle／source map且未發現secret identifier；staging version`26d3ca9b-c910-452b-b3aa-f6a8c59b9450`為100%流量、remote migration list為空；N線已完成共用scheduler狀態回寫、逐裝置GET API、Deadlines UI與固定答案；尚未完成Access session授權GET smoke、手機與電腦真實授權、測試通知、每裝置實收及獨立停用；未完成前維持`IN_PROGRESS` |
+| 外部設定 | SETUP-006 | IN_PROGRESS | `docs/SETUP_CHECKLIST.md`、`docs/OPERATIONS.md`、staging Worker／build設定與Push專屬裝置驗收 | VAPID private key／subject只進Cloudflare Secret；public var與兩個Secret名稱／型別仍存在，A已以只輸出布林結果核對同一public key進入client bundle且未發現secret identifier；最新staging version`db41ff0c-7864-43d2-9a98-54000cebfa92`為100%流量、remote migration list為空；N2已完成共用scheduler狀態回寫、逐裝置GET API、Deadlines UI與固定答案；尚未完成Access session授權GET smoke、手機與電腦真實授權、測試通知、每裝置實收及獨立停用；未完成前維持`IN_PROGRESS` |
 | 外部設定 | SETUP-005 | VERIFIED | `docs/SETUP_CHECKLIST.md`、`src/integrations/resend`、通知測試入口；本線不需migration | 自動驗證已完成；兩個Secret、加密收件地址、Email `READY`與1筆正式`OPEN`期限均已核對；App測試請求由delivery log證明寄送成功，使用者確認在垃圾郵件收到測試信；shared通道摘要修正已由N線完成並隨A整合版本部署，本項`VERIFIED`仍只代表Resend既有真人寄信驗收，未重做真人寄信 |
 
 ## A～D整合線外部證據補充（2026-08-12）
@@ -511,7 +513,7 @@
 - 驗證結果：`npm ci`成功（僅依現有lockfile安裝）；`npm run lint` exit 0；`npm run typecheck`雙tsconfig exit 0；`npm test -- --run` 15 files／52 tests exit 0；`npm run test:worker` 3 files／26 tests exit 0；`npm run build:client` 799 modules exit 0；`npm run test:e2e`完整隔離D1／Playwright exit 0；`npm run scan` production placeholder／secret與test skip scan exit 0；`git diff --check` exit 0。`npm run verify:requirements`如實以非零退出，原因只有`DDL-008`及`SETUP-006`仍為`IN_PROGRESS`，未用改狀態方式掩蓋真人阻擋。
 - 狀態與後續：A已將含`VITE_VAPID_PUBLIC_KEY`的整合版本部署到staging version`26d3ca9b-c910-452b-b3aa-f6a8c59b9450`並確認100% active、remote migration為空；`DDL-008`、`SETUP-006`、`AT-PUSH-01`仍維持`IN_PROGRESS`，之後由C以兩台實體裝置完成Access授權、收件及獨立停用；`DDL-009`、`SETUP-005`、`AT-MAIL-01`維持既有`VERIFIED`，本線未重做或降級。A授權smoke因現有瀏覽器Access session已失效只核對到未授權302，未以此冒充API通過。N線原始完成後停止；其後由A以no-ff合併並部署。
 
-### 2026-08-12 A整合線第二階段完成（最小安全整合與staging部署）
+### 2026-08-12 A整合線第二階段完成（N1歷史紀錄；最新N2部署見下）
 
 - 整合歷史：保留N `1e5bc687df538cc0e761b7fcb5eb646cd40cfe39`，A no-ff merge commit為`edc1cd25de07da237d08cd958457701d24723212`；N變更只包含shared notification persistence／schema、scheduled send path、通知API、Deadlines UI、直接測試與證據文件，沒有migration、provider adapter或其他線別變更。
 - 本機驗證：`npm run lint -- --ignore-pattern backups`、雙typecheck、unit 15 files／52 tests、Worker／D1／API contract 3 files／26 tests、keyed `npm run build:client` 799 modules、`npm run scan`、完整隔離Playwright 13/13（以既有規範暫時ASCII磁碟代號執行）及`git diff --check`通過。`npm run verify:requirements`唯一非零原因為`DDL-008`與`SETUP-006`仍為`IN_PROGRESS`，沒有以改狀態掩蓋真人阻擋。
@@ -525,19 +527,19 @@
 - 預定驗證：lint（保護ignored backups）、雙typecheck、unit、Worker／D1／API contract、client build、完整隔離Playwright、正式碼／secret／fake／skip／未實作／需求狀態掃描；以既有暫時`VITE_VAPID_PUBLIC_KEY`方式建置並依`--keep-vars`部署staging，唯讀核對active 100%、bundle／Secret邊界、remote migration與基本smoke。
 - 外部阻擋：C final證據顯示最後一次獨立性測試的真人收件、UI狀態與D1狀態矛盾；本階段只修共用狀態根因並重新部署，不代替C操作手機／電腦、不重複發送真人Push、不執行Firstrade正式匯入、不修改任何secret值，部署後停止等主線喚醒C重新執行`AT-PUSH-01`。
 
-### 2026-08-13 N2 shared notification independence fix — IN_PROGRESS
+### 2026-08-13 N2 shared notification independence fix — 已整合部署；C真人驗收仍 IN_PROGRESS
 
 - Scope remains `DDL-008`, `SETUP-006`, and `AT-PUSH-01` only; all three remain `IN_PROGRESS`. `DDL-009`／`SETUP-005`／`AT-MAIL-01` remain `VERIFIED`; `INV-002`／`SETUP-007`, Instagram／YouTube, and `AT-GATE-08` are out of scope.
 - Starting point is the clean worktree branch `codex/fix-notification-shared-2` at A integration commit `95b60075fda3fb6afd209b19177d9363bd9c3c87`; C commit `441b9d3` was read as deidentified evidence only and no C runtime was merged.
 - Fixed-answer investigation and planned files: device identity/label/subscription correspondence (`src/worker/api/index.ts`, `src/modules/notifications/schema.ts`, `src/modules/notifications/persistence.ts`, `src/app/pages/DeadlinesPage.tsx`, direct API client/types); provider accepted-versus-received semantics and per-device/channel aggregation (`src/worker/scheduled/index.ts`, shared notification persistence); tests in `tests/worker/notifications-writeback-d1.test.ts`, `tests/worker/api-d1.test.ts`, relevant unit and isolated Playwright coverage.
 - Required cases: mobile `DISABLED` plus computer `ACTIVE` independent of the controlling browser's `Notification.permission` or local endpoint; send only active subscriptions; provider success/failure reflected consistently per device and in channel summary; same-endpoint re-subscribe, endpoint update, rename, deterministic same-timestamp ordering, idempotent retry, empty data, missing provider message ID where the contract permits, and no-subscription/permission states.
-- External blockers remain: no staging deploy, remote migration, secrets/vars change, or真人 Push／Email operation in this line; after code integration A must redeploy and C must perform the outstanding real two-device acceptance. Do not mark the three requirements `VERIFIED` here.
+- N2 branch scope did not deploy staging, run a remote migration, change secrets/vars, or perform真人 Push／Email operation. A has now integrated and deployed the fix from the A branch; the remaining blocker is only C's outstanding real two-device acceptance. Do not mark the three requirements `VERIFIED` here.
 
 - Root causes confirmed from C's deidentified evidence and the A-base runtime: encrypted endpoint ciphertext is randomized and cannot be used for logical same-endpoint matching; the API and scheduler could select an older ACTIVE row before considering a newer disabled row; default sync registration could overwrite a renamed device; and shared channel aggregation was order-dependent and could reactivate a disabled subscription after a late result. The UI also lacked an authoritative device label and used success wording that could be read as human receipt.
 - Actual changes: server-side endpoint comparison and same-device upsert in `src/worker/api/index.ts`; `device_name` API contract and sync-device join; deterministic latest-per-device selection in `src/worker/scheduled/index.ts`; per-device/latest-row channel aggregation and disabled-race guard in `src/modules/notifications/persistence.ts`; explicit provider-accepted result in `src/modules/notifications/push.ts`; independent labelled UI and local-existing-subscription reuse in `src/app/pages/DeadlinesPage.tsx`; fixed answers in `tests/worker/notifications-writeback-d1.test.ts` and `tests/worker/api-d1.test.ts`. No migration was added or changed.
 - Local evidence: `npm ci` succeeded; `npm run lint`, dual `npm run typecheck`, `npm test` (15 files／52 tests), `npm run test:worker` (3 files／27 tests), `npm run build:client` (799 modules), `npm run test:e2e` (13/13 isolated Playwright cases), `npm run scan`, and `git diff --check` all exit 0. `npm run verify:requirements` intentionally exits 1 only for `DDL-008` and `SETUP-006` remaining `IN_PROGRESS`; `AT-PUSH-01` remains blocked by the same outstanding真人驗收 and no requirement was falsely marked `VERIFIED`.
 
-### 2026-08-12 C線 final acceptance checkpoint（唯讀 smoke）
+### 2026-08-12 C線 final acceptance checkpoint（唯讀 smoke；N1歷史紀錄）
 
 - C 線已從最新 A 整合基準建立乾淨 worktree `D:\人生管理器-wt-web-push-final`／branch `codex/accept-web-push-final`，HEAD 為 A 整合 commit `95b60075fda3fb6afd209b19177d9363bd9c3c87`；本次沒有修改程式、shared notification、migration 或部署設定。
 - 只讀 Cloudflare 核對：staging version `26d3ca9b-c910-452b-b3aa-f6a8c59b9450` 為 100% active；remote migration 為 `No migrations to apply!`；版本 binding metadata 顯示 Worker public VAPID var 為 `plain_text`、private／subject 為 `secret_text`，只核對名稱／型別，沒有讀取或輸出任何值。
@@ -547,3 +549,13 @@
 - 使用者已停用手機；D1 只讀聚合確認手機 1 筆 `DISABLED` 且保留成功紀錄，電腦 1 筆 `ACTIVE` 且保留成功紀錄，兩者錯誤皆為 0；`WEB_PUSH` channel 仍 enabled／`READY`，delivery 仍為 `SENT` 9／錯誤 0，查詢未寫入資料。
 - 驗收失敗／移交（2026-08-12）：依預期最後一次測試應由未停用電腦收件、停用手機不收件，且電腦 UI 維持 `ACTIVE`。使用者回報電腦未收到，且電腦 UI 顯示 `DISABLED`。D1 唯讀核對卻顯示 computer-like 訂閱 `ACTIVE` 1、mobile-like 訂閱 `DISABLED` 1，`WEB_PUSH=READY`，最後一次後 delivery `SENT` 10／錯誤 0；查詢寫入 0。這是 UI／共用通知狀態與實際收件證據的矛盾，停止真人驗收並移交主線，禁止修改 shared notification、scheduler、deadline UI/API 或部署。
 - 外部阻擋：`DDL-008`／`SETUP-006`／`AT-PUSH-01` 維持 `IN_PROGRESS`，不得標 `VERIFIED`；待主線釐清最小重現後重新部署／驗收。`AT-GATE-08` 不執行。
+
+### 2026-08-13 A整合線 N2／C final 最小安全整合與 staging 部署完成
+
+- 整合歷史：N2 source `724fa63b9588130b7719b92713cfaa36d83278fb` 以 no-ff merge `a8781085d33b515360455570d320f17ef8369144` 納入；C final source `441b9d3c6941a6571d3660d4fce3359191ff5223` 只納入去識別驗收失敗／移交證據，並以 no-ff merge `6362929d9f7cf782a562bee51388bf2cb93dc714` 納入。C 沒有 runtime 或 migration 變更；cleanup TODO 保留，沒有刪除 worktree。
+- N2 runtime 只涵蓋共用通知裝置狀態隔離：伺服器端同裝置 endpoint 比對與重訂閱、每裝置最新列選取、裝置名稱權威來源、shared channel 聚合／late outcome guard、provider accepted 語意及逐裝置 API/UI；未修改 Instagram、YouTube、Firstrade、Resend adapter 或既有 migration。
+- 本機 gate：`npm run lint -- --ignore-pattern backups`、雙 `npm run typecheck`、`npm test -- --run`（15 files／52 tests）、`npm run test:worker`（3 files／27 tests）、keyed `npm run build:client`（799 modules）、完整隔離 `npm run test:e2e`（13/13）、`npm run scan`、`git diff --check` 均通過。Playwright 一個離線案例遇既有 Wrangler 本地程序崩潰，由既有 runner 以新隔離 D1 重試後通過，未改弱斷言。`npm run verify:requirements` 仍按正式狀態預期以非零結束，唯一未通過項目是 `DDL-008`／`SETUP-006` 仍為 `IN_PROGRESS`。
+- 建置／秘密邊界：只從既有 staging public binding 於程序環境注入 `VITE_VAPID_PUBLIC_KEY`；`public_key_value_in_bundle=true` 且與既有 binding 相同，private／subject／其他 secret identifier 均未出現在 bundle，建置後程序環境已清除。`WEB_PUSH_VAPID_PRIVATE_KEY`／`WEB_PUSH_VAPID_SUBJECT` 僅核對 `secret_text` 名稱／型別，沒有讀取或輸出值；沒有寫入 `.env`、`wrangler.toml`、source、Git 或 Markdown。
+- staging 證據：A 整合 branch 目前部署 `life-manager-staging` version `db41ff0c-7864-43d2-9a98-54000cebfa92`，唯讀 deployment status 為 100% active；使用 `wrangler deploy --config wrangler.toml --env staging --keep-vars` 完成，保留既有 vars／secrets。部署前後 remote `d1 migrations list LIFE_DB --env staging --remote` 均為 `No migrations to apply!`，本階段沒有執行 migration。
+- smoke 邊界：未授權 GET `/`、`/deadlines`、`/api/v1/notifications/channels`、`/api/v1/push-subscriptions`、`/api/v1/integrations` 均回 Access `302`；沒有可用授權 session，因此不把登入頁當成授權 API 成功證據，也沒有觸發 POST、真人 Email／Push 或 Firstrade 匯入。
+- 狀態與停止點：`SOC-010`／`SETUP-004`／`AT-IG-01`～`AT-IG-05`、`DDL-009`／`SETUP-005`／`AT-MAIL-01` 維持 `VERIFIED`；`INV-002`／`SETUP-007` 維持 `AWAITING_USER_SETUP`；`DDL-008`／`SETUP-006`／`AT-PUSH-01` 維持 `IN_PROGRESS`，等待主線喚醒 C 依固定順序重做真人雙裝置驗收。`AT-GATE-08` 未執行。
