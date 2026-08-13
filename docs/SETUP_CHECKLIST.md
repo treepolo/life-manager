@@ -233,7 +233,7 @@ Codex先提供：
 - [x] `WEB_PUSH_VAPID_PUBLIC_KEY` 已加入 staging 公開 Worker var；版本 `e8bf7b26-f1e2-40b5-b8a4-01e9da0a2d1e` 的 binding 型別為 `plain_text`，唯讀比對值與預期 public key 一致，且已提升至 100% 流量。
 - [x] `VITE_VAPID_PUBLIC_KEY` 已由A在建置程序暫時注入不覆蓋A／D線的staging client版本；值與既有Worker public var以布林結果核對一致，未寫入`.env`、`wrangler.toml`、source、Git或文件。
 - [x] A以`wrangler deploy --config wrangler.toml --env staging --keep-vars`完成部署；version`26d3ca9b-c910-452b-b3aa-f6a8c59b9450`為100% active，remote migration list為`No migrations to apply!`；bundle含public key且未發現private／subject／其他secret identifier，既有VAPID Secret只核對名稱／型別。
-- [ ] 本階段現有瀏覽器Access session已失效，未授權期限頁與通知／Push／整合GET只核對到Access 302；未把登入頁當成授權API smoke，待可用Access session後由C依固定順序完成真人裝置驗收。
+- [x] C線已使用Access session完成期限／通知／Push唯讀smoke；期限頁顯示「重要期限與多通道警告」且無紅色API錯誤，未把未授權302當成授權通過證據。
 
 ### C線→A整合線 handoff（2026-08-12）
 
@@ -247,12 +247,12 @@ Codex先提供：
 
 設定名稱與安全邊界：
 
-- [ ] 在 staging Worker 的 Cloudflare「Variables and Secrets」中，以 Secret 建立 `WEB_PUSH_VAPID_PRIVATE_KEY`。
-- [ ] 以 Secret 建立 `WEB_PUSH_VAPID_SUBJECT`，值為 `mailto:<使用者本人email>`；private key 與 subject 不得貼入聊天、Markdown、Git、log、export、bundle 或 source map。
-- [ ] 以公開 Worker var 建立 `WEB_PUSH_VAPID_PUBLIC_KEY`。
-- [ ] 建置 staging client 時，以暫時的公開 build 環境變數 `VITE_VAPID_PUBLIC_KEY` 注入同一 public key；不得把值寫入 `.env`、文件或版本庫。
-- [ ] 用只輸出布林結果的方式核對 Worker public key 與 `VITE_VAPID_PUBLIC_KEY` 完全一致；不得輸出 key 值。`wrangler secret list --env staging` 只能用來核對 secret 名稱／型別，不得讀取 secret 值。
-- [ ] 建置後掃描 `dist/`、source map、正式程式、log、export 與 Git 追蹤檔；確認沒有 `WEB_PUSH_VAPID_PRIVATE_KEY` 的值、VAPID private key、subject 或其他 secret。公開 public key 可存在 client bundle，但 private key 不可存在。
+- [x] staging Worker 的 `WEB_PUSH_VAPID_PRIVATE_KEY` 已以Cloudflare Secret保存；只核對名稱／型別，未讀取或輸出值。
+- [x] `WEB_PUSH_VAPID_SUBJECT` 已以Cloudflare Secret保存；subject與private key未進聊天、Markdown、Git、log、export、bundle或source map。
+- [x] `WEB_PUSH_VAPID_PUBLIC_KEY` 已以公開Worker var保存。
+- [x] staging client建置時以暫時`VITE_VAPID_PUBLIC_KEY`注入同一public key，未寫入`.env`、文件或版本庫。
+- [x] Worker public key與`VITE_VAPID_PUBLIC_KEY`以只輸出布林結果核對一致；`secret list`只核對名稱／型別，不讀取secret值。
+- [x] 建置／source map／正式程式／log／export／Git追蹤檔掃描未發現private key、subject或其他secret；public key不含private secret。
 
 真人驗收必須使用一台真實手機及另一台真實電腦，不能以同一台電腦的兩個瀏覽器代替。每台裝置依序執行，前一步成功後才做下一步：
 
@@ -276,7 +276,15 @@ Codex先提供：
 - [x] 真實電腦已收到測試 Push；App 顯示 `READY`／`ACTIVE`、最近成功時間、成功 1／失敗 0；D1 只讀聚合確認訂閱成功 1／錯誤 0、channel `READY`、delivery `SENT` 1。
 - [x] 真實手機已完成通知允許、Push 啟用並收到測試通知（使用者確認）；D1 只讀聚合確認 2 個不同 device、2 筆 `ACTIVE`、兩台成功紀錄、錯誤 0。
 - [x] 使用者已停用手機；D1 唯讀聚合確認手機 `DISABLED`、電腦 `ACTIVE`，`WEB_PUSH` channel 仍 `READY`，兩台既有成功紀錄與錯誤 0。
-- [ ] 最後一次獨立性測試失敗：使用者由未停用電腦發送後未收到，且電腦 UI 顯示 `DISABLED`；D1 唯讀卻顯示電腦 `ACTIVE`、手機 `DISABLED`、channel `READY`、delivery `SENT` 10／錯誤 0。已停止，不重複發送，移交主線釐清 UI／共用通知狀態矛盾後再恢復。
+- [x] 歷史失敗證據（2026-08-12）已保留：當時使用者由未停用電腦發送後未收到，且電腦UI顯示`DISABLED`；D1卻顯示電腦`ACTIVE`、手機`DISABLED`、channel`READY`、delivery`SENT` 10／錯誤0。N2重新部署後由C線重新驗收，不將此歷史證據作為目前阻擋。
+
+### C線 final acceptance VERIFIED（2026-08-13）
+
+- [x] A/N2整合commit為`007768fae8f56893072cc056a007766cac462595`；staging version `db41ff0c-7864-43d2-9a98-54000cebfa92`為100% active，remote migration為`No migrations to apply!`。
+- [x] 真實手機與真實電腦各自完成通知授權／訂閱並收到測試Push；使用者在真實電腦完成安全更新後，畫面可讀回正式`OPEN`期限、Web Push`READY`、電腦`ACTIVE`及最後成功時間。
+- [x] 使用者停用手機後，從未停用電腦只發送一次最後測試；電腦收到，手機確認未收到。UI／Push API／D1均讀回手機`DISABLED`、電腦`ACTIVE`，兩台各有成功紀錄、錯誤0。
+- [x] 去識別D1最新delivery為`WEB_PUSH`／`SENT` 1筆，送至`ACTIVE`電腦1筆、送至`DISABLED`手機0筆、錯誤0；`WEB_PUSH` channel為enabled／`READY`且有成功紀錄、錯誤0；查詢`rows_written=0`。
+- [x] `DDL-008`、`SETUP-006`、`AT-PUSH-01`完成並標為`VERIFIED`；不執行`AT-GATE-08`，不修改production`SETUP-009`。
 
 ## SETUP-007　Firstrade CSV
 

@@ -253,6 +253,8 @@ C線 final acceptance checkpoint（2026-08-12）：Access session 下的期限�
 
 C線最後獨立性測試失敗（2026-08-12）：預期未停用電腦收到、停用手機不收到，且電腦維持 `ACTIVE`；使用者實際回報電腦未收到，電腦 UI 顯示 `DISABLED`。D1 唯讀卻回報 computer-like=`ACTIVE` 1、mobile-like=`DISABLED` 1、`WEB_PUSH=READY`、最後一次後 `WEB_PUSH` delivery `SENT` 10／錯誤 0。此為 UI／共用通知狀態與真人收件互相矛盾的最小重現；未修改程式、未部署、未重複發送，`AT-PUSH-01` 維持 `IN_PROGRESS` 並移交主線。
 
+C線 final acceptance（2026-08-13）：N2整合後staging version `db41ff0c-7864-43d2-9a98-54000cebfa92`為100% active，remote migration無待套用；使用者已在真實電腦完成client安全更新。手機與電腦兩台真實裝置各自訂閱並收到測試Push，手機之後獨立停用；從未停用電腦只發送一次最後測試，電腦收到且手機未收到。UI顯示Web Push `READY`、電腦`ACTIVE`及最新成功時間、手機`DISABLED`及既有成功時間；Push API回讀兩台逐裝置狀態與成功／錯誤欄位；D1最新delivery為`SENT` 1、只送至`ACTIVE`電腦、停用手機0筆，通道摘要`READY`且錯誤0。`AT-PUSH-01`完成，`DDL-008`／`SETUP-006`標為`VERIFIED`；不執行`AT-GATE-08`。
+
 ### AT-MAIL-01　真實郵件
 
 Resend寄到使用者本人信箱，收到測試信；錯誤與message ID保存。正式日誌不得包含API key。
