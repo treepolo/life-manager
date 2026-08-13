@@ -649,7 +649,10 @@ export async function handleApi(input: {
               provider_definition_version, version,
               (SELECT j.next_run_at FROM provider_sync_jobs j WHERE j.connection_id = provider_connections.id ORDER BY j.updated_at DESC LIMIT 1) AS next_run_at,
               (SELECT j.status FROM provider_sync_jobs j WHERE j.connection_id = provider_connections.id ORDER BY j.updated_at DESC LIMIT 1) AS sync_job_status,
-              (SELECT j.attempt FROM provider_sync_jobs j WHERE j.connection_id = provider_connections.id ORDER BY j.updated_at DESC LIMIT 1) AS sync_attempt
+              (SELECT j.attempt FROM provider_sync_jobs j WHERE j.connection_id = provider_connections.id ORDER BY j.updated_at DESC LIMIT 1) AS sync_attempt,
+              (SELECT r.status FROM provider_sync_runs r WHERE r.connection_id = provider_connections.id ORDER BY r.started_at DESC LIMIT 1) AS latest_sync_status,
+              (SELECT r.error_code FROM provider_sync_runs r WHERE r.connection_id = provider_connections.id ORDER BY r.started_at DESC LIMIT 1) AS latest_sync_error_code,
+              (SELECT r.error_message_redacted FROM provider_sync_runs r WHERE r.connection_id = provider_connections.id ORDER BY r.started_at DESC LIMIT 1) AS latest_sync_error_message_redacted
        FROM provider_connections ORDER BY provider_key, display_name`,
     ).all();
     return Response.json({ data: rows.results, meta: { requestId: input.requestId } });

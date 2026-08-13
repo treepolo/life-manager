@@ -264,7 +264,7 @@ C線 final acceptance（2026-08-13）：N2整合後staging version `db41ff0c-786
 
 Resend寄到使用者本人信箱，收到測試信；錯誤與message ID保存。正式日誌不得包含API key。
 
-D線狀態（2026-08-12）：`VERIFIED`。使用者已確認Resend帳號建立，staging `RESEND_API_KEY`／`RESEND_FROM`均由只讀清單核對為`secret_text`，遠端D1已核對加密收件設定、Email `READY`、正式`OPEN`期限及`EMAIL`／`USER_TEST`／`SENT` delivery；使用者再確認已在垃圾郵件收到本人測試信，完成真人收件驗收。共用通道摘要缺陷已移交，不影響本次delivery與收件證據。
+D線歷史狀態（2026-08-12）：`VERIFIED`。使用者已確認Resend帳號建立，staging `RESEND_API_KEY`／`RESEND_FROM`均由只讀清單核對為`secret_text`，遠端D1已核對加密收件設定、Email `READY`、正式`OPEN`期限及`EMAIL`／`USER_TEST`／`SENT` delivery；使用者再確認已在垃圾郵件收到本人測試信，完成真人收件驗收。共用通道摘要缺陷已移交，不影響本次delivery與收件證據。2026-08-14 release safety audit 因目前 Resend account／quota／reset evidence unknown，將目前 `DDL-009`／`SETUP-005` 狀態降為 `EXTERNAL_BLOCKED`；不重做真人寄信，歷史證據不等於目前 gate 可用。
 
 ## 10. 離線與同步
 
@@ -416,8 +416,8 @@ D1 SQL匯出、還原及migration驗證通過。
 ### AT-OPS-04　固定答案 quota 計算
 
 **前置：** 使用官方來源版本化的 quota contract；測試資料不呼叫真實平台。
-**步驟：** 以固定輸入驗證官方 baseline 與本帳戶 evidence 分離：Workers 50,000／100,000 requests、D1 2,500,000／5,000,000 rows read、50,000／100,000 writes、Resend 50／100 emails、YouTube Data 5,000／10,000 units 可計算公式但仍須 exact account observation；YouTube Analytics、Instagram、Zero Trust／Access、KV、R2、Queues、Cloudflare Email 不得填入臆造 allowance，一律 `UNKNOWN`／帳戶控制；再驗證 D1 index write、YouTube method cost、Resend multiple recipients 的計數。
-**預期：** unit、period、reset、source、quality 均正確；不把列數、API request 數或 40 篇 Instagram 上限誤當不同 provider 的 quota。
+**步驟：** 以固定輸入驗證官方 baseline 與本帳戶 evidence 分離：D1 2,500,000／5,000,000 rows read、50,000／100,000 writes、YouTube Data 5,000／10,000 units 可建立 local conservative ledger，但 admission 必須標 `ESTIMATED`／`providerInvoiceTruth=false` 並套用 reserve；Resend 100/day、3,000/month、10 req/s 僅作官方契約 fixture，沒有本帳戶 plan／remaining／reset 時不可放行；YouTube Analytics、Instagram、Zero Trust／Access、KV、R2、Queues、Cloudflare Email 不得填入臆造 allowance，一律 `UNKNOWN`／帳戶控制；再驗證 D1 index write、YouTube method cost、Resend multiple recipients 的計數。
+**預期：** unit、period、reset、source、quality 均正確；不把列數、API request 數或 40 篇 Instagram 上限誤當不同 provider 的 quota；local ledger 不得被標為 provider invoice truth。
 **證據：** 固定答案輸入／輸出、contract version、source URL、計算時間與 provenance。
 **禁止：** 不以估算值通過安全 gate、不把不同日／月窗口相加、不讀寫 staging／production 真實資料作計算測試。
 
@@ -521,7 +521,7 @@ D1 SQL匯出、還原及migration驗證通過。
 
 **前置：** YouTube Data API 有官方 method cost／10,000 units/day fixture；Resend 有 quota／rate headers；Instagram response 缺少可驗證 account quota。
 **步驟：** 分別跑 YouTube exact calculation、Resend header calculation、Instagram 40 Insights／43 subrequest application guard。
-**預期：** YouTube／Resend 可在 exact source 下計算；Instagram 狀態為 `UNKNOWN`，40／43 只限本程式／Workers，不足以放行長期同步，故 provider gate fail-closed。
+**預期：** YouTube Data 可在官方 baseline local ledger 下以 `ESTIMATED` 計算；Resend 只有取得本次 response／account quota evidence 才能計算；Instagram 狀態為 `UNKNOWN`，40／43 只限本程式／Workers，不足以放行長期同步，故 Instagram provider gate fail-closed；YouTube Analytics unknown 只阻擋 metrics operation。
 **證據：** method／header／provider source、quality、request count、固定 error code。
 **禁止：** 不以本地上限冒充 Meta quota、不捏造 Instagram quota 數字、不用成功一次推算整月安全。
 
@@ -601,7 +601,7 @@ D1 SQL匯出、還原及migration驗證通過。
 
 **前置：** YouTube Data、Instagram、Resend 有 gate；YouTube Analytics／Access／Workers inbound 使用 unknown／observe-only fixture。
 **步驟：** 分別觸發 scheduled、manual、OAuth finish、provider request、Workers inbound 與 Access seat 狀態。
-**預期：** gate resource 在未知／降載／hard-stop 前不發起下一個 provider／D1 persistence work；Workers invocation 與 Access／帳務只回 `OBSERVE_ONLY`／`ACCOUNT_CONTROL_REQUIRED`，不假稱可 hard-stop。
+**預期：** D1／YouTube Data 在有官方 baseline 時可回 `ESTIMATED` 並只阻擋到自身 budget；YouTube Analytics unknown 只回 `PARTIAL`並跳過 metrics；Instagram／Resend unknown 在對應 external operation 前回 `COST_GUARDRAIL_UNKNOWN`，不牽連 read-only UI 或不相關 provider；Workers invocation 與 Access／帳務只回 `OBSERVE_ONLY`／`ACCOUNT_CONTROL_REQUIRED`，不假稱可 hard-stop。
 **證據：** request guard、provider fetch count、D1 reservation、API／UI decision、drift audit。
 **禁止：** 不以 Worker 內 gate 宣稱能阻止已發生的 invocation 或 Cloudflare 扣款。
 
@@ -654,3 +654,18 @@ YouTube、Instagram、Push、Resend及Firstrade真實驗收若尚未完成，rel
 ### 2026-08-13 最終整合 gate 結果
 
 `AT-GATE-08` `PASSED`。最新正式狀態為：`SOC-010`／`SETUP-004`／`AT-IG-01`～`AT-IG-05`、`INV-002`／`SETUP-007`／`AT-INV-05`、`DDL-008`／`SETUP-006`／`AT-PUSH-01`、`DDL-009`／`SETUP-005`／`AT-MAIL-01` 均 `VERIFIED`；YouTube `SOC-009`／`SETUP-003`及既有跨裝置／PWA／UI gate維持既有 `VERIFIED`。所有外部真人證據均保留於本檔、`IMPLEMENTATION_STATUS.md`、`TRACEABILITY_MATRIX.md`及`SETUP_CHECKLIST.md`；本 gate 不改production `SETUP-009`。
+
+### 2026-08-14 staging release safety audit addendum
+
+上述 `AT-GATE-08` 是 2026-08-13 成本 gate 之前的歷史結果，不是本輪 runtime 的 current release-ready 宣稱。2026-08-14 先完成本機安全修正與隔離測試，再依下列停止條件執行 staging：
+
+| 驗收範圍 | 本輪固定答案／證據 | current status |
+|---|---|---|
+| Migration 0011／0012 | 既有 0001～0010 未改；全新與既有 schema 的 local apply、重複 apply、schema version 12、sentinel 保留、settled／succeeded 欄位固定答案通過；remote 只允許 pending 0011／0012 | `IN_PROGRESS`，remote list 異常即停止 |
+| D1／YouTube Data | 官方 included baseline 可建立 `LOCAL_CONSERVATIVE`，門檻依 hard-reject-only 75% degrade／85% internal stop；UI／API 顯示 `ESTIMATED`／`NOT_INVOICE_TRUTH`，不當 provider invoice truth | 可局部運作，不代表 NFR-001／OPS-002 完成 |
+| YouTube Analytics | allowance／meter unknown 時不發 metrics request，Data sync 保留並回 `PARTIAL`／`COST_GUARDRAIL_UNKNOWN` | `SOC-009`／`SETUP-003` `EXTERNAL_BLOCKED` |
+| Instagram／Resend | 各自 quota／account evidence unknown 時只阻擋自身 external operation，明確回 `COST_GUARDRAIL_UNKNOWN`；read-only UI、站內與不相關 provider 不受牽連 | `SOC-010`／`SETUP-004`、`DDL-009`／`SETUP-005` `EXTERNAL_BLOCKED` |
+| Workers／Access／帳戶帳務 | 只 observe／account-control；不在 Worker 入口拒絕 inbound，不宣稱 App 可阻止 invocation、Access seat 或 Cloudflare 扣款 | `ACCOUNT_CONTROL_REQUIRED` |
+| Staging synthetic | 只用 fixture／stub／隔離 D1；不呼叫 YouTube／Instagram／Resend，不寄 email／Push，不按同步／通知按鈕，不製造真實付費用量 | 通過條件；production 不部署 |
+
+本輪完成證據必須同時保存 source commit、remote migration list／apply output、active version 100%、bundle／secret／config scan、migration schema query、GET-only Access boundary smoke 及本機測試結果。無 authoritative provider/account usage、reset、billing 或 hard cap 證據時，`NFR-001`／`OPS-002` 保持 `IN_PROGRESS`，不得以本輪 staging smoke 升級。

@@ -362,9 +362,16 @@ contract 對照（只記錄觀測，不修改 production contract）：
 
 - `cloudflare.access`：active seat `1`、included seat `50` 可作為帳戶觀測；超額單價、計費單位、reset 與 hard cap 未提供，仍為 `ACCOUNT_CONTROL_REQUIRED`。
 - Workers requests／CPU／subrequests／Cron 與 D1 read／write／storage：方案頁提供 included 值，可升級「plan／included」觀測；current usage、remaining、reset、billing 與 invoice 仍 `UNKNOWN`，不得因此放行 production。
-- Resend、YouTube Data／Analytics、Instagram：本次 Cloudflare 帳戶頁沒有其 provider evidence，維持 `UNKNOWN`／既有 fail-closed contract。
+- Resend、YouTube Analytics、Instagram：本次 Cloudflare 帳戶頁沒有其 provider evidence，維持 `UNKNOWN`／對應 external operation fail-closed；YouTube Data 可使用官方 baseline local ledger，但仍標 `ESTIMATED`／`NOT_INVOICE_TRUTH`，不代表帳戶 current usage。
 - KV、R2、Queues、Cloudflare Email：本專案 allowlist／drift audit 仍未批准這些 binding；維持 `ACCOUNT_CONTROL_REQUIRED`，不因 dashboard 導覽列出現產品而視為已啟用。
 
 結論：`SETUP-010=VERIFIED`（人工唯讀核對完成）；`NFR-001`／`OPS-002` 仍 `IN_PROGRESS`。自動超額授權存在，且 current usage／authoritative reset／billing period／alert／hard cap 未充分取得，production 仍 `AWAITING_USER_SETUP`／`EXTERNAL_BLOCKED`。本步沒有 migration、部署或 Cloudflare 帳務／方案／付款／Access／Secrets／vars 變更。
+
+## 2026-08-14 staging release safety addendum（不需使用者操作）
+
+- 本輪只在唯一 worktree 執行本機 gap audit、migration reapply／sentinel、provider gate isolation、typecheck／unit／Worker-D1／UI synthetic、config／bundle／secret scan；不重做 YouTube／Instagram OAuth、Resend 真人寄信、Push 或 Firstrade 匯入。
+- `migrations/0011`／`0012` 是新增 forward-only 檔案，既有 `0001`～`0010` 不可修改；remote staging 套用前只接受 migration list 的 0011／0012 pending。若清單含其他 migration，唯一下一步是回主線停止，不要求使用者操作。
+- current status：`SOC-009`／`SETUP-003`（Analytics unknown）、`SOC-010`／`SETUP-004`（Instagram quota unknown）、`DDL-009`／`SETUP-005`（Resend account quota unknown）均為 `EXTERNAL_BLOCKED`；這是安全 gate 的可用性狀態，不否定歷史真人證據。
+- staging synthetic 的外部呼叫清單必須為零：YouTube、Instagram、Resend request、真實 email／Push、production D1／帳務變更均不得發生；staging 只驗 migration、API／UI gate、錯誤碼、audit 與不相關頁面 smoke。
 
 上線後使用者可直接從手機圖示或電腦網址開啟，不需要每天開電腦、Docker或終端機。

@@ -442,12 +442,14 @@ export async function syncProviderConnection(input: {
     const instagramSelection = provider.key === "instagram"
       ? await selectInstagramMediaInsightIds(input.env, contentPayloads)
       : { selectedIds: [] as string[], skippedCount: 0 };
+    const costWarnings: string[] = [];
     const metricPayloads = await provider.fetchMetrics(credentials, {
       from: input.from,
       to: input.to,
       content: contentPayloads,
       ...(provider.key === "instagram" ? { selectedContentExternalIds: instagramSelection.selectedIds } : {}),
       requestGuard,
+      onCostGuardrailSkip: (warning) => costWarnings.push(warning.reason),
     });
     const payloads = [...accountPayloads, ...contentPayloads, ...metricPayloads];
     const estimate = d1SyncAdmissionEstimate({
@@ -477,11 +479,14 @@ export async function syncProviderConnection(input: {
     const configuredInterval = Number(input.env.PROVIDER_SYNC_INTERVAL_HOURS ?? "6");
     const intervalHours = Number.isFinite(configuredInterval) && configuredInterval > 0 ? configuredInterval : 6;
     const nextRunAt = new Date(Date.parse(completedAt) + intervalHours * 60 * 60 * 1000).toISOString();
+    const partial = costWarnings.length > 0;
+    const partialMessage = partial ? costWarnings.join(" ").slice(0, 240) : null;
     await input.env.LIFE_DB.batch([
       input.env.LIFE_DB.prepare(
-        `UPDATE provider_sync_runs SET status = 'SUCCEEDED', completed_at = ?, fetched_count = ?,
-         created_count = ?, updated_count = ?, ignored_count = ? WHERE id = ?`,
-      ).bind(completedAt, payloads.length, counts.created, counts.updated, instagramSelection.skippedCount, runId),
+        `UPDATE provider_sync_runs SET status = ?, completed_at = ?, fetched_count = ?,
+         created_count = ?, updated_count = ?, ignored_count = ?, error_count = ?, error_code = ?, error_message_redacted = ? WHERE id = ?`,
+      ).bind(partial ? "PARTIAL" : "SUCCEEDED", completedAt, payloads.length, counts.created, counts.updated, instagramSelection.skippedCount,
+        costWarnings.length, partial ? "COST_GUARDRAIL_UNKNOWN" : null, partialMessage, runId),
       input.env.LIFE_DB.prepare(
         "UPDATE provider_connections SET status = 'CONNECTED', last_attempt_at = ?, last_success_at = ?, last_error_code = NULL, last_error_message_redacted = NULL, provider_definition_version = ?, updated_at = ?, version = version + 1 WHERE id = ?",
       ).bind(completedAt, completedAt, provider.definitionVersion, completedAt, input.connectionId),
@@ -492,9 +497,10 @@ export async function syncProviderConnection(input: {
     return {
       runId,
       providerKey: provider.key,
-      status: "SUCCEEDED",
+      status: partial ? "PARTIAL" : "SUCCEEDED",
       fetchedCount: payloads.length,
       ignoredCount: instagramSelection.skippedCount,
+      costWarnings,
       ...counts,
     };
   } catch (error) {

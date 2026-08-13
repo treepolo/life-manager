@@ -42,6 +42,7 @@ export interface CostContract {
   metricKey: string;
   unit: string;
   officialIncludedAmount: number | null;
+  localBaselineAllowed: boolean;
   measurementWindow: CostMeasurementWindow;
   defaultResetTimezone: string | null;
   riskClass: CostRiskClass;
@@ -94,98 +95,115 @@ function contract(input: Omit<CostContract, "sourceVersion"> & { sourceVersion?:
 const CONTRACTS: Readonly<Record<CostResourceKey, CostContract>> = {
   "cloudflare.access": contract({
     resourceKey: "cloudflare.access", metricKey: "active_seats", unit: "seat", officialIncludedAmount: null,
+    localBaselineAllowed: false,
     measurementWindow: "MONTHLY_AUTHORIZATION", defaultResetTimezone: "UTC", riskClass: "ACCOUNT_CONTROL",
     behavior: "UNKNOWN", admissionMode: "ACCOUNT_CONTROL", owner: "Cloudflare account administrator", sourceUrl: null,
   }),
   "workers.requests": contract({
     resourceKey: "workers.requests", metricKey: "inbound_requests", unit: "request", officialIncludedAmount: 100000,
+    localBaselineAllowed: false,
     measurementWindow: "UTC_DAY", defaultResetTimezone: "UTC", riskClass: "AUTO_OVERAGE_OR_UNKNOWN",
     behavior: "UNKNOWN", admissionMode: "OBSERVE_ONLY", owner: "Worker / Cloudflare account administrator",
     sourceUrl: "https://developers.cloudflare.com/workers/platform/limits/",
   }),
   "workers.cpu_ms": contract({
     resourceKey: "workers.cpu_ms", metricKey: "cpu_time", unit: "ms_per_invocation", officialIncludedAmount: 10,
+    localBaselineAllowed: false,
     measurementWindow: "INVOCATION", defaultResetTimezone: "UTC", riskClass: "HARD_REJECT_ONLY",
     behavior: "HARD_REJECT", admissionMode: "OBSERVE_ONLY", owner: "Worker / Cloudflare account administrator",
     sourceUrl: "https://developers.cloudflare.com/workers/platform/limits/",
   }),
   "workers.external_subrequests": contract({
     resourceKey: "workers.external_subrequests", metricKey: "external_subrequests", unit: "subrequest_per_invocation", officialIncludedAmount: 50,
+    localBaselineAllowed: false,
     measurementWindow: "INVOCATION", defaultResetTimezone: "UTC", riskClass: "HARD_REJECT_ONLY",
     behavior: "HARD_REJECT", admissionMode: "OBSERVE_ONLY", owner: "Worker / Cloudflare account administrator",
     sourceUrl: "https://developers.cloudflare.com/workers/platform/limits/",
   }),
   "workers.cron_triggers": contract({
     resourceKey: "workers.cron_triggers", metricKey: "cron_triggers_per_account", unit: "trigger", officialIncludedAmount: 5,
+    localBaselineAllowed: false,
     measurementWindow: "ACCOUNT_CONFIGURATION", defaultResetTimezone: "UTC", riskClass: "HARD_REJECT_ONLY",
     behavior: "HARD_REJECT", admissionMode: "OBSERVE_ONLY", owner: "Cloudflare account administrator",
     sourceUrl: "https://developers.cloudflare.com/workers/platform/limits/",
   }),
   "d1.rows_read": contract({
     resourceKey: "d1.rows_read", metricKey: "rows_read", unit: "row", officialIncludedAmount: 5000000,
+    localBaselineAllowed: true,
     measurementWindow: "UTC_DAY", defaultResetTimezone: "UTC", riskClass: "AUTO_OVERAGE_OR_UNKNOWN",
     behavior: "UNKNOWN", admissionMode: "GATE", owner: "D1 / sync owner",
     sourceUrl: "https://developers.cloudflare.com/d1/platform/pricing/",
   }),
   "d1.rows_written": contract({
     resourceKey: "d1.rows_written", metricKey: "rows_written", unit: "row", officialIncludedAmount: 100000,
+    localBaselineAllowed: true,
     measurementWindow: "UTC_DAY", defaultResetTimezone: "UTC", riskClass: "AUTO_OVERAGE_OR_UNKNOWN",
     behavior: "UNKNOWN", admissionMode: "GATE", owner: "D1 / sync owner",
     sourceUrl: "https://developers.cloudflare.com/d1/platform/pricing/",
   }),
   "d1.storage_bytes": contract({
     resourceKey: "d1.storage_bytes", metricKey: "storage", unit: "byte", officialIncludedAmount: 5_000_000_000,
+    localBaselineAllowed: true,
     measurementWindow: "PROVIDER_PLAN", defaultResetTimezone: "UTC", riskClass: "AUTO_OVERAGE_OR_UNKNOWN",
     behavior: "UNKNOWN", admissionMode: "GATE", owner: "D1 / Cloudflare account administrator",
     sourceUrl: "https://developers.cloudflare.com/d1/platform/pricing/",
   }),
   "resend.emails": contract({
     resourceKey: "resend.emails", metricKey: "transactional_emails", unit: "email", officialIncludedAmount: 100,
+    localBaselineAllowed: false,
     measurementWindow: "PROVIDER_PLAN", defaultResetTimezone: "UTC", riskClass: "AUTO_OVERAGE_OR_UNKNOWN",
     behavior: "UNKNOWN", admissionMode: "GATE", owner: "Notifications / Resend account administrator",
     sourceUrl: "https://resend.com/docs/knowledge-base/account-quotas-and-limits",
   }),
   "resend.requests": contract({
-    resourceKey: "resend.requests", metricKey: "api_requests", unit: "request_per_second", officialIncludedAmount: 5,
+    resourceKey: "resend.requests", metricKey: "api_requests", unit: "request_per_second", officialIncludedAmount: 10,
+    localBaselineAllowed: false,
     measurementWindow: "ROLLING_PROVIDER", defaultResetTimezone: "UTC", riskClass: "HARD_REJECT_ONLY",
     behavior: "HARD_REJECT", admissionMode: "GATE", owner: "Notifications / Resend account administrator",
     sourceUrl: "https://resend.com/docs/api-reference/rate-limit",
   }),
   "youtube.data_api_units": contract({
     resourceKey: "youtube.data_api_units", metricKey: "quota_units", unit: "unit", officialIncludedAmount: 10000,
+    localBaselineAllowed: true,
     measurementWindow: "PACIFIC_DAY", defaultResetTimezone: "America/Los_Angeles", riskClass: "HARD_REJECT_ONLY",
     behavior: "HARD_REJECT", admissionMode: "GATE", owner: "YouTube provider owner / Google project administrator",
     sourceUrl: "https://developers.google.com/youtube/v3/determine_quota_cost",
   }),
   "youtube.analytics_api_requests": contract({
     resourceKey: "youtube.analytics_api_requests", metricKey: "reports_query", unit: "request", officialIncludedAmount: null,
+    localBaselineAllowed: false,
     measurementWindow: "PROVIDER_PLAN", defaultResetTimezone: "America/Los_Angeles", riskClass: "AUTO_OVERAGE_OR_UNKNOWN",
     behavior: "UNKNOWN", admissionMode: "GATE", owner: "YouTube provider owner / Google project administrator",
     sourceUrl: "https://developers.google.com/youtube/analytics/reference/reports/query",
   }),
   "instagram.graph_api_window": contract({
     resourceKey: "instagram.graph_api_window", metricKey: "provider_usage_window", unit: "provider_request", officialIncludedAmount: null,
+    localBaselineAllowed: false,
     measurementWindow: "ROLLING_PROVIDER", defaultResetTimezone: "UTC", riskClass: "AUTO_OVERAGE_OR_UNKNOWN",
     behavior: "UNKNOWN", admissionMode: "GATE", owner: "Instagram provider owner / Meta account administrator",
     sourceUrl: "https://developers.facebook.com/docs/graph-api/overview/rate-limiting/",
   }),
   "cloudflare.kv": contract({
     resourceKey: "cloudflare.kv", metricKey: "unapproved_binding", unit: "binding", officialIncludedAmount: null,
+    localBaselineAllowed: false,
     measurementWindow: "ACCOUNT_CONFIGURATION", defaultResetTimezone: "UTC", riskClass: "ACCOUNT_CONTROL",
     behavior: "UNKNOWN", admissionMode: "ACCOUNT_CONTROL", owner: "Cloudflare account administrator", sourceUrl: null,
   }),
   "cloudflare.r2": contract({
     resourceKey: "cloudflare.r2", metricKey: "unapproved_binding", unit: "binding", officialIncludedAmount: null,
+    localBaselineAllowed: false,
     measurementWindow: "ACCOUNT_CONFIGURATION", defaultResetTimezone: "UTC", riskClass: "ACCOUNT_CONTROL",
     behavior: "UNKNOWN", admissionMode: "ACCOUNT_CONTROL", owner: "Cloudflare account administrator", sourceUrl: null,
   }),
   "cloudflare.queues": contract({
     resourceKey: "cloudflare.queues", metricKey: "unapproved_binding", unit: "binding", officialIncludedAmount: null,
+    localBaselineAllowed: false,
     measurementWindow: "ACCOUNT_CONFIGURATION", defaultResetTimezone: "UTC", riskClass: "ACCOUNT_CONTROL",
     behavior: "UNKNOWN", admissionMode: "ACCOUNT_CONTROL", owner: "Cloudflare account administrator", sourceUrl: null,
   }),
   "cloudflare.email": contract({
     resourceKey: "cloudflare.email", metricKey: "unapproved_binding", unit: "binding", officialIncludedAmount: null,
+    localBaselineAllowed: false,
     measurementWindow: "ACCOUNT_CONFIGURATION", defaultResetTimezone: "UTC", riskClass: "ACCOUNT_CONTROL",
     behavior: "UNKNOWN", admissionMode: "ACCOUNT_CONTROL", owner: "Cloudflare account administrator", sourceUrl: null,
   }),
@@ -260,11 +278,33 @@ export function utcDayPeriod(now: Date): CostWindowInput {
   };
 }
 
+function timezoneParts(instant: Date, timeZone: string): Record<string, string> {
+  return Object.fromEntries(new Intl.DateTimeFormat("en-CA", {
+    timeZone, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23",
+  }).formatToParts(instant).filter((part) => part.type !== "literal").map((part) => [part.type, part.value]));
+}
+
+function zonedMidnight(day: string, timeZone: string): string {
+  const [year, month, date] = day.split("-").map(Number);
+  const desiredWallTime = Date.UTC(year, month - 1, date, 0, 0, 0);
+  let instant = desiredWallTime + 8 * 60 * 60 * 1000;
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const parts = timezoneParts(new Date(instant), timeZone);
+    const renderedWallTime = Date.UTC(
+      Number(parts.year), Number(parts.month) - 1, Number(parts.day),
+      Number(parts.hour), Number(parts.minute), Number(parts.second),
+    );
+    instant += desiredWallTime - renderedWallTime;
+  }
+  return new Date(instant).toISOString();
+}
+
 export function pacificDayPeriod(now: Date): CostWindowInput {
   const day = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Los_Angeles", year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
+  const nextDay = new Date(Date.UTC(Number(day.slice(0, 4)), Number(day.slice(5, 7)) - 1, Number(day.slice(8, 10)) + 1)).toISOString().slice(0, 10);
   return {
     periodKey: `PACIFIC_DAY:${day}`,
-    resetAt: null, resetTimezone: "America/Los_Angeles",
+    resetAt: zonedMidnight(nextDay, "America/Los_Angeles"), resetTimezone: "America/Los_Angeles",
     billingPeriodStart: null, billingPeriodEnd: null, invoiceCutoff: null,
   };
 }

@@ -4,6 +4,7 @@ import {
   admissionAmount,
   d1SyncAdmissionEstimate,
   getCostContract,
+  pacificDayPeriod,
   policyFor,
   utcDayPeriod,
 } from "@/modules/cost-guardrail/contracts";
@@ -43,5 +44,25 @@ describe("cost guardrail contracts", () => {
       billingPeriodEnd: null,
       invoiceCutoff: null,
     });
+  });
+
+  it("derives the YouTube Pacific reset without treating it as billing metadata", () => {
+    expect(pacificDayPeriod(new Date("2026-08-14T12:34:56.000Z"))).toEqual({
+      periodKey: "PACIFIC_DAY:2026-08-14",
+      resetAt: "2026-08-15T07:00:00.000Z",
+      resetTimezone: "America/Los_Angeles",
+      billingPeriodStart: null,
+      billingPeriodEnd: null,
+      invoiceCutoff: null,
+    });
+  });
+
+  it("marks only explicitly approved official baselines as locally admissible", () => {
+    expect(getCostContract("d1.rows_read").localBaselineAllowed).toBe(true);
+    expect(getCostContract("youtube.data_api_units").localBaselineAllowed).toBe(true);
+    expect(getCostContract("youtube.analytics_api_requests").localBaselineAllowed).toBe(false);
+    expect(getCostContract("instagram.graph_api_window").localBaselineAllowed).toBe(false);
+    expect(getCostContract("resend.emails").localBaselineAllowed).toBe(false);
+    expect(getCostContract("resend.requests").officialIncludedAmount).toBe(10);
   });
 });

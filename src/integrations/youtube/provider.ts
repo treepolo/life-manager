@@ -199,7 +199,19 @@ export class YouTubeProvider implements IntegrationProvider {
     url.searchParams.set("dimensions", "day");
     url.searchParams.set("metrics", "views,likes,comments");
     url.searchParams.set("sort", "day");
-    return [await this.api(url, connection.accessToken, "analytics", input.requestGuard)];
+    try {
+      return [await this.api(url, connection.accessToken, "analytics", input.requestGuard)];
+    } catch (error) {
+      if (error instanceof ApiError && error.code === "COST_GUARDRAIL_UNKNOWN" && input.onCostGuardrailSkip) {
+        input.onCostGuardrailSkip({
+          resourceKey: "youtube.analytics_api_requests",
+          operationKind: "youtube.analytics",
+          reason: "YouTube Analytics quota／measurement evidence UNKNOWN；只跳過此 metric，不阻擋 YouTube Data API 資料同步。",
+        });
+        return [];
+      }
+      throw error;
+    }
   }
 
   async normalize(payloads: ProviderRawPayload[]): Promise<NormalizedProviderBatch> {

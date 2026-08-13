@@ -24,14 +24,14 @@ workers.dev的Access操作採目標導向，不把易改版的側邊欄名稱當
 - 使用者提供的 Cloudflare 結帳頁已明示「超出包含額度的額外使用量將以月為單位計費」並有授權每月向付款卡收取超額使用量；這個帳戶特定、去識別證據優先於先前的一般 Free 稽核結論。不得再寫「Zero Trust Free 超額一定不會扣款」。
 - 不自動啟用 Workers Paid、付費 R2、付費郵件、付費 API、Queues、KV 或第三方券商聚合器。Zero Trust／Access 的 Free label、seat 尚未用滿、沒有當期用量或 Budget alert 均不能當成 hard cap。
 - 目前專案 footprint 是 Workers、D1、Cron、Zero Trust／Access 與 Resend；`wrangler.toml` 沒有 KV／R2／Queues／Cloudflare Email binding。任何新 binding、SKU、plan 或帳戶產品都先視為 drift，未經 allowlist 審核不得啟用。
-- 正式成本防線計畫、官方來源、50／70／75／80／85%告警、70／75%降載、80／85% internal hard-stop／fail-closed、恢復與 owner 見 [`COST_GUARDRAIL_PLAN.md`](COST_GUARDRAIL_PLAN.md)。目前 runtime 的 local ledger 不是 provider invoice truth；帳戶 exact allowance／remaining／reset／billing evidence 未完成前維持 `UNKNOWN`。
+- 正式成本防線計畫、官方來源、50／70／75／80／85%告警、70／75%降載、80／85% internal hard-stop／fail-closed、恢復與 owner 見 [`COST_GUARDRAIL_PLAN.md`](COST_GUARDRAIL_PLAN.md)。D1 rows／storage 與 YouTube Data 可用有來源的 official baseline local ledger，但只能標 `ESTIMATED`／`NOT_INVOICE_TRUTH`；Analytics、Instagram、Resend 的 unknown 只阻擋自身 cost-causing operation；Workers／Access／帳戶 billing 仍是 `UNKNOWN`／`ACCOUNT_CONTROL_REQUIRED`。
 
 ### 2026-08-14 官方 quota／計費基線（Asia/Taipei 查核）
 
 - Workers Free：每日100,000 requests、每次10ms CPU、每次50個外部 subrequests、每帳戶5個 Cron；request 超額回1027、CPU超額回1102，requests於00:00 UTC重置。來源：[Workers limits](https://developers.cloudflare.com/workers/platform/limits/)、[Workers pricing](https://developers.cloudflare.com/workers/platform/pricing/)。Workers Paid 是獨立按量產品。
 - D1 Free：每日5,000,000 rows read、100,000 rows written、總storage 5GB；Free 讀／寫達上限時 query 失敗，storage cap 阻擋新增／schema／index；官方可由query meta、D1 Metrics或GraphQL觀測，Free每日00:00 UTC reset。來源：[D1 pricing](https://developers.cloudflare.com/d1/platform/pricing/)。這只說明目前 Free 平台失敗行為，不能推論其他已授權產品沒有超額費用。
 - Zero Trust／Access：Access logs Free保留24小時；seat、application、IdP與policy有平台上限，active user一個seat，seat不足時登入阻擋。實際帳戶包含量、SKU、超額授權與付款行為以帳戶人工核對為準。來源：[Zero Trust logs](https://developers.cloudflare.com/cloudflare-one/insights/logs/)、[account limits](https://developers.cloudflare.com/cloudflare-one/account-limits/)、[seat management](https://developers.cloudflare.com/cloudflare-one/team-and-resources/users/seat-management/)。
-- Resend Free：每日100、每月3,000封 transactional email，收發均計入，多收件人分別計數；起始rate limit 5 req/s，quota／429時保留去敏錯誤，不自動升級。來源：[account quotas](https://resend.com/docs/knowledge-base/account-quotas-and-limits)、[usage limits](https://resend.com/docs/api-reference/rate-limit)。`Idempotency-Key`與D1 delivery log只保護重送，不是費用上限。
+- Resend Free：每日100、每月3,000封 transactional email，收發均計入，多收件人分別計數；目前官方 rate limit 文件列 10 req/s，quota／429時保留去敏錯誤，不自動升級。來源：[account quotas](https://resend.com/docs/knowledge-base/account-quotas-and-limits)、[usage limits](https://resend.com/docs/api-reference/rate-limit)。`Idempotency-Key`與D1 delivery log只保護重送，不是費用上限；未取得本帳戶 plan／remaining／reset 時 email gate 仍 fail-closed。
 - YouTube Data API：預設10,000 units/day，method cost依官方表，所有 request至少1 unit，Pacific midnight reset；quota由Google API Console／response error核對。Analytics帳戶 quota不可用Data API數字代替。來源：[YouTube quota usage](https://developers.google.com/youtube/v3/getting-started)、[quota audits](https://developers.google.com/youtube/v3/guides/quota_and_compliance_audits)、[quota cost](https://developers.google.com/youtube/v3/determine_quota_cost)。
 - Instagram／Meta：以官方 Graph API rate-limit 契約與 response metric為準；本專案每輪40篇Insights／最多43次外部subrequest只代表程式／Workers護欄，不代表Meta帳戶quota。來源：[Meta Graph API rate limiting](https://developers.facebook.com/docs/graph-api/overview/rate-limiting/)。若指標不可得，停止非必要同步，不用估算放行。
 - 尚未使用的 KV／R2／Queues／Cloudflare Email 的官方數字、按量行為與禁止邊界已集中在 `COST_GUARDRAIL_PLAN.md`；未經 review 不建立 namespace、bucket、queue 或 Email Sending binding。
@@ -39,10 +39,18 @@ workers.dev的Access操作採目標導向，不把易改版的側邊欄名稱當
 ### 操作規則
 
 1. Layer A 每次部署前及每日核對 plan／SKU、Workers billing model、D1／provider binding、Cron、Access seat／application、checkout overage authorization、usage alerts／Budget alerts；查不到即 `UNKNOWN`，不得寫成安全。
-2. Layer B 僅 exact metric 可計算 provider 百分比；local conservative ledger 只能作 admission，不得當帳單真值。50／70／75／80／85%依 `resource + metric + period + threshold + source_version` 去重，通知失敗仍保持風險／阻擋；Cloudflare Budget alert 是 informational only，不會 pause 或 cap usage。
-3. Layer C 對 auto-overage／unknown 資源在 70% 降載、80% internal hard-stop；對 hard-reject-only 資源在 75% 降載、85% internal hard-stop。Workers inbound invocation、Access／Zero Trust 與 account billing 只能 observe／帳戶控制；429／1027／1102／D1 quota error／metric失效時 circuit open、fail-closed，不自動切換付費方案。
+2. Layer B 僅 exact metric 可計算 provider 百分比；明確允許的官方 baseline 可作 `LOCAL_CONSERVATIVE` admission，但只能標 `ESTIMATED`／`providerInvoiceTruth=false`，不得當帳單真值。50／70／75／80／85%依 `resource + metric + period + threshold + source_version` 去重，通知失敗仍保持風險／阻擋；Cloudflare Budget alert 是 informational only，不會 pause 或 cap usage。
+3. Layer C 對 auto-overage／unknown 資源在 70% 降載、80% internal hard-stop；對 hard-reject-only 資源在 75% 降載、85% internal hard-stop。未知只阻擋相應 cost-causing operation，不可串聯封鎖不相關 provider／read-only UI。Workers inbound invocation、Access／Zero Trust 與 account billing 只能 observe／帳戶控制；429／1027／1102／D1 quota error／metric失效時對應 circuit open、fail-closed，不自動切換付費方案。
 4. 程式只能阻擋本產品後續 requests／writes／sync／notification；不能取消 checkout checkbox、付款方式、Workers Paid、Access seat、SKU或invoice。帳戶控制只能由 Cloudflare／provider 管理者在帳戶畫面完成。
 5. staging 只准 synthetic provider response、隔離D1與固定 quota clock；不得以真實同步、測試信、Push、R2／Queues／Email物件或 production OAuth 證明成本安全。production 上線前必須完成 `SETUP-010` 唯讀人工帳務核對。
+
+### 2026-08-14 staging release safety procedure
+
+1. 以 `git rev-parse HEAD` 保存 deployment source commit；確認 `git diff -- migrations/0001...0010` 無變更，config drift scanner 無新增 KV／R2／Queues／Cloudflare Email binding，bundle／secret scan 通過。
+2. 先執行 local migration fresh／upgrade／reapply 與 sentinel test。remote `d1 migrations list LIFE_DB --config wrangler.toml --env staging --remote` 的 pending 必須只有 `0011`、`0012`；若出現其他 migration，停止，不套用。
+3. 只在前兩步通過後執行 `d1 migrations apply LIFE_DB --config wrangler.toml --env staging --remote`，再用 list／schema query 確認 version 12 與資料保留。部署使用 `wrangler deploy --config wrangler.toml --env staging --keep-vars`；不可部署 production、不可修改 Secrets／vars。
+4. staging smoke 只做 GET-only Access boundary、migration／API／UI gate、cost status 文案與不相關頁面；provider network allowlist 必須阻止 YouTube／Instagram／Resend，不能寄 email／Push、不能按同步或通知控制項、不能把 staging usage 當帳務證據。
+5. 失敗回復採停止新非必要 provider／schedule gate、保留 append-only audit；不得刪除或覆寫已套用 migration。所有 `ESTIMATED`、`UNKNOWN`、`ACCOUNT_CONTROL_REQUIRED` 需在 UI／API 明示，NFR-001／OPS-002 與受阻 provider 需求不得升級為 `VERIFIED`。
 
 ## OPS-003　Cloudflare部署
 

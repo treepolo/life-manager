@@ -8,6 +8,7 @@ import {
   listCostContracts,
   pacificDayPeriod,
   policyFor,
+  utcDayPeriod,
   type AdmissionOverhead,
   type CostAdmissionMode,
   type CostBehavior,
@@ -157,6 +158,45 @@ function observationIsSafe(row: ContractObservationRow, contractValue: CostContr
   if (row.risk_class === "AUTO_OVERAGE_OR_UNKNOWN" && (!row.billing_period_start || !row.billing_period_end || !row.invoice_cutoff)) return false;
   if (row.stale_after && Date.parse(row.stale_after) <= Date.parse(now)) return false;
   return row.resource_key === contractValue.resourceKey && row.unit === contractValue.unit;
+}
+
+function observationEvidence(row: ContractObservationRow): Record<string, unknown> {
+  try {
+    const parsed = JSON.parse(row.evidence_json) as unknown;
+    return parsed && typeof parsed === "object" ? parsed as Record<string, unknown> : {};
+  } catch {
+    return {};
+  }
+}
+
+function localBaselinePeriod(contractValue: CostContract, now: Date): CostWindowInput | null {
+  if (!contractValue.localBaselineAllowed || contractValue.officialIncludedAmount === null) return null;
+  if (contractValue.measurementWindow === "UTC_DAY") return utcDayPeriod(now);
+  if (contractValue.measurementWindow === "PACIFIC_DAY") return pacificDayPeriod(now);
+  if (contractValue.resourceKey === "d1.storage_bytes") {
+    return {
+      periodKey: "PLAN_STORAGE:CURRENT",
+      resetAt: null,
+      resetTimezone: null,
+      billingPeriodStart: null,
+      billingPeriodEnd: null,
+      invoiceCutoff: null,
+    };
+  }
+  return null;
+}
+
+function observationIsAdmissible(row: ContractObservationRow, contractValue: CostContract, now: string): boolean {
+  if (observationIsSafe(row, contractValue, now)) return true;
+  if (row.quality !== "LOCAL_CONSERVATIVE" || row.contract_version !== COST_GUARDRAIL_CONTRACT_VERSION) return false;
+  if (!contractValue.localBaselineAllowed || contractValue.officialIncludedAmount === null) return false;
+  if (row.resource_key !== contractValue.resourceKey || row.unit !== contractValue.unit || row.included_amount !== contractValue.officialIncludedAmount) return false;
+  const evidence = observationEvidence(row);
+  if (evidence.baselineKind !== "OFFICIAL_INCLUDED_ALLOWANCE" || evidence.providerInvoiceTruth !== false) return false;
+  if (row.stale_after && Date.parse(row.stale_after) <= Date.parse(now)) return false;
+  if (contractValue.measurementWindow === "PROVIDER_PLAN") return row.period_key === "PLAN_STORAGE:CURRENT";
+  if (!row.reset_at || !row.reset_timezone || parseDate(row.reset_at, "local baseline reset_at") <= Date.parse(now)) return false;
+  return Boolean(row.period_key);
 }
 
 async function latestObservation(env: Pick<Env, "LIFE_DB">, resourceKey: CostResourceKey): Promise<ContractObservationRow | null> {
@@ -373,6 +413,38 @@ async function assertRuntimeDrift(input: { env: Env; now: string }): Promise<voi
   if (blockedBindings.length) throw new ApiError(503, "COST_GUARDRAIL_DRIFT", "發現未審核的付費／資源 binding drift。", { blockedBindings });
 }
 
+async function ensureOfficialBaselineObservation(input: {
+  env: Env;
+  contractValue: CostContract;
+  now: string;
+}): Promise<ContractObservationRow | null> {
+  const period = localBaselinePeriod(input.contractValue, new Date(input.now));
+  if (!period || input.contractValue.officialIncludedAmount === null) return null;
+  const existing = await latestObservation(input.env, input.contractValue.resourceKey);
+  if (existing && existing.quality !== "LOCAL_CONSERVATIVE") return null;
+  if (existing && existing.period_key === period.periodKey && observationIsAdmissible(existing, input.contractValue, input.now)) return existing;
+  const result = await recordContractObservation({
+    env: input.env,
+    observation: {
+      resourceKey: input.contractValue.resourceKey,
+      includedAmount: input.contractValue.officialIncludedAmount,
+      period,
+      quality: "LOCAL_CONSERVATIVE",
+      behavior: input.contractValue.behavior,
+      evidence: {
+        baselineKind: "OFFICIAL_INCLUDED_ALLOWANCE",
+        accountObserved: false,
+        providerInvoiceTruth: false,
+        sourceUrl: input.contractValue.sourceUrl,
+      },
+      sourceUrl: input.contractValue.sourceUrl,
+      sourceVersion: `official-baseline@${COST_GUARDRAIL_CONTRACT_VERSION}`,
+      observedAt: input.now,
+    },
+  });
+  return input.env.LIFE_DB.prepare("SELECT * FROM cost_guardrail_contract_observations WHERE id = ?").bind(result.id).first<ContractObservationRow>();
+}
+
 async function activeExactObservationOrThrow(input: { env: Env; contractValue: CostContract; now: string }): Promise<ContractObservationRow> {
   const observation = await latestObservation(input.env, input.contractValue.resourceKey);
   if (!observation || !observationIsSafe(observation, input.contractValue, input.now)) {
@@ -383,6 +455,18 @@ async function activeExactObservationOrThrow(input: { env: Env; contractValue: C
     });
   }
   return observation;
+}
+
+async function activeAdmissionObservationOrThrow(input: { env: Env; contractValue: CostContract; now: string }): Promise<ContractObservationRow> {
+  const observation = await latestObservation(input.env, input.contractValue.resourceKey);
+  if (observation && observationIsAdmissible(observation, input.contractValue, input.now)) return observation;
+  const baseline = await ensureOfficialBaselineObservation(input);
+  if (baseline && observationIsAdmissible(baseline, input.contractValue, input.now)) return baseline;
+  throw new ApiError(503, "COST_GUARDRAIL_UNKNOWN", "provider contract、allowance、reset 或 billing evidence 未達可用門檻；非必要操作已阻擋。", {
+    resourceKey: input.contractValue.resourceKey,
+    quality: observation?.quality ?? "UNKNOWN",
+    periodKey: observation?.period_key ?? null,
+  });
 }
 
 export async function reserveAdmissionBudget(input: {
@@ -401,7 +485,7 @@ export async function reserveAdmissionBudget(input: {
   if (contractValue.admissionMode !== "GATE") {
     throw new ApiError(503, contractValue.admissionMode === "ACCOUNT_CONTROL" ? "COST_GUARDRAIL_ACCOUNT_CONTROL_REQUIRED" : "COST_GUARDRAIL_UNKNOWN", "此計量只能觀測或由帳戶控制，App 不可安全 gate。", { resourceKey: input.resourceKey });
   }
-  const observation = await activeExactObservationOrThrow({ env: input.env, contractValue, now });
+  const observation = await activeAdmissionObservationOrThrow({ env: input.env, contractValue, now });
   const window = await ensureWindow({ env: input.env, contractValue, observation, now });
   const amount = admissionAmount(input.plannedAmount, input.overhead ?? defaultAdmissionOverhead(input.plannedAmount));
   const existing = await input.env.LIFE_DB.prepare(
@@ -582,14 +666,15 @@ export async function getCostGuardrailStatus(input: { env: Env; now?: string }):
   const windowMap = new Map(windows.results.map((window) => [`${window.resource_key}:${window.period_key}`, window]));
   const data = listCostContracts().map((contractValue) => {
     const observation = latest.get(contractValue.resourceKey) ?? null;
-    const safe = observation ? observationIsSafe(observation, contractValue, now) : false;
+    const safe = observation ? observationIsAdmissible(observation, contractValue, now) : false;
     const resourceWindows = windows.results.filter((window) => window.resource_key === contractValue.resourceKey);
     const current = resourceWindows.at(-1) ?? null;
     const decision = contractValue.admissionMode === "ACCOUNT_CONTROL" || contractValue.admissionMode === "OBSERVE_ONLY"
       ? "ACCOUNT_CONTROL_REQUIRED"
       : !safe ? "UNKNOWN"
         : current?.breaker_state === "OPEN" ? "HARD_STOP"
-          : current?.breaker_state === "DEGRADED" ? "DEGRADED" : "READY";
+          : current?.breaker_state === "DEGRADED" ? "DEGRADED"
+            : observation?.quality === "LOCAL_CONSERVATIVE" ? "ESTIMATED" : "READY";
     return {
       resourceKey: contractValue.resourceKey,
       metricKey: contractValue.metricKey,

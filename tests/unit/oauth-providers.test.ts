@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { ApiError } from "@/core/errors/api-error";
 import { InstagramProvider, INSTAGRAM_INVALID_TOKEN_CODE, INSTAGRAM_MEDIA_INSIGHTS_PER_RUN, INSTAGRAM_SCOPES, instagramMetricDefinitionVersion } from "@/integrations/instagram/provider";
 import { YouTubeProvider, YOUTUBE_SCOPES } from "@/integrations/youtube/provider";
 
@@ -157,6 +158,40 @@ describe("OAuth provider最小權限與PKCE", () => {
     expect(requests[0].searchParams.get("metrics")).toBe("views,likes,comments");
     expect(requests[0].searchParams.get("sort")).toBe("day");
     expect(requests[0].searchParams.get("dimensions")).not.toContain("video");
+  });
+
+  it("YouTube Analytics成本證據未知時只跳過該metric並回報原因", async () => {
+    const fetchSpy = vi.fn();
+    vi.stubGlobal("fetch", fetchSpy);
+    const skipped: Array<Record<string, string>> = [];
+    const payloads = await new YouTubeProvider("client-id", "client-secret").fetchMetrics(
+      { accessToken: "test-access-token" },
+      {
+        from: "2026-08-01",
+        to: "2026-08-02",
+        requestGuard: {
+          beforeRequest: async () => { throw new ApiError(503, "COST_GUARDRAIL_UNKNOWN", "unknown analytics"); },
+          afterRequest: async () => undefined,
+        },
+        onCostGuardrailSkip: (warning) => skipped.push(warning),
+      },
+    );
+    expect(payloads).toEqual([]);
+    expect(skipped).toEqual([expect.objectContaining({ resourceKey: "youtube.analytics_api_requests", operationKind: "youtube.analytics" })]);
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("Instagram成本證據未知時不發起外部request", async () => {
+    const fetchSpy = vi.fn();
+    vi.stubGlobal("fetch", fetchSpy);
+    const guard = {
+      beforeRequest: async () => { throw new ApiError(503, "COST_GUARDRAIL_UNKNOWN", "unknown instagram"); },
+      afterRequest: async () => undefined,
+    };
+    await expect(new InstagramProvider("client-id", "client-secret", "v23.0").fetchAccounts({
+      accessToken: "test-access-token", userId: "instagram-user",
+    }, guard)).rejects.toMatchObject({ code: "COST_GUARDRAIL_UNKNOWN" });
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 
   it("YouTube上傳播放清單與影片明細完整分頁且每批最多50支", async () => {

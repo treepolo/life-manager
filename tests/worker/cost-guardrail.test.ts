@@ -43,13 +43,50 @@ describe("cost guardrail D1 admission", () => {
     await applyD1Migrations(env.LIFE_DB, env.TEST_MIGRATIONS);
   });
 
-  it("fails closed without exact allowance/reset/billing evidence", async () => {
+  it("applies 0011/0012 only once, preserves existing rows and exposes the atomic schema", async () => {
+    await env.LIFE_DB.prepare(
+      "INSERT INTO schema_metadata (key, value, updated_at) VALUES ('cost-guardrail-migration-sentinel', 'preserve-me', '2026-08-14T00:00:00.000Z')",
+    ).run();
+    await applyD1Migrations(env.LIFE_DB, env.TEST_MIGRATIONS);
+    await applyD1Migrations(env.LIFE_DB, env.TEST_MIGRATIONS);
+    const schema = await env.LIFE_DB.prepare("SELECT value FROM schema_metadata WHERE key = 'application_schema_version'").first<{ value: string }>();
+    const sentinel = await env.LIFE_DB.prepare("SELECT value FROM schema_metadata WHERE key = 'cost-guardrail-migration-sentinel'").first<{ value: string }>();
+    const columns = await env.LIFE_DB.prepare("SELECT name FROM pragma_table_info('cost_guardrail_reservations') WHERE name IN ('settled_amount', 'succeeded') ORDER BY name").all<{ name: string }>();
+    expect(schema?.value).toBe("12");
+    expect(sentinel?.value).toBe("preserve-me");
+    expect(columns.results.map((row) => row.name)).toEqual(["settled_amount", "succeeded"]);
+  });
+
+  it("fails closed for a resource whose exact allowance/reset/billing evidence is unknown", async () => {
     await expect(reserveAdmissionBudget({
       env,
-      operationId: "unknown-d1-storage-operation",
-      resourceKey: "d1.storage_bytes",
+      operationId: "unknown-youtube-analytics-operation",
+      resourceKey: "youtube.analytics_api_requests",
       plannedAmount: 1,
     })).rejects.toMatchObject({ code: "COST_GUARDRAIL_UNKNOWN" });
+  });
+
+  it("uses only approved official baselines for independent D1 and YouTube Data budgets", async () => {
+    const rowsRead = await reserveAdmissionBudget({ env, operationId: "baseline-d1-read", resourceKey: "d1.rows_read", plannedAmount: 10 });
+    const rowsWritten = await reserveAdmissionBudget({ env, operationId: "baseline-d1-write", resourceKey: "d1.rows_written", plannedAmount: 2 });
+    const storage = await reserveAdmissionBudget({ env, operationId: "baseline-d1-storage", resourceKey: "d1.storage_bytes", plannedAmount: 4096 });
+    const youtube = await reserveAdmissionBudget({ env, operationId: "baseline-youtube-data", resourceKey: "youtube.data_api_units", plannedAmount: 1 });
+    const qualities = await env.LIFE_DB.prepare(
+      "SELECT resource_key, quality FROM cost_guardrail_contract_observations WHERE resource_key IN ('d1.rows_read','d1.rows_written','d1.storage_bytes','youtube.data_api_units') ORDER BY resource_key",
+    ).all<{ resource_key: string; quality: string }>();
+    expect(qualities.results).toEqual([
+      { resource_key: "d1.rows_read", quality: "LOCAL_CONSERVATIVE" },
+      { resource_key: "d1.rows_written", quality: "LOCAL_CONSERVATIVE" },
+      { resource_key: "d1.storage_bytes", quality: "LOCAL_CONSERVATIVE" },
+      { resource_key: "youtube.data_api_units", quality: "LOCAL_CONSERVATIVE" },
+    ]);
+    await Promise.all([
+      releaseAdmissionReservation({ env, reservation: rowsRead }),
+      releaseAdmissionReservation({ env, reservation: rowsWritten }),
+      releaseAdmissionReservation({ env, reservation: storage }),
+      releaseAdmissionReservation({ env, reservation: youtube }),
+    ]);
+    await expect(reserveAdmissionBudget({ env, operationId: "still-unknown-instagram-or-analytics", resourceKey: "instagram.graph_api_window", plannedAmount: 1 })).rejects.toMatchObject({ code: "COST_GUARDRAIL_UNKNOWN" });
   });
 
   it("applies a 70% degrade threshold and leaves no orphan on rejected reserve", async () => {

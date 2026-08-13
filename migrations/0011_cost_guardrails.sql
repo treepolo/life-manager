@@ -112,7 +112,7 @@ BEGIN
     FROM cost_guardrail_budget_windows budget
     WHERE budget.resource_key = NEW.resource_key
       AND budget.period_key = NEW.period_key
-      AND budget.quality = 'EXACT'
+      AND budget.quality IN ('EXACT', 'LOCAL_CONSERVATIVE')
       AND budget.breaker_state IN ('CLOSED','OVERRIDDEN')
       AND budget.local_consumed_amount + budget.local_reserved_amount + NEW.reserved_amount
         < COALESCE((

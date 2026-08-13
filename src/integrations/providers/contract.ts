@@ -28,6 +28,11 @@ export interface ProviderMetricFetchInput {
   content?: ProviderRawPayload[];
   selectedContentExternalIds?: string[];
   requestGuard?: ProviderRequestGuard;
+  onCostGuardrailSkip?: (input: {
+    resourceKey: import("@/modules/cost-guardrail/contracts").CostResourceKey;
+    operationKind: string;
+    reason: string;
+  }) => void;
 }
 
 export interface ProviderRequestGuard {
