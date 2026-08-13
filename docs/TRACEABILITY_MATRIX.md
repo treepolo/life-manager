@@ -2,7 +2,7 @@
 
 本表確保每一項主要需求都有對應的正式要求與驗收，不得只出現在說明文字中。
 
-> 最新 A 整合線部署（2026-08-13）為 staging version `db41ff0c-7864-43d2-9a98-54000cebfa92`、100% active。下方 `26d3ca9b-c910-452b-b3aa-f6a8c59b9450` 僅屬 2026-08-12 N1 歷史證據；需求狀態仍以最新整合段落及 `IMPLEMENTATION_STATUS.md` 為準。
+> 最新 A 最終整合狀態（2026-08-13）：staging version `db41ff0c-7864-43d2-9a98-54000cebfa92` 為 100% active；`INV-002`／`SETUP-007`、`DDL-008`／`SETUP-006`／`AT-PUSH-01`已完成並為`VERIFIED`，`AT-GATE-08`已通過。下方 `26d3ca9b-c910-452b-b3aa-f6a8c59b9450` 與較早的未完成狀態均屬歷史證據，不是目前 gate；需求狀態以本檔 current matrix 及 `IMPLEMENTATION_STATUS.md` 為準。
 
 ## 第一批需求ID覆蓋索引
 
@@ -26,6 +26,14 @@
 | Security | SEC-001, SEC-002, SEC-003, SEC-004, SEC-005 | AT-SEC-01~04, AT-DATA-05 |
 | Operations | OPS-001, OPS-002, OPS-003, OPS-004, OPS-005, OPS-006, OPS-007, OPS-008, OPS-009, OPS-010, OPS-011 | AT-OPS-01~02, AT-DATA-03, AT-SETUP-01 |
 | Setup gates | SETUP-001, SETUP-002, SETUP-003, SETUP-004, SETUP-005, SETUP-006, SETUP-007, SETUP-008, SETUP-009 | AT-SETUP-01, live smoke tests |
+
+## 2026-08-13 最終整合與 AT-GATE-08
+
+- B `codex/accept-firstrade@300b3d71742024bb28915f6bd55d29a9110237b6` 與 C `codex/accept-web-push-final@f032a5bd60c5b6ecd8d09d38c5ec381c811bd1ec` 均已由 A 以 no-ff merge 保留歷史；兩個來源 commit 實際只變更正式文件，沒有未納入的 runtime、migration 或 secret。
+- `INV-002`／`SETUP-007`／`AT-INV-05`：正式staging結果486／486／0／0、D1 USD 17.81、官方Firstrade總數486與兩筆MSTU BUY核對一致、重跑0新增／486重複，未保存未遮蔽CSV或個資。
+- `DDL-008`／`SETUP-006`／`AT-PUSH-01`：手機與電腦各自收件；手機停用後為`DISABLED`，電腦維持`ACTIVE`並收件；UI／Push API／D1／delivery一致，最新delivery送至ACTIVE 1、DISABLED 0、錯誤0。
+- `SOC-010`／`SETUP-004`／`AT-IG-01`～`AT-IG-05`與`DDL-009`／`SETUP-005`／`AT-MAIL-01`維持既有`VERIFIED`；YouTube與其他既有已驗收ID未重做或降級。結論：`AT-GATE-08` `PASSED`。
+- B／C完成線相對已部署A runtime僅帶入正式文件與去識別證據，沒有`src/`、`public/`、設定、script或migration差異；因此 bundle unchanged，最終整合不需重部署。最終 local gate 的 lint（明確排除被保護的`backups/`）、雙typecheck、unit 15 files／52 tests、Worker/D1/API 3 files／27 tests、client build 799 modules、隔離Playwright 13/13、scan、112-ID coverage與`git diff --check`均通過；staging version維持100% active，remote migration list為`No migrations to apply!`。
 
 規格衝突紀錄：本檔原有一列寫作`ARCH-001~008`，但`ARCHITECTURE.md`目前只定義`ARCH-001`、`ARCH-002`、`ARCH-003`。未定義的`ARCH-004~008`不列入虛構需求；原列保留供規格擁有者修正。
 
@@ -111,17 +119,17 @@ A以no-ff merge commit`edc1cd25de07da237d08cd958457701d24723212`保留N commit`1
 
 ### C線 final acceptance 唯讀 checkpoint（2026-08-12）
 
-最新 A 整合版本已由 C 唯讀確認為 staging 100% active，remote migration 無待套用；目前 Access session 可載入期限頁且無紅色 API／載入錯誤。使用者已準備一筆真實正式 `OPEN` 期限並完成真實電腦與手機授權／啟用及兩台收件；使用者已停用手機，D1 唯讀聚合確認手機 `DISABLED`、電腦 `ACTIVE`、兩台既有成功紀錄／錯誤 0、`WEB_PUSH=READY`、delivery `SENT` 9。`DDL-008`／`SETUP-006`／`AT-PUSH-01` 仍為 `IN_PROGRESS`；下一步只從未停用電腦做最後測試，確認手機不再收件。
+歷史 checkpoint（2026-08-12；C final前）：最新 A 整合版本已由 C 唯讀確認為 staging 100% active，remote migration 無待套用；當時 Access session 可載入期限頁且無紅色 API／載入錯誤，手機已停用、電腦為`ACTIVE`，下一步是最後獨立性測試。其後的失敗重現與N2修正、C final完成證據見下方；當時的`IN_PROGRESS`不是目前狀態。
 
 ### C線最後獨立性測試失敗（2026-08-12）
 
 預期未停用電腦收到、停用手機不收到且電腦維持 `ACTIVE`；使用者實際回報電腦未收到並在 UI 看到 `DISABLED`。D1 唯讀卻顯示 computer-like=`ACTIVE` 1、mobile-like=`DISABLED` 1、`WEB_PUSH=READY`、delivery `SENT` 10／錯誤 0。此矛盾涉及 Push 狀態讀回／共用通知驗收路徑，C 線停止、不修改 shared code、不部署，移交主線後再驗收；需求仍為 `IN_PROGRESS`。
 
-### C線 Web Push final acceptance（2026-08-13）
+### C線 Web Push final acceptance（2026-08-13；C線自身驗收紀錄）
 
 A/N2整合commit `007768fae8f56893072cc056a007766cac462595` 的 staging version `db41ff0c-7864-43d2-9a98-54000cebfa92` 經唯讀確認100% active，remote migration為`No migrations to apply!`。使用者在真實電腦完成client安全更新；Service Worker build stamp為`774d9ed6db971987`且placeholder不存在。正式`OPEN`期限、Access期限頁、Web Push `READY`與兩台逐裝置狀態均可讀回。
 
-真人固定答案全部通過：手機與電腦是兩台不同真實裝置，各有1筆獨立訂閱與成功紀錄；手機停用後，未停用電腦仍為`ACTIVE`並收到唯一一次最後測試，手機未收到。最後一次去識別D1聚合為computer `ACTIVE` 1／mobile `DISABLED` 1，各有last success、錯誤0；通道`WEB_PUSH`為enabled／`READY`且有成功紀錄、錯誤0；最新delivery為`SENT` 1、to active 1、to disabled 0、錯誤0，查詢`rows_written=0`。`DDL-008`、`SETUP-006`、`AT-PUSH-01`標為`VERIFIED`；`AT-GATE-08`不執行。
+真人固定答案全部通過：手機與電腦是兩台不同真實裝置，各有1筆獨立訂閱與成功紀錄；手機停用後，未停用電腦仍為`ACTIVE`並收到唯一一次最後測試，手機未收到。最後一次去識別D1聚合為computer `ACTIVE` 1／mobile `DISABLED` 1，各有last success、錯誤0；通道`WEB_PUSH`為enabled／`READY`且有成功紀錄、錯誤0；最新delivery為`SENT` 1、to active 1、to disabled 0、錯誤0，查詢`rows_written=0`。`DDL-008`、`SETUP-006`、`AT-PUSH-01`標為`VERIFIED`；C線自身不執行`AT-GATE-08`，A最終整合線其後在所有外部驗收完成後執行並通過。
 
 需求狀態的唯一權威仍為`IMPLEMENTATION_STATUS.md`；本索引只提供從原意到實際檔案與測試的查找路徑。
 
@@ -129,10 +137,10 @@ A/N2整合commit `007768fae8f56893072cc056a007766cac462595` 的 staging version 
 
 從A整合基準`95b60075fda3fb6afd209b19177d9363bd9c3c87`建立`codex/fix-notification-shared-2`，C `441b9d3`只作去識別驗收證據，未合併C runtime。根因分為三部分：API／UI沒有把`sync_devices.display_name`作為每台裝置的明確標籤；AES-GCM隨機IV使同 endpoint 不能直接以密文判重，且scheduler／API在取`ACTIVE`前未先按裝置挑最新列；shared writeback的channel摘要與 late provider outcome缺乏按每裝置最新狀態的穩定聚合。修正涉及`src/worker/api/index.ts`、`src/modules/notifications/schema.ts`、`src/modules/notifications/persistence.ts`、`src/modules/notifications/push.ts`、`src/worker/scheduled/index.ts`、`src/app/pages/DeadlinesPage.tsx`及直接Worker-D1/API測試；`0005`既有欄位足夠，不新增migration。固定答案覆蓋手機`DISABLED`／電腦`ACTIVE`、只送活動裝置、provider成功／失敗、同 endpoint重訂閱、改名、同timestamp排序、idempotency、空資料與缺少provider message ID；Push 2xx只標示provider accepted，不宣稱真人收件。`DDL-008`／`SETUP-006`／`AT-PUSH-01`維持`IN_PROGRESS`，等A重部署與C真人驗收。
 
-### A整合線 N2／C final 最小安全整合與 staging 部署（2026-08-13）
+### A整合線 N2／C final 最小安全整合與 staging 部署（2026-08-13；C final前歷史紀錄）
 
 - 保留歷史：N2 `724fa63b9588130b7719b92713cfaa36d83278fb` 以 merge `a8781085d33b515360455570d320f17ef8369144` 納入；C final `441b9d3c6941a6571d3660d4fce3359191ff5223` 以 merge `6362929d9f7cf782a562bee51388bf2cb93dc714` 納入，C 僅提供去識別驗收證據，沒有 runtime／migration 變更。
-- `DDL-008`／`SETUP-006`／`AT-PUSH-01` 仍為 `IN_PROGRESS`：N2 固定答案已覆蓋每裝置最新狀態、停用裝置遮蔽舊列、同 endpoint 重訂閱、裝置改名、provider accepted 與 channel 聚合；C 的真人最後獨立性測試仍是未解矛盾，不能由自動測試或部署證據取代。
+- 當時 `DDL-008`／`SETUP-006`／`AT-PUSH-01` 仍為 `IN_PROGRESS`：N2 固定答案已覆蓋每裝置最新狀態、停用裝置遮蔽舊列、同 endpoint 重訂閱、裝置改名、provider accepted 與 channel 聚合；C 的真人最後獨立性測試仍是未解矛盾，不能由自動測試或部署證據取代。此為 C final 前歷史狀態，目前已由上方 final matrix 取代。
 - A 已從既有 staging public binding 以程序環境注入 `VITE_VAPID_PUBLIC_KEY`，keyed client build 799 modules 通過；bundle 實際包含同一 public key，未發現 private／subject／其他 secret identifier，VAPID private／subject 僅核對 secret 名稱／型別，不讀取值。
 - staging version `db41ff0c-7864-43d2-9a98-54000cebfa92` 唯讀確認 100% active；部署使用 `wrangler deploy --config wrangler.toml --env staging --keep-vars`，未執行或新增 migration，remote migration list 前後均為 `No migrations to apply!`。
-- 整合 gate：lint、雙 typecheck、unit 15 files／52 tests、Worker/D1/API 3 files／27 tests、完整隔離 Playwright 13/13、scan 與 `git diff --check` 通過；`verify:requirements` 僅因上述兩個 Push setup 狀態仍未完成而維持非零。未授權 GET `/deadlines`、通知／Push 訂閱／整合 API 均受 Access 回 302；未觸發真人操作或 `AT-GATE-08`。
+- 當時整合 gate：lint、雙 typecheck、unit 15 files／52 tests、Worker/D1/API 3 files／27 tests、完整隔離 Playwright 13/13、scan 與 `git diff --check` 通過；`verify:requirements` 的非零只因上述兩個 Push setup 尚未完成。未授權 GET `/deadlines`、通知／Push 訂閱／整合 API 均受 Access 回 302；當時未觸發真人操作或 `AT-GATE-08`。最終 coverage 與 `AT-GATE-08` 結果見本檔最上方 final section。

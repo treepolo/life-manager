@@ -24,9 +24,9 @@
 
 - [x] N2 完成測試、commit 並 push `codex/fix-notification-shared-2`（`724fa63b9588130b7719b92713cfaa36d83278fb`）。
 - [x] 在 `D:\人生管理器` 核對遠端 N2 commit，完成 N2／C final 證據整合與 staging 重部署；最新 version `db41ff0c-7864-43d2-9a98-54000cebfa92` 為 100% active，未執行 migration。
-- [ ] 由主線喚醒 C 線，依 `SETUP-006` 重驗兩台真人裝置及 `AT-PUSH-01`；本項尚未完成，不得將 Push 需求升為 `VERIFIED`。
-- [ ] B／C 最終驗收完成，所有相關正式文件與證據合併回 `D:\人生管理器`。
-- [ ] 最終整合與 `AT-GATE-08` 完成，確認 canonical branch 已 push。
+- [x] 由主線喚醒 C 線，依 `SETUP-006` 重驗兩台真人裝置及 `AT-PUSH-01`；電腦 `ACTIVE` 且收件、手機 `DISABLED` 且未收件，UI／API／D1／delivery一致，Push需求已`VERIFIED`。
+- [x] B／C 最終驗收完成；B `300b3d71742024bb28915f6bd55d29a9110237b6`、C `f032a5bd60c5b6ecd8d09d38c5ec381c811bd1ec`及相關正式文件與證據已合併回 `D:\人生管理器`。
+- [x] 最終整合與 `AT-GATE-08` 完成；A branch已保留B/C/D/N2歷史，staging與remote migration狀態已核對。實際最終A push SHA於完成commit後填入本待辦。
 - [ ] 逐一核對所有輔助 worktree：branch、HEAD、`git status`、遠端 HEAD 與合併狀態。
 - [ ] 使用 `git worktree remove` 移除已安全收斂的 D 槽輔助 worktree。
 - [ ] 使用 `git worktree remove` 移除下列 C 槽 worktree：

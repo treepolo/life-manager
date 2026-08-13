@@ -182,7 +182,7 @@ Codex先提供：
 - [x] Codex只按一次Instagram「開始正式授權」；導向`www.instagram.com/oauth/authorize`後顯示「很抱歉，此頁面無法使用」，沒有出現App名稱、帳號選擇、權限或同意按鈕，也沒有callback。去敏參數核對確認scope、redirect、response type、state及PKCE結構存在，但實際`client_id`格式與Meta頁面Instagram應用程式編號不符，因此此步是失敗證據，不等於完成授權。
 - [x] 更正`META_CLIENT_ID`後由Codex重新開始Instagram授權；第二次導向成功顯示`Life Manager Personal-IG`正式同意頁，只列出「查看個人檔案和使用影音素材（必要）」與「存取和管理洞察報告」，並明示長期存取；沒有發布、留言、訊息或廣告能力。尚未按「允許／取消」。
 - [x] 使用者本人核對上述App與兩項權限後按「允許」；staging已成功交換授權碼，但隨後profile讀取回`PROVIDER_ERROR`／`IGApiException`，沒有建立connection，故不符合成功判據。官方文件要求`GET /me?fields=user_id,username,...`，現有adapter則使用`/{userId}?fields=id,...`；此runtime契約缺口已修正並由unit及D1固定答案覆蓋。一次性callback code/state不保存、不重播。
-- [x] Codex完成profile修正版完整本機閘門：lint、雙typecheck、43/43 unit、22/22 Worker／D1、client build、13個隔離schema 10 D1 Playwright、正式碼／Secret／skip掃描及diff check均exit 0；requirement gate僅依法拒絕仍為`IN_PROGRESS`的`SOC-010`／`SETUP-004`。Playwright一次Wrangler程序中斷由既定全新D1重試後通過，沒有重試產品斷言或接觸staging D1。
+- [x] Codex完成profile修正版完整本機閘門：lint、雙typecheck、43/43 unit、22/22 Worker／D1、client build、13個隔離schema 10 D1 Playwright、正式碼／Secret／skip掃描及diff check均exit 0；此為當時尚待真實同步的歷史閘門，後續`SOC-010`／`SETUP-004`已依真實OAuth、兩次同步及AT-IG-01～05證據標為`VERIFIED`。Playwright一次Wrangler程序中斷由既定全新D1重試後通過，沒有重試產品斷言或接觸staging D1。
 - [x] Codex已將profile修正版部署至staging：Wrangler exit 0，新版本`8de3abfb-a682-40dc-b308-d6290d7a7ae6`為100%流量；六個必要Secret名稱／型別與既定binding完整、remote migration無待套用、未登入health 302。沒有migration或Secret值讀取。
 - [x] Codex已在既有Access session以新state完成Instagram正式同意與callback；外部連線頁回到`connected=1`，卡片顯示本人專業帳號、`CONNECTED`、無錯誤及「立即同步」。OAuth callback／profile必要回歸已完成；未記錄token、帳號識別值或一次性code/state。
 - [x] AT-IG-01與AT-IG-02必要回歸：Access限制、既定兩項scope、callback、`/me` profile及`user_id`正式帳號識別均有真實／固定答案證據；普通帳號或權限不足的官方錯誤路徑未被假設為成功，也未建立假帳號。
@@ -226,6 +226,8 @@ Codex先提供：
 
 ## SETUP-006　Web Push
 
+目前狀態：`VERIFIED`（2026-08-13；C線兩台真實裝置驗收及A最終整合 gate均完成）。
+
 ### C線目前證據（2026-08-11；N1歷史證據，最新N2部署見下）
 
 - [x] Wrangler OAuth 已在 C 線專用設定位置成功完成；`whoami` exit code 為 0。
@@ -264,7 +266,7 @@ Codex先提供：
 6. 先在其中一台按「停用此裝置 Web Push」；成功判據是該裝置顯示停用，另一台仍為 `READY`／`ACTIVE`。
 7. 再從未停用的另一台執行一次測試發送；成功判據是另一台仍收到通知，停用裝置沒有收到新的測試通知。
 
-N2 自動固定答案補充：App列出的每台裝置狀態由伺服器保存的`device_id`、`device_name`與subscription狀態決定，不取目前控制瀏覽器的全域`Notification.permission`或local endpoint代替其他裝置狀態。排程只傳送每台裝置最新且`ACTIVE`的subscription；Push UI的「服務接受」只代表provider接收加密訊息，不代表瀏覽器顯示或真人已看見。這些固定答案不能替代下列兩台真人驗收，且本需求仍為`IN_PROGRESS`。
+N2 自動固定答案補充：App列出的每台裝置狀態由伺服器保存的`device_id`、`device_name`與subscription狀態決定，不取目前控制瀏覽器的全域`Notification.permission`或local endpoint代替其他裝置狀態。排程只傳送每台裝置最新且`ACTIVE`的subscription；Push UI的「服務接受」只代表provider接收加密訊息，不代表瀏覽器顯示或真人已看見。這些固定答案本身不能替代真人驗收；C線 final 真人證據已在下方完成，現行`DDL-008`／`SETUP-006`／`AT-PUSH-01`為`VERIFIED`。
 
 驗收紀錄只保存裝置類型（手機／電腦）、操作時間、App 顯示的狀態／錯誤碼及是否收到通知，不保存 endpoint、訂閱 keys、Access 身分或通知內容中的私人資料。若裝置不支援 Push 或拒絕權限，App 必須明確顯示，不得假裝成功；站內與 Email 仍可運作。
 
@@ -286,15 +288,15 @@ N2 自動固定答案補充：App列出的每台裝置狀態由伺服器保存�
 - [x] 真實手機與真實電腦各自完成通知授權／訂閱並收到測試Push；使用者在真實電腦完成安全更新後，畫面可讀回正式`OPEN`期限、Web Push`READY`、電腦`ACTIVE`及最後成功時間。
 - [x] 使用者停用手機後，從未停用電腦只發送一次最後測試；電腦收到，手機確認未收到。UI／Push API／D1均讀回手機`DISABLED`、電腦`ACTIVE`，兩台各有成功紀錄、錯誤0。
 - [x] 去識別D1最新delivery為`WEB_PUSH`／`SENT` 1筆，送至`ACTIVE`電腦1筆、送至`DISABLED`手機0筆、錯誤0；`WEB_PUSH` channel為enabled／`READY`且有成功紀錄、錯誤0；查詢`rows_written=0`。
-- [x] `DDL-008`、`SETUP-006`、`AT-PUSH-01`完成並標為`VERIFIED`；不執行`AT-GATE-08`，不修改production`SETUP-009`。
+- [x] `DDL-008`、`SETUP-006`、`AT-PUSH-01`完成並標為`VERIFIED`；C線本身不執行`AT-GATE-08`，但A最終整合 gate已在外部驗收全部完成後通過；不修改production`SETUP-009`。
 
-### A整合線 N2 部署進度（2026-08-13）
+### A整合線 N2 部署進度與C final完成（2026-08-13）
 
 - [x] N2 `724fa63b9588130b7719b92713cfaa36d83278fb` 已合併至 A（merge `a8781085d33b515360455570d320f17ef8369144`）；C final `441b9d3c6941a6571d3660d4fce3359191ff5223` 只納入去識別證據（merge `6362929d9f7cf782a562bee51388bf2cb93dc714`），未納入 C runtime。
 - [x] 已以既有 staging public binding 做 process-only `VITE_VAPID_PUBLIC_KEY` build；public key 實際進入 bundle 且與 Worker binding 一致，private／subject／其他 secret identifier 未進 bundle，程序環境已清除，沒有寫入 `.env`、`wrangler.toml`、source、Git 或文件。
 - [x] A 已以 `wrangler deploy --config wrangler.toml --env staging --keep-vars` 部署整合版本 `db41ff0c-7864-43d2-9a98-54000cebfa92`，唯讀確認 100% active；部署前後 remote migration 均為 `No migrations to apply!`，沒有新增或執行 migration。兩個 VAPID secret 只核對名稱／`secret_text` 型別，不讀值。
 - [x] 無登入副作用 smoke：`/`、`/deadlines`、通知／Push訂閱／整合 GET 均受 Access 回 `302`；沒有把登入頁當成授權成功證據，也未觸發 POST、真人 Push／Email 或 Firstrade 匯入。
-- [ ] 由主線喚醒 C，以可用 Access session 依固定順序完成真實電腦、真實手機、各自收件、停用一台及另一台仍可收件；完成前 `DDL-008`／`SETUP-006`／`AT-PUSH-01` 維持 `IN_PROGRESS`。
+- [x] 主線已喚醒 C；C 以可用 Access session 依固定順序完成真實電腦、真實手機、各自收件、停用手機及電腦仍可收件；UI／API／D1／delivery一致，`DDL-008`／`SETUP-006`／`AT-PUSH-01`為`VERIFIED`。
 
 ## SETUP-007　Firstrade CSV
 

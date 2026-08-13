@@ -213,13 +213,13 @@ App內：
 - 依`wrangler deploy --config wrangler.toml --env staging --keep-vars`上傳後，CLI在Windows既有程序問題下回`0xC0000409`，但唯讀deployment status確認`life-manager-staging` version`26d3ca9b-c910-452b-b3aa-f6a8c59b9450`為100%流量；新version保留public VAPID binding與既有兩個VAPID Secret名稱／型別，remote `d1 migrations list --remote`為`No migrations to apply!`。
 - 未授權GET `/deadlines`、`/api/v1/notifications/channels`、`/api/v1/push-subscriptions`與`/api/v1/integrations`均受Access邊界回302。當時沒有可用Access session，因此不把此結果解讀成授權API通過；沒有觸發任何POST、真人Email／Push或Firstrade匯入。C收到本部署證據後依`SETUP-006`恢復兩台真人驗收。
 
-### A整合線 N2／C final staging 部署證據（2026-08-13）
+### A整合線 N2／C final staging 部署證據（2026-08-13；C final前部署紀錄）
 
 - N2 `724fa63b9588130b7719b92713cfaa36d83278fb` 已以 no-ff merge `a8781085d33b515360455570d320f17ef8369144` 納入 A；C final `441b9d3c6941a6571d3660d4fce3359191ff5223` 以 merge `6362929d9f7cf782a562bee51388bf2cb93dc714` 納入，僅有去識別驗收證據，沒有 C runtime 或 migration。
 - 依 Cloudflare Wrangler 正式流程以暫時程序環境注入既有 `WEB_PUSH_VAPID_PUBLIC_KEY` 對應的 `VITE_VAPID_PUBLIC_KEY`，完成 799 modules client build；bundle 實際包含 public key，private／subject／其他 secret identifier 不存在，環境變數在流程結束後清除。`--keep-vars` 用於保留 staging dashboard vars／secrets；沒有寫入 `.env`、`wrangler.toml`、source、Git 或文件。
 - staging `life-manager-staging` version `db41ff0c-7864-43d2-9a98-54000cebfa92` 已由唯讀 deployment status 確認 100% active。部署前後 `d1 migrations list LIFE_DB --env staging --remote` 均回報 `No migrations to apply!`；本次沒有新增、套用或重跑 migration。
 - secret 核對只記錄 `WEB_PUSH_VAPID_PRIVATE_KEY`／`WEB_PUSH_VAPID_SUBJECT` 為 `secret_text`，沒有讀值；public binding 為 `plain_text` 且與既有值一致。未授權 GET `/`、`/deadlines`、`/api/v1/notifications/channels`、`/api/v1/push-subscriptions`、`/api/v1/integrations` 均回 Access `302`，沒有把登入頁當成授權 smoke，也未觸發 POST、真人 Push／Email 或 Firstrade 匯入。
-- N2 的自動固定答案與本次部署不能替代 C 真人驗收；`DDL-008`／`SETUP-006`／`AT-PUSH-01` 維持 `IN_PROGRESS`，主線收到本證據後再喚醒 C 依 `SETUP-006` 完成兩台裝置流程。`AT-GATE-08` 不執行。
+- N2 的自動固定答案與本次部署在當時不能替代 C 真人驗收；該歷史部署紀錄中的暫時 `IN_PROGRESS` 已由下方 C final 真人證據取代。C final完成後三項 Push ID為`VERIFIED`，`AT-GATE-08`由A最終整合 gate執行。
 
 ### C線 final acceptance 唯讀 smoke（2026-08-12；N1歷史紀錄）
 
@@ -239,7 +239,13 @@ App內：
 - Worker public VAPID var與client build public key只以一致性布林結果核對；private key／subject只存在Cloudflare Secret。Service Worker build stamp為`774d9ed6db971987`，placeholder不存在；未在文件保存任何secret、endpoint或subscription key。
 - 真人驗收：手機與電腦兩台不同真實裝置各自授權、訂閱並收到測試Push；手機獨立停用後，未停用電腦維持`ACTIVE`並收到唯一一次最後測試，使用者確認停用手機未收到。
 - 唯讀一致性：UI與`GET /api/v1/push-subscriptions`均讀回手機`DISABLED`、電腦`ACTIVE`、兩台last success存在且error為空；D1 `WEB_PUSH` channel為enabled／`READY`且last success存在、error為空；最新delivery為`SENT` 1、to active 1、to disabled 0、error 0，查詢`rows_written=0`。
-- 結論：`DDL-008`、`SETUP-006`、`AT-PUSH-01`均為`VERIFIED`；不執行`AT-GATE-08`，不修改production`SETUP-009`或其他整合線。
+- 結論：`DDL-008`、`SETUP-006`、`AT-PUSH-01`均為`VERIFIED`；C線本身不執行`AT-GATE-08`，A最終整合 gate已在所有外部驗收完成後執行；不修改production`SETUP-009`或其他整合線。
+
+### A最終整合 gate（2026-08-13）
+
+- B `300b3d71742024bb28915f6bd55d29a9110237b6` 與 C `f032a5bd60c5b6ecd8d09d38c5ec381c811bd1ec`相對 A 已部署 runtime 只帶入正式文件與去識別驗收證據；`src/`、`public/`、`wrangler.toml`、`package.json`、`scripts/`、`migrations/`沒有由這兩個完成線 commit新增或修改。因此現有 staging runtime bundle與A已部署版本一致，本次沒有重部署；這是 bundle unchanged 的明確 no-redeploy 判定，不是跳過部署驗證。
+- staging `life-manager-staging` version `db41ff0c-7864-43d2-9a98-54000cebfa92`唯讀確認100% active；`d1 migrations list LIFE_DB --env staging --remote`為`No migrations to apply!`，本階段沒有執行或重跑migration。VAPID／Resend／Meta／Google secrets只核對名稱／型別，不讀取值。
+- 最終外部 gate：YouTube、Instagram、Firstrade、Web Push及Resend均有各線真實證據；`SOC-010`／`SETUP-004`、`INV-002`／`SETUP-007`、`DDL-008`／`SETUP-006`、`DDL-009`／`SETUP-005`均為`VERIFIED`，`AT-IG-01`～`AT-IG-05`、`AT-INV-05`、`AT-PUSH-01`及`AT-MAIL-01`完成，`AT-GATE-08` `PASSED`。未修改production `SETUP-009`。
 
 ## OPS-010　W-8BEN與報稅提醒排程
 

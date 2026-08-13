@@ -119,7 +119,7 @@
 
 ### AT-INV-05　真實樣本
 
-使用者提供遮蔽Firstrade實際CSV後，解析row count、總金額及選定數筆與Firstrade畫面人工核對。未完成此測試不得將INV-002標為`VERIFIED`。
+`VERIFIED`（2026-08-13）。遮蔽真實樣本預覽為486列、0 parse errors；共用staging正式匯入結果為486／486／0／0，去識別D1合計USD 17.81（1781 minor units），活動為BUY255／SELL182／DIVIDEND7／INTEREST15／UNCLASSIFIED27，未知`Other` 27列原始證據保留，重跑為0新增／486重複。Firstrade官方完整日期範圍總數486；唯讀篩選確認2025-04-16兩筆MSTU BUY，數量1.00、金額-5.71均與遮蔽樣本一致。未遮蔽CSV、帳號、姓名、地址與帳密未進入Codex、Git、log、snapshot或文件；因此`INV-002`／`SETUP-007`及AT-INV-05完成。
 
 ## 6. 社群統計
 
@@ -247,18 +247,18 @@ W-8BEN與報稅範本固定最高級；可編輯日期及說明但不能降級�
 
 手機與電腦各訂閱一次，送出測試Push並收到；停用一台不影響另一台。
 
-N線自動固定答案（2026-08-13）：`tests/worker/notifications-writeback-d1.test.ts`以兩個有效訂閱驗證同一 shared test-send operation 只送一次；裝置A收到provider 410時保存`EXPIRED`／`PUSH_SUBSCRIPTION_EXPIRED`，裝置B成功時保存`ACTIVE`／`last_success_at`，共用Web Push channel仍為`READY`且以「有活動裝置但仍有裝置錯誤」保留錯誤摘要；`GET /api/v1/push-subscriptions`回傳兩台逐裝置狀態。另一個固定答案以同一時間戳的手機舊`ACTIVE`列與最新`DISABLED`列、電腦`ACTIVE`列重現C情境：API顯示手機`DISABLED`／電腦`ACTIVE`，測試只呼叫電腦端點，delivery以`SENT`保存且`provider_message_id`可為空；裝置名稱由`sync_devices.display_name`對應，並覆蓋同 endpoint 重訂閱、改名與穩定排序。Push 2xx 的語意是 Push service accepted，不代表瀏覽器顯示或真人已看見。空訂閱回傳`PUSH_SUBSCRIPTION_MISSING`且API為空陣列，不產生示範資料。此為自動化與API/UI資料路徑證據，不取代A後續部署及C執行的兩台真人收件、獨立停用與瀏覽器通知授權；本驗收維持`IN_PROGRESS`。
+N線自動固定答案（2026-08-13）：`tests/worker/notifications-writeback-d1.test.ts`以兩個有效訂閱驗證同一 shared test-send operation 只送一次；裝置A收到provider 410時保存`EXPIRED`／`PUSH_SUBSCRIPTION_EXPIRED`，裝置B成功時保存`ACTIVE`／`last_success_at`，共用Web Push channel仍為`READY`且以「有活動裝置但仍有裝置錯誤」保留錯誤摘要；`GET /api/v1/push-subscriptions`回傳兩台逐裝置狀態。另一個固定答案以同一時間戳的手機舊`ACTIVE`列與最新`DISABLED`列、電腦`ACTIVE`列重現C情境：API顯示手機`DISABLED`／電腦`ACTIVE`，測試只呼叫電腦端點，delivery以`SENT`保存且`provider_message_id`可為空；裝置名稱由`sync_devices.display_name`對應，並覆蓋同 endpoint 重訂閱、改名與穩定排序。Push 2xx 的語意是 Push service accepted，不代表瀏覽器顯示或真人已看見。空訂閱回傳`PUSH_SUBSCRIPTION_MISSING`且API為空陣列，不產生示範資料。此為自動化與API/UI資料路徑證據；C final 真人驗收已在下方完成，`AT-PUSH-01`現為`VERIFIED`。
 
 C線 final acceptance checkpoint（2026-08-12；N1歷史紀錄）：Access session 下的期限頁唯讀載入成功，標題為「重要期限與多通道警告」且無紅色 API／載入錯誤；使用者已準備一筆正式 `OPEN` 期限並完成真實電腦與手機授權／啟用及兩台收件。使用者已停用手機；D1 唯讀聚合確認手機 `DISABLED`、電腦 `ACTIVE`、兩台既有成功紀錄／錯誤 0，`WEB_PUSH=READY`、delivery `SENT` 9。下一步只從未停用電腦發送一次，確認停用手機不再收件後完成 `AT-PUSH-01`。
 
 C線最後獨立性測試失敗（2026-08-12）：預期未停用電腦收到、停用手機不收到，且電腦維持 `ACTIVE`；使用者實際回報電腦未收到，電腦 UI 顯示 `DISABLED`。D1 唯讀卻回報 computer-like=`ACTIVE` 1、mobile-like=`DISABLED` 1、`WEB_PUSH=READY`、最後一次後 `WEB_PUSH` delivery `SENT` 10／錯誤 0。此為 UI／共用通知狀態與真人收件互相矛盾的最小重現；未修改程式、未部署、未重複發送，`AT-PUSH-01` 維持 `IN_PROGRESS` 並移交主線。
 
-### A整合線 N2 部署證據（2026-08-13）
+### A整合線 N2 部署證據（2026-08-13；C final前的歷史部署紀錄）
 
 N2 `724fa63b9588130b7719b92713cfaa36d83278fb` 已由 A 以 no-ff merge `a8781085d33b515360455570d320f17ef8369144` 納入；C final `441b9d3c6941a6571d3660d4fce3359191ff5223` 只納入去識別失敗／移交證據，merge `6362929d9f7cf782a562bee51388bf2cb93dc714`，沒有 C runtime。N2 固定答案已覆蓋每裝置最新列、停用裝置遮蔽舊列、同 endpoint 重訂閱、裝置改名與 provider accepted 語意，但不替代真人收件。
 
-A 以 process-only `VITE_VAPID_PUBLIC_KEY` 完成 client build 並部署 staging version `db41ff0c-7864-43d2-9a98-54000cebfa92`；唯讀 status 為 100% active，remote migration 為 `No migrations to apply!`，未執行 migration。bundle 實際含 public key，未發現 private／subject／其他 secret identifier；未授權 `/`、期限頁及通知／Push／整合 GET 均由 Access 回 `302`。因此 `DDL-008`／`SETUP-006`／`AT-PUSH-01` 仍為 `IN_PROGRESS`，待主線喚醒 C 依 `SETUP-006` 重做真人雙裝置驗收；`AT-GATE-08` 不執行。
-C線 final acceptance（2026-08-13）：N2整合後staging version `db41ff0c-7864-43d2-9a98-54000cebfa92`為100% active，remote migration無待套用；使用者已在真實電腦完成client安全更新。手機與電腦兩台真實裝置各自訂閱並收到測試Push，手機之後獨立停用；從未停用電腦只發送一次最後測試，電腦收到且手機未收到。UI顯示Web Push `READY`、電腦`ACTIVE`及最新成功時間、手機`DISABLED`及既有成功時間；Push API回讀兩台逐裝置狀態與成功／錯誤欄位；D1最新delivery為`SENT` 1、只送至`ACTIVE`電腦、停用手機0筆，通道摘要`READY`且錯誤0。`AT-PUSH-01`完成，`DDL-008`／`SETUP-006`標為`VERIFIED`；不執行`AT-GATE-08`。
+A 以 process-only `VITE_VAPID_PUBLIC_KEY` 完成 client build 並部署 staging version `db41ff0c-7864-43d2-9a98-54000cebfa92`；唯讀 status 為 100% active，remote migration 為 `No migrations to apply!`，未執行 migration。bundle 實際含 public key，未發現 private／subject／其他 secret identifier；未授權 `/`、期限頁及通知／Push／整合 GET 均由 Access 回 `302`。在 C final 真人驗收前，三項 Push ID 當時仍為 `IN_PROGRESS`；下方 C final 紀錄已取代該暫時狀態，`AT-GATE-08`則於最終整合 gate 完成。
+C線 final acceptance（2026-08-13）：N2整合後staging version `db41ff0c-7864-43d2-9a98-54000cebfa92`為100% active，remote migration無待套用；使用者已在真實電腦完成client安全更新。手機與電腦兩台真實裝置各自訂閱並收到測試Push，手機之後獨立停用；從未停用電腦只發送一次最後測試，電腦收到且手機未收到。UI顯示Web Push `READY`、電腦`ACTIVE`及最新成功時間、手機`DISABLED`及既有成功時間；Push API回讀兩台逐裝置狀態與成功／錯誤欄位；D1最新delivery為`SENT` 1、只送至`ACTIVE`電腦、停用手機0筆，通道摘要`READY`且錯誤0。`AT-PUSH-01`完成，`DDL-008`／`SETUP-006`標為`VERIFIED`；C線本身不執行`AT-GATE-08`，A最終整合線已在所有外部驗收完成後執行並通過。
 
 ### AT-MAIL-01　真實郵件
 
@@ -440,3 +440,7 @@ lint、typecheck、Vitest、D1、API contract、Playwright全部通過，無skip
 ### AT-GATE-08　外部整合
 
 YouTube、Instagram、Push、Resend及Firstrade真實驗收若尚未完成，release不得標為全面完成；可部署staging，但狀態必須明示。
+
+### 2026-08-13 最終整合 gate 結果
+
+`AT-GATE-08` `PASSED`。最新正式狀態為：`SOC-010`／`SETUP-004`／`AT-IG-01`～`AT-IG-05`、`INV-002`／`SETUP-007`／`AT-INV-05`、`DDL-008`／`SETUP-006`／`AT-PUSH-01`、`DDL-009`／`SETUP-005`／`AT-MAIL-01` 均 `VERIFIED`；YouTube `SOC-009`／`SETUP-003`及既有跨裝置／PWA／UI gate維持既有 `VERIFIED`。所有外部真人證據均保留於本檔、`IMPLEMENTATION_STATUS.md`、`TRACEABILITY_MATRIX.md`及`SETUP_CHECKLIST.md`；本 gate 不改production `SETUP-009`。

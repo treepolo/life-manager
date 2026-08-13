@@ -13,7 +13,7 @@
 
 > 最新 A 整合線狀態（2026-08-13）：N2 與 C final 證據已以 no-ff merge 納入；staging 最新 active version 為 `db41ff0c-7864-43d2-9a98-54000cebfa92`（100%）。本檔較早段落中的 `26d3ca9b-c910-452b-b3aa-f6a8c59b9450` 是 N1 歷史部署，不是目前 active version；最新部署證據以本檔末段為準。
 
-> A 最終整合 gate（2026-08-13）目前 `IN_PROGRESS`：待納入已推送的 B `codex/accept-firstrade@300b3d71742024bb28915f6bd55d29a9110237b6` 與 C `codex/accept-web-push-final@f032a5bd60c5b6ecd8d09d38c5ec381c811bd1ec` 去識別完成證據，逐項保留既有歷史與不降級狀態；待完成完整測試／掃描、112-ID coverage、`AT-GATE-08`、staging／remote migration 唯讀核對及精確 worktree 清理資格核對後，再將本檔末段更新為最終結果。此段不代表任何需求狀態降級。
+> A 最終整合 gate（2026-08-13）已 `PASSED`：B `codex/accept-firstrade@300b3d71742024bb28915f6bd55d29a9110237b6` 與 C `codex/accept-web-push-final@f032a5bd60c5b6ecd8d09d38c5ec381c811bd1ec` 的完成證據已逐項保留並整合；`INV-002`／`SETUP-007`、`DDL-008`／`SETUP-006`／`AT-PUSH-01`已收斂為`VERIFIED`，`AT-GATE-08`已通過。staging version與100% active、remote migration、完整測試／掃描及未部署理由見本檔最終整合段落；worktree清理另依`WORKTREE_CLEANUP_TODO.md`的安全順序執行。
 
 ## 2026-08-12 N線 shared notification writeback 修正開工
 
@@ -91,7 +91,7 @@
 | SOC-007 | VERIFIED | conversions CRUD/UI | `0004_social_integrations.sql` | 20→40後總成交70、轉化率1.75% D1契約 | 無 |
 | SOC-008 | VERIFIED | social provenance、`SocialPage.tsx`, `MetricLineChart.tsx` | `0004_social_integrations.sql`，本輪不需新migration | API provenance及UI計算依據展開、品質／樣本／缺失／分母／來源連結E2E通過 | 無 |
 | SOC-009 | VERIFIED | `src/integrations/youtube`, OAuth/sync/UI、`provider-sync.ts`、`provider-raw.ts`、`scheduled/index.ts`、`IntegrationsPage.tsx` | `0004_social_integrations.sql`、`0009_social_snapshot_uniqueness.sql`、已套用staging的`0010_provider_sync_run_payload_links.sql`；本輪不需新migration | scope/PKCE/state/redirect、60分鐘state、有效Analytics query、完整分頁、Pacific日界、token續期、官方撤銷、Cron失敗隔離、重連、Studio 26天精確核對均通過；2026-08-10已登入Codex瀏覽器真實MANUAL按下約1.6秒內顯示停用「同步中」並鎖定撤銷，19秒後成功；D1為fetched 4／updated 32／error 0、order 0～3四類per-run raw各1、545筆linked snapshot、語意重複0、job READY／attempt 0、財務三表0 | 無 |
-| SOC-010 | VERIFIED | `src/integrations/instagram`, OAuth/sync/UI、`src/worker/api/oauth.ts`、`src/worker/api/provider-sync.ts` | `0004_social_integrations.sql`；本線確認不需新migration，既有`0001`～`0010`未修改 | Meta App、兩項最小唯讀permission、staging callback、本人專業帳號、關閉Webhook、兩個Secret、OAuth callback/profile、兩次真實同步及AT-IG-01～05均有證據；budget fix將單次外部請求控制在最多43次，兩輪各40篇內容Insights、每輪43筆raw／run link、每輪280筆snapshot，第二輪created 0／updated 51，50篇內容完整且語意snapshot鍵560筆唯一 | A線已完成；本整合基準不執行AT-GATE-08，待主線另行啟動正式總驗收 |
+| SOC-010 | VERIFIED | `src/integrations/instagram`, OAuth/sync/UI、`src/worker/api/oauth.ts`、`src/worker/api/provider-sync.ts` | `0004_social_integrations.sql`；本線確認不需新migration，既有`0001`～`0010`未修改 | Meta App、兩項最小唯讀permission、staging callback、本人專業帳號、關閉Webhook、兩個Secret、OAuth callback/profile、兩次真實同步及AT-IG-01～05均有證據；budget fix將單次外部請求控制在最多43次，兩輪各40篇內容Insights、每輪43筆raw／run link、每輪280筆snapshot，第二輪created 0／updated 51，50篇內容完整且語意snapshot鍵560筆唯一 | A線與最終整合 gate均完成；`AT-GATE-08`已納入全產品正式 gate，但未重做Instagram外部設定 |
 | SOC-011 | VERIFIED | provider registry | 不需 | registry unit；新增provider不改分析核心 | 無 |
 | DDL-001 | VERIFIED | deadline CRUD/UI | `0005_deadlines_notifications.sql` | 通用期限、完成歷史、兩級validation | 無 |
 | DDL-002 | VERIFIED | schema/templates/UI | `0005_deadlines_notifications.sql` | 範本降級API回400 | 無 |
@@ -100,8 +100,7 @@
 | DDL-005 | VERIFIED | 全站/Home警告UI | 不需 | 最高級中斷式、重要級持續顯示 | 無 |
 | DDL-006 | VERIFIED | W-8BEN schema/UI | `0005_deadlines_notifications.sql` | 2026-04-18→2029-12-31；確認日與試算並存 | 無 |
 | DDL-007 | VERIFIED | tax template/parent child UI | `0005_deadlines_notifications.sql` | 子任務不另啟全站／排程警告 | 無 |
-| DDL-008 | VERIFIED | Web Push encryption/scheduler/device UI | `0005_deadlines_notifications.sql`；本線不新增或修改migration | 自動契約、shared writeback、`GET /api/v1/push-subscriptions`與`DeadlinesPage.tsx`逐裝置狀態讀回通過；A/N2整合commit`007768fae8f56893072cc056a007766cac462595`的staging version`db41ff0c-7864-43d2-9a98-54000cebfa92`為100% active、remote migration無待套用；真實手機與電腦各自訂閱並收件，手機獨立停用後電腦仍`ACTIVE`並收件；最新UI／API／D1均回報手機`DISABLED`、電腦`ACTIVE`、兩台有成功紀錄、錯誤0 | VAPID private key／subject僅為Cloudflare Secret；public key只以一致性布林證據核對，未記錄secret值、endpoint或subscription key；`AT-PUSH-01`已完成 |
-| DDL-008 | VERIFIED | Web Push encryption/scheduler/device UI | `0005_deadlines_notifications.sql`；本線不新增或修改migration | 自動契約、shared writeback、`GET /api/v1/push-subscriptions`與`DeadlinesPage.tsx`逐裝置狀態讀回通過；A/N2整合commit`007768fae8f56893072cc056a007766cac462595`的staging version`db41ff0c-7864-43d2-9a98-54000cebfa92`為100% active、remote migration無待套用；真實手機與電腦各自訂閱並收件，手機獨立停用後電腦仍`ACTIVE`並收件；最新UI／API／D1均回報手機`DISABLED`、電腦`ACTIVE`、兩台有成功紀錄、錯誤0 | VAPID private key／subject僅為Cloudflare Secret；public key只以一致性布林證據核對，未記錄secret值、endpoint或subscription key；`AT-PUSH-01`已完成 |
+| DDL-008 | VERIFIED | Web Push encryption/scheduler/device UI | `0005_deadlines_notifications.sql`；不新增或修改migration | N2固定答案、shared writeback、`GET /api/v1/push-subscriptions`與`DeadlinesPage.tsx`逐裝置狀態讀回通過；A/N2整合commit`007768fae8f56893072cc056a007766cac462595`的staging version`db41ff0c-7864-43d2-9a98-54000cebfa92`為100% active、remote migration無待套用；真實手機與電腦各自訂閱並收件，手機獨立停用後電腦仍`ACTIVE`並收件；最新UI／API／D1均回報手機`DISABLED`、電腦`ACTIVE`、兩台last success存在、錯誤0，最新delivery為送至ACTIVE 1／DISABLED 0 | VAPID private key／subject僅為Cloudflare Secret；public key只以一致性布林證據核對，未記錄secret值、endpoint或subscription key；`AT-PUSH-01`已完成 |
 | DDL-009 | VERIFIED | `src/integrations/resend`, delivery log/test UI, shared notification writeback | `0005_deadlines_notifications.sql`，本線不需新migration | adapter、去重、錯誤/重試與secret邊界既有自動測試；Resend測試信標示與安全錯誤映射已補齊，N線新增Email成功後channel摘要更新／失敗後恢復的Worker-D1固定答案，兩個staging Secret均已由只讀清單核對為`secret_text`，遠端D1已核對Email `READY`；真實測試已產生`EMAIL`／`USER_TEST`／`SENT` delivery，使用者確認在垃圾郵件收到測試信 | Resend帳號已由使用者確認建立，`RESEND_API_KEY`／`RESEND_FROM` Secret名稱／型別已核對（不讀取值）；遠端D1只讀核對`recipient_encrypted=1`、Email enabled／`READY`、delivery attempt 1、provider message ID非空、錯誤欄位為空；不記錄地址、完整本文或完整provider ID。`VERIFIED`只代表既有Resend真人驗收，N線未重做、未降級、未修改provider adapter；shared writeback已由A整合部署，未重做真人寄信 |
 | OFF-001 | VERIFIED | manifest、`public/sw.js`、App shell、`src/app/providers/PwaUpdate.tsx`、`src/styles.css`、`scripts/stamp-service-worker.mjs`、`scripts/build-client.mjs` | 不需；本輪不修改D1 migration | app shell內容SHA-256版本、network-first／離線fallback、`updateViaCache: none`、outbox安全接管固定答案；320／390／768／1366／1920五viewport均驗證提示固定在初始可視範圍且手機避開同步列。staging outbox 0時安全更新一次，自動reload後正式CSS為`position: fixed`／`z-index: 30`，資料未清除 | 無 |
 | OFF-002 | VERIFIED | IndexedDB entities/query cache | 不需 | offline-sync unit、Playwright快取資料 | 無 |
@@ -141,10 +140,11 @@
 | 外部設定 | SETUP-001, SETUP-008, SETUP-009 | AWAITING_USER_SETUP | `docs/SETUP_CHECKLIST.md`已填名稱、路徑、secret與驗證；待各自真實帳號、裝置或production階段 |
 | 外部設定 | SETUP-007 | VERIFIED | `docs/SETUP_CHECKLIST.md`已記錄官方匯出、遮蔽副本位置、不可提交邊界、staging App預覽與Firstrade官方紀錄證據；正式staging D1 SQL／App完整JSON備份已完成並有bytes／SHA-256／JSON checksum證據；共用staging版本`db41ff0c-7864-43d2-9a98-54000cebfa92`已完成正式匯入與唯讀smoke | 遮蔽副本預覽486列／0錯誤；正式App結果486／486／0／0；D1 Amount合計USD 17.81；Firstrade官方兩筆MSTU BUY人工核對一致；未遮蔽原檔與完整JSON不得交給Codex、進Git、進log、snapshot或文件 |
 | 外部設定 | SETUP-006 | VERIFIED | `docs/SETUP_CHECKLIST.md`、`docs/OPERATIONS.md`、staging Worker／build設定與Push專屬裝置驗收 | A/N2整合commit`007768fae8f56893072cc056a007766cac462595`、staging version`db41ff0c-7864-43d2-9a98-54000cebfa92`為100% active，remote migration為`No migrations to apply!`；VAPID private key／subject只核對Cloudflare Secret名稱／型別，public key與client build只核對一致性布林結果；Access期限頁、正式`OPEN`期限、手機／電腦授權、真實收件、手機獨立停用、UI／API／D1／delivery一致性均通過 |
-| 外部設定 | SETUP-006 | VERIFIED | `docs/SETUP_CHECKLIST.md`、`docs/OPERATIONS.md`、staging Worker／build設定與Push專屬裝置驗收 | A/N2整合commit`007768fae8f56893072cc056a007766cac462595`、staging version`db41ff0c-7864-43d2-9a98-54000cebfa92`為100% active，remote migration為`No migrations to apply!`；VAPID private key／subject只核對Cloudflare Secret名稱／型別，public key與client build只核對一致性布林結果；Access期限頁、正式`OPEN`期限、手機／電腦授權、真實收件、手機獨立停用、UI／API／D1／delivery一致性均通過 |
 | 外部設定 | SETUP-005 | VERIFIED | `docs/SETUP_CHECKLIST.md`、`src/integrations/resend`、通知測試入口；本線不需migration | 自動驗證已完成；兩個Secret、加密收件地址、Email `READY`與1筆正式`OPEN`期限均已核對；App測試請求由delivery log證明寄送成功，使用者確認在垃圾郵件收到測試信；shared通道摘要修正已由N線完成並隨A整合版本部署，本項`VERIFIED`仍只代表Resend既有真人寄信驗收，未重做真人寄信 |
 
-## A～D整合線外部證據補充（2026-08-12）
+## A～D整合線外部證據補充（2026-08-12；歷史 checkpoint）
+
+> 本節記錄當時的 C／Push 阻擋與交接狀態；目前狀態以本檔最上方狀態表及本檔最終整合段落為準，以下歷史 `IN_PROGRESS` 不代表目前 gate。
 
 - 工作樹：從乾淨`master` HEAD建立`D:\人生管理器-wt-web-push`，branch為`codex/accept-web-push`；未帶入A線Instagram diff。本線不修改production `SETUP-009`、migration或Instagram／YouTube／Firstrade／Resend adapter。
 - 本機證據：`npm run lint`與`npm run typecheck`通過；unit 21/21、Worker/D1 21/21通過；`npm run build:client`產生service worker build version `8055cdeccb4bff11`；第二次`npm run test:e2e`全套13/13 Playwright案例通過（第一次僅因本地Wrangler未在30秒內就緒而停止，未改共用E2E runner，重跑時一個Wrangler內部錯誤由既有runner以全新D1重試後通過）。乾淨source的`public/sw.js`包含Push與notification click handler；D1契約確認兩裝置endpoint以密文保存、停用一台不影響另一台。建置與掃描不得把VAPID private key／subject或其他secret放入bundle、source map、log、export或Git。
@@ -154,7 +154,7 @@
 
 | 驗收ID | 狀態 | 證據／固定答案 | 阻擋 |
 |---|---|---|---|
-| AT-PUSH-01 | VERIFIED | `tests/worker/api-d1.test.ts`、`tests/worker/notifications-writeback-d1.test.ts`固定答案；A/N2 staging version`db41ff0c-7864-43d2-9a98-54000cebfa92`；真實手機／電腦各1筆獨立訂閱並各有成功紀錄；手機停用後最新Web Push delivery為`SENT` 1筆、只送至`ACTIVE`電腦、停用手機0筆；UI／Push API／D1通道摘要均為`READY`且錯誤0 | 無；不執行`AT-GATE-08` |
+| AT-PUSH-01 | VERIFIED | `tests/worker/api-d1.test.ts`、`tests/worker/notifications-writeback-d1.test.ts`固定答案；A/N2 staging version`db41ff0c-7864-43d2-9a98-54000cebfa92`；真實手機／電腦各1筆獨立訂閱並各有成功紀錄；手機停用後最新Web Push delivery為`SENT` 1筆、只送至`ACTIVE`電腦、停用手機0筆；UI／Push API／D1通道摘要均為`READY`且錯誤0 | 無；`AT-GATE-08`已由A最終整合線執行 |
 
 ## D線 Resend 正式驗收開工（2026-08-11）
 
@@ -507,10 +507,10 @@
 ### 未完成清單
 不得填「無」除非所有第一批項目為`VERIFIED`。
 
-- `INV-002`：Firstrade遮蔽真實樣本、staging備份與固定答案證據已完成，但AT-INV-05仍等待正式匯入後的App畫面金額合計核對；因此`INV-002`／`SETUP-007`維持`AWAITING_USER_SETUP`。
-- `DDL-008`／`SETUP-006`／`AT-PUSH-01`：已於2026-08-13完成staging真人驗收並標為`VERIFIED`；兩台真實裝置各自成功訂閱／收件，手機獨立停用後電腦仍為`ACTIVE`並收件，最新delivery只送至電腦，UI／Push API／D1均一致。`AT-GATE-08`仍不執行。
+- `INV-002`／`SETUP-007`：已於2026-08-13完成正式匯入與AT-INV-05；486／486／0／0、D1 USD 17.81、Firstrade官方總數486及兩筆MSTU BUY核對一致，狀態為`VERIFIED`。
+- `DDL-008`／`SETUP-006`／`AT-PUSH-01`：已於2026-08-13完成staging真人驗收並標為`VERIFIED`；兩台真實裝置各自成功訂閱／收件，手機獨立停用後電腦仍為`ACTIVE`並收件，最新delivery只送至電腦，UI／Push API／D1均一致。`AT-GATE-08`已於最終整合 gate通過。
 - `SOC-009`、`SOC-010`與`DDL-009`／`SETUP-005`／`AT-MAIL-01`均依各線真實證據標為`VERIFIED`；`SEC-001`~`SEC-005`、`NFR-001`~`NFR-010`及其他尚未完成的`OPS`／`SETUP`項目仍依正式表維持未完成狀態。
-- A整合線第一階段已納入B、C、D的已推送歷史與驗收證據；第一階段不部署、不執行migration、不做Firstrade正式匯入、不做Push真人驗收、不執行`AT-GATE-08`，並形成可供N線起始的no-deploy整合基準。
+- A整合線第一階段已納入B、C、D的已推送歷史與驗收證據；該階段不部署、不執行migration、不做Firstrade正式匯入、不做Push真人驗收、不執行`AT-GATE-08`，並形成可供N線起始的no-deploy整合基準。此為歷史階段紀錄，不是最終 gate 狀態。
 
 ### 2026-08-12 A整合線第二階段開工（最小安全整合與staging部署）
 
@@ -564,15 +564,17 @@
 - 驗收失敗／移交（2026-08-12）：依預期最後一次測試應由未停用電腦收件、停用手機不收件，且電腦 UI 維持 `ACTIVE`。使用者回報電腦未收到，且電腦 UI 顯示 `DISABLED`。D1 唯讀核對卻顯示 computer-like 訂閱 `ACTIVE` 1、mobile-like 訂閱 `DISABLED` 1，`WEB_PUSH=READY`，最後一次後 delivery `SENT` 10／錯誤 0；查詢寫入 0。這是 UI／共用通知狀態與實際收件證據的矛盾，停止真人驗收並移交主線，禁止修改 shared notification、scheduler、deadline UI/API 或部署。
 - 外部阻擋：`DDL-008`／`SETUP-006`／`AT-PUSH-01` 維持 `IN_PROGRESS`，不得標 `VERIFIED`；待主線釐清最小重現後重新部署／驗收。`AT-GATE-08` 不執行。
 
-### 2026-08-13 A整合線 N2／C final 最小安全整合與 staging 部署完成
+### 2026-08-13 A整合線 N2／C final 最小安全整合與 staging 部署完成（C final前歷史紀錄）
+
+> 以下是 C 真人完成前的部署 checkpoint；其當時的 `IN_PROGRESS` 與未執行 `AT-GATE-08` 已由下方 C final 證據及本次 A 最終整合 gate 取代。
 
 - 整合歷史：N2 source `724fa63b9588130b7719b92713cfaa36d83278fb` 以 no-ff merge `a8781085d33b515360455570d320f17ef8369144` 納入；C final source `441b9d3c6941a6571d3660d4fce3359191ff5223` 只納入去識別驗收失敗／移交證據，並以 no-ff merge `6362929d9f7cf782a562bee51388bf2cb93dc714` 納入。C 沒有 runtime 或 migration 變更；cleanup TODO 保留，沒有刪除 worktree。
 - N2 runtime 只涵蓋共用通知裝置狀態隔離：伺服器端同裝置 endpoint 比對與重訂閱、每裝置最新列選取、裝置名稱權威來源、shared channel 聚合／late outcome guard、provider accepted 語意及逐裝置 API/UI；未修改 Instagram、YouTube、Firstrade、Resend adapter 或既有 migration。
-- 本機 gate：`npm run lint -- --ignore-pattern backups`、雙 `npm run typecheck`、`npm test -- --run`（15 files／52 tests）、`npm run test:worker`（3 files／27 tests）、keyed `npm run build:client`（799 modules）、完整隔離 `npm run test:e2e`（13/13）、`npm run scan`、`git diff --check` 均通過。Playwright 一個離線案例遇既有 Wrangler 本地程序崩潰，由既有 runner 以新隔離 D1 重試後通過，未改弱斷言。`npm run verify:requirements` 仍按正式狀態預期以非零結束，唯一未通過項目是 `DDL-008`／`SETUP-006` 仍為 `IN_PROGRESS`。
+- 本機 gate（當時）：`npm run lint -- --ignore-pattern backups`、雙 `npm run typecheck`、`npm test -- --run`（15 files／52 tests）、`npm run test:worker`（3 files／27 tests）、keyed `npm run build:client`（799 modules）、完整隔離 `npm run test:e2e`（13/13）、`npm run scan`、`git diff --check` 均通過。Playwright 一個離線案例遇既有 Wrangler 本地程序崩潰，由既有 runner 以新隔離 D1 重試後通過，未改弱斷言。當時 `npm run verify:requirements` 的非零只反映 C 真人尚未完成；目前相同 coverage 已通過。
 - 建置／秘密邊界：只從既有 staging public binding 於程序環境注入 `VITE_VAPID_PUBLIC_KEY`；`public_key_value_in_bundle=true` 且與既有 binding 相同，private／subject／其他 secret identifier 均未出現在 bundle，建置後程序環境已清除。`WEB_PUSH_VAPID_PRIVATE_KEY`／`WEB_PUSH_VAPID_SUBJECT` 僅核對 `secret_text` 名稱／型別，沒有讀取或輸出值；沒有寫入 `.env`、`wrangler.toml`、source、Git 或 Markdown。
 - staging 證據：A 整合 branch 目前部署 `life-manager-staging` version `db41ff0c-7864-43d2-9a98-54000cebfa92`，唯讀 deployment status 為 100% active；使用 `wrangler deploy --config wrangler.toml --env staging --keep-vars` 完成，保留既有 vars／secrets。部署前後 remote `d1 migrations list LIFE_DB --env staging --remote` 均為 `No migrations to apply!`，本階段沒有執行 migration。
 - smoke 邊界：未授權 GET `/`、`/deadlines`、`/api/v1/notifications/channels`、`/api/v1/push-subscriptions`、`/api/v1/integrations` 均回 Access `302`；沒有可用授權 session，因此不把登入頁當成授權 API 成功證據，也沒有觸發 POST、真人 Email／Push 或 Firstrade 匯入。
-- 狀態與停止點：`SOC-010`／`SETUP-004`／`AT-IG-01`～`AT-IG-05`、`DDL-009`／`SETUP-005`／`AT-MAIL-01` 維持 `VERIFIED`；`INV-002`／`SETUP-007` 維持 `AWAITING_USER_SETUP`；`DDL-008`／`SETUP-006`／`AT-PUSH-01` 維持 `IN_PROGRESS`，等待主線喚醒 C 依固定順序重做真人雙裝置驗收。`AT-GATE-08` 未執行。
+- 當時狀態與停止點：`SOC-010`／`SETUP-004`／`AT-IG-01`～`AT-IG-05`、`DDL-009`／`SETUP-005`／`AT-MAIL-01` 維持 `VERIFIED`；`INV-002`／`SETUP-007` 當時為 `AWAITING_USER_SETUP`；`DDL-008`／`SETUP-006`／`AT-PUSH-01` 當時為 `IN_PROGRESS`，等待主線喚醒 C 依固定順序重做真人雙裝置驗收。當時 `AT-GATE-08` 未執行；目前均已由下方完成證據取代。
 - 歷史外部阻擋：`DDL-008`／`SETUP-006`／`AT-PUSH-01` 曾因電腦UI與D1狀態矛盾而停止；該失敗證據保留，不代表目前狀態。N2已重新部署後由C線恢復驗收，`AT-GATE-08`仍不執行。
 
 ### 2026-08-13 C線 Web Push 真人驗收完成
@@ -581,4 +583,11 @@
 - client／秘密邊界：使用者已在真實電腦完成安全更新後再測試；staging Service Worker build stamp為`774d9ed6db971987`且沒有`__LIFE_MANAGER_BUILD_VERSION__` placeholder。Worker public VAPID var為`plain_text`、private key／subject為`secret_text`；public key只以一致性布林結果核對，未記錄任何secret值、endpoint或subscription key。
 - 真人證據：Access保護的期限頁顯示「重要期限與多通道警告」，已有正式`OPEN` W-8BEN期限；真實手機與真實電腦各自完成通知授權／訂閱並曾收到測試Push。手機隨後獨立停用；使用者由未停用電腦只發送一次最後測試，確認電腦收到、手機未收到。
 - 狀態／資料一致性：UI顯示Web Push `READY`、電腦`ACTIVE`及最新成功時間、手機`DISABLED`及既有成功時間；`GET /api/v1/push-subscriptions`回讀兩台各一筆且各有成功紀錄、錯誤0。D1去識別聚合同樣為computer `ACTIVE` 1／mobile `DISABLED` 1，各有last success／error 0；`notification_channels`為`WEB_PUSH` enabled／`READY`且有last success／error 0；最新`WEB_PUSH` delivery為`SENT` 1、送至ACTIVE 1、送至DISABLED 0、錯誤0，查詢`rows_written=0`。
-- 本輪結論：`DDL-008`、`SETUP-006`、`AT-PUSH-01`標為`VERIFIED`。本輪只提交本文件與相關正式驗收文件；不改Instagram、YouTube、Firstrade、Resend、production `SETUP-009`或`AT-GATE-08`。
+- 本輪結論：`DDL-008`、`SETUP-006`、`AT-PUSH-01`標為`VERIFIED`。C線本身不執行`AT-GATE-08`；A最終整合線在所有外部驗收完成後執行並通過該 gate。本輪不改Instagram、YouTube、Firstrade、Resend、production `SETUP-009`。
+
+### 2026-08-13 A最終整合 gate 完成
+
+- B `300b3d71742024bb28915f6bd55d29a9110237b6` 與 C `f032a5bd60c5b6ecd8d09d38c5ec381c811bd1ec` 相對 A 已部署 runtime 只新增正式文件／去識別驗收證據；`src/`、`public/`、`wrangler.toml`、`package.json`、`scripts/`與`migrations/`均無差異，因此 staging bundle unchanged，本次不重部署。
+- 本機最終 gate：`npm run lint -- --ignore-pattern backups`、`npm run typecheck`（`tsconfig.json`與`tsconfig.worker.json`）、`npm test -- --run`（15 files／52 tests）、`npm run test:worker`（3 files／27 tests）、`npm run build:client`（799 modules）、`npm run test:e2e`（13/13 isolated Playwright）、`npm run scan`、`npm run verify:requirements`（112 IDs；VERIFIED 83／AWAITING_USER_SETUP 29）、`git diff --check`均通過。未修改或刪除被忽略的`backups/`；lint使用既有明確的`--ignore-pattern backups`邊界。
+- staging唯讀核對：`db41ff0c-7864-43d2-9a98-54000cebfa92`為100% active；remote `d1 migrations list LIFE_DB --env staging --remote`為`No migrations to apply!`；未執行或重跑migration，未觸發真人 Email／Push／Firstrade匯入。未授權`/`、`/deadlines`、通知／Push訂閱／整合GET均由Access回`302`。
+- gate結論：`SOC-010`／`SETUP-004`、`INV-002`／`SETUP-007`、`DDL-008`／`SETUP-006`、`DDL-009`／`SETUP-005`及其對應`AT-IG-01`～`AT-IG-05`、`AT-INV-05`、`AT-PUSH-01`、`AT-MAIL-01`均`VERIFIED`；`AT-GATE-08` `PASSED`。production `SETUP-009`未修改；worktree清理仍依`WORKTREE_CLEANUP_TODO.md`安全順序待執行。
