@@ -249,6 +249,10 @@ W-8BEN與報稅範本固定最高級；可編輯日期及說明但不能降級�
 
 N線自動固定答案（2026-08-13）：`tests/worker/notifications-writeback-d1.test.ts`以兩個有效訂閱驗證同一 shared test-send operation 只送一次；裝置A收到provider 410時保存`EXPIRED`／`PUSH_SUBSCRIPTION_EXPIRED`，裝置B成功時保存`ACTIVE`／`last_success_at`，共用Web Push channel仍為`READY`且以「有活動裝置但仍有裝置錯誤」保留錯誤摘要；`GET /api/v1/push-subscriptions`回傳兩台逐裝置狀態。另一個固定答案以同一時間戳的手機舊`ACTIVE`列與最新`DISABLED`列、電腦`ACTIVE`列重現C情境：API顯示手機`DISABLED`／電腦`ACTIVE`，測試只呼叫電腦端點，delivery以`SENT`保存且`provider_message_id`可為空；裝置名稱由`sync_devices.display_name`對應，並覆蓋同 endpoint 重訂閱、改名與穩定排序。Push 2xx 的語意是 Push service accepted，不代表瀏覽器顯示或真人已看見。空訂閱回傳`PUSH_SUBSCRIPTION_MISSING`且API為空陣列，不產生示範資料。此為自動化與API/UI資料路徑證據，不取代A後續部署及C執行的兩台真人收件、獨立停用與瀏覽器通知授權；本驗收維持`IN_PROGRESS`。
 
+C線 final acceptance checkpoint（2026-08-12）：Access session 下的期限頁唯讀載入成功，標題為「重要期限與多通道警告」且無紅色 API／載入錯誤；使用者已準備一筆正式 `OPEN` 期限並完成真實電腦與手機授權／啟用及兩台收件。使用者已停用手機；D1 唯讀聚合確認手機 `DISABLED`、電腦 `ACTIVE`、兩台既有成功紀錄／錯誤 0，`WEB_PUSH=READY`、delivery `SENT` 9。下一步只從未停用電腦發送一次，確認停用手機不再收件後完成 `AT-PUSH-01`。
+
+C線最後獨立性測試失敗（2026-08-12）：預期未停用電腦收到、停用手機不收到，且電腦維持 `ACTIVE`；使用者實際回報電腦未收到，電腦 UI 顯示 `DISABLED`。D1 唯讀卻回報 computer-like=`ACTIVE` 1、mobile-like=`DISABLED` 1、`WEB_PUSH=READY`、最後一次後 `WEB_PUSH` delivery `SENT` 10／錯誤 0。此為 UI／共用通知狀態與真人收件互相矛盾的最小重現；未修改程式、未部署、未重複發送，`AT-PUSH-01` 維持 `IN_PROGRESS` 並移交主線。
+
 ### AT-MAIL-01　真實郵件
 
 Resend寄到使用者本人信箱，收到測試信；錯誤與message ID保存。正式日誌不得包含API key。

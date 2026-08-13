@@ -213,6 +213,18 @@ App內：
 - 依`wrangler deploy --config wrangler.toml --env staging --keep-vars`上傳後，CLI在Windows既有程序問題下回`0xC0000409`，但唯讀deployment status確認`life-manager-staging` version`26d3ca9b-c910-452b-b3aa-f6a8c59b9450`為100%流量；新version保留public VAPID binding與既有兩個VAPID Secret名稱／型別，remote `d1 migrations list --remote`為`No migrations to apply!`。
 - 未授權GET `/deadlines`、`/api/v1/notifications/channels`、`/api/v1/push-subscriptions`與`/api/v1/integrations`均受Access邊界回302。當時沒有可用Access session，因此不把此結果解讀成授權API通過；沒有觸發任何POST、真人Email／Push或Firstrade匯入。C收到本部署證據後依`SETUP-006`恢復兩台真人驗收。
 
+### C線 final acceptance 唯讀 smoke（2026-08-12）
+
+- C 使用最新 A 整合 staging version `26d3ca9b-c910-452b-b3aa-f6a8c59b9450`；唯讀 deployment status 為 100% active，remote migration 為 `No migrations to apply!`。C 未部署、未執行 migration、未讀取 secret 值。
+- 目前 Access session 可載入期限頁；「重要期限與多通道警告」可見且沒有紅色 API／載入錯誤。使用者已準備一筆正式 `OPEN` 期限，頁面已出現「測試發送」入口；Push 訂閱仍為空，符合尚未授權裝置時不得補示範資料的規則。
+- 兩台真人收件已完成：使用者畫面顯示電腦測試通知已收到、channel `READY`、裝置 `ACTIVE`、最近成功時間及成功 1／失敗 0；使用者確認手機也已收到。使用者已停用手機；D1 唯讀聚合顯示手機 `DISABLED`、電腦 `ACTIVE`、兩台成功紀錄／錯誤 0、`WEB_PUSH=READY`、delivery `SENT` 9／錯誤 0。C 下一步依 SETUP-006 只從未停用電腦做最後一次測試，確認手機不再收件。
+
+### C線最後獨立性測試失敗與移交（2026-08-12）
+
+- 最小重現：手機已停用；從未停用電腦觸發一次測試。預期電腦收到、手機不收到，電腦仍顯示 `ACTIVE`。
+- 實際：使用者回報電腦未收到，且電腦 UI 顯示 `DISABLED`。D1 唯讀卻顯示 computer-like 訂閱 `ACTIVE` 1、mobile-like 訂閱 `DISABLED` 1，`WEB_PUSH` channel `READY`，delivery 從 9 增至 `SENT` 10、錯誤 0；查詢未寫入。
+- 決定：這是未解的 UI／共用通知狀態與真人收件矛盾。C 線停止驗收，不修改 shared notification、scheduler、期限 UI/API 或部署；移交主線釐清後再恢復 AT-PUSH-01。
+
 ## OPS-010　W-8BEN與報稅提醒排程
 
 - 使用一個全域通知時間與重複間隔，預設值需在首次設定時由使用者確認。

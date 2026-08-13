@@ -107,6 +107,14 @@ A線已以保留歷史的merge納入B `4f7b1cb`、C `7853ed9`、D `4bc74a8`；C�
 
 A以no-ff merge commit`edc1cd25de07da237d08cd958457701d24723212`保留N commit`1e5bc687df538cc0e761b7fcb5eb646cd40cfe39`，依`wrangler deploy --config wrangler.toml --env staging --keep-vars`部署；version`26d3ca9b-c910-452b-b3aa-f6a8c59b9450`經唯讀deployment status確認100% active。`VITE_VAPID_PUBLIC_KEY`只在建置程序注入，bundle public-key presence、與C既有Worker public binding一致性及private／subject／其他secret identifier排除均以布林結果核對；既有VAPID Secret只核對名稱／型別，未讀取值。remote D1 migration list為`No migrations to apply!`。未授權GET頁面與期限／通知／Push／整合API均由Access邊界回302；本階段沒有可用Access session，因此不把登入頁當成授權API smoke，也不把`DDL-008`或`AT-PUSH-01`升級；未執行任何POST、真人Email、Push、Firstrade匯入或`AT-GATE-08`。
 
+### C線 final acceptance 唯讀 checkpoint（2026-08-12）
+
+最新 A 整合版本已由 C 唯讀確認為 staging 100% active，remote migration 無待套用；目前 Access session 可載入期限頁且無紅色 API／載入錯誤。使用者已準備一筆真實正式 `OPEN` 期限並完成真實電腦與手機授權／啟用及兩台收件；使用者已停用手機，D1 唯讀聚合確認手機 `DISABLED`、電腦 `ACTIVE`、兩台既有成功紀錄／錯誤 0、`WEB_PUSH=READY`、delivery `SENT` 9。`DDL-008`／`SETUP-006`／`AT-PUSH-01` 仍為 `IN_PROGRESS`；下一步只從未停用電腦做最後測試，確認手機不再收件。
+
+### C線最後獨立性測試失敗（2026-08-12）
+
+預期未停用電腦收到、停用手機不收到且電腦維持 `ACTIVE`；使用者實際回報電腦未收到並在 UI 看到 `DISABLED`。D1 唯讀卻顯示 computer-like=`ACTIVE` 1、mobile-like=`DISABLED` 1、`WEB_PUSH=READY`、delivery `SENT` 10／錯誤 0。此矛盾涉及 Push 狀態讀回／共用通知驗收路徑，C 線停止、不修改 shared code、不部署，移交主線後再驗收；需求仍為 `IN_PROGRESS`。
+
 需求狀態的唯一權威仍為`IMPLEMENTATION_STATUS.md`；本索引只提供從原意到實際檔案與測試的查找路徑。
 
 ### N2 shared notification independence 修正（2026-08-13）

@@ -268,6 +268,18 @@ N2 自動固定答案補充：App列出的每台裝置狀態由伺服器保存�
 
 驗收紀錄只保存裝置類型（手機／電腦）、操作時間、App 顯示的狀態／錯誤碼及是否收到通知，不保存 endpoint、訂閱 keys、Access 身分或通知內容中的私人資料。若裝置不支援 Push 或拒絕權限，App 必須明確顯示，不得假裝成功；站內與 Email 仍可運作。
 
+### C線 final acceptance checkpoint（2026-08-12）
+
+- [x] 從最新 A 整合 commit `95b60075fda3fb6afd209b19177d9363bd9c3c87` 建立乾淨 acceptance worktree；不使用舊 C runtime、不部署、不修改 shared notification。
+- [x] 唯讀核對 staging version `26d3ca9b-c910-452b-b3aa-f6a8c59b9450` 為 100% active，remote migration 為 `No migrations to apply!`；VAPID binding 只核對名稱／型別，不讀取 secret 值。
+- [x] 現有 Access session 可載入期限頁；頁面顯示「重要期限與多通道警告」且無紅色 API／載入錯誤。
+- [x] 使用者已在 staging 準備一筆真實正式 `OPEN` 期限；期限清單已出現該期限且「測試發送」入口可用，未建立示範資料。
+- [x] 使用者已完成真實電腦瀏覽器／系統通知授權與啟用；D1 唯讀聚合顯示 1 筆 `ACTIVE` 訂閱、`WEB_PUSH` channel 為 `READY`，尚無成功／錯誤紀錄。
+- [x] 真實電腦已收到測試 Push；App 顯示 `READY`／`ACTIVE`、最近成功時間、成功 1／失敗 0；D1 只讀聚合確認訂閱成功 1／錯誤 0、channel `READY`、delivery `SENT` 1。
+- [x] 真實手機已完成通知允許、Push 啟用並收到測試通知（使用者確認）；D1 只讀聚合確認 2 個不同 device、2 筆 `ACTIVE`、兩台成功紀錄、錯誤 0。
+- [x] 使用者已停用手機；D1 唯讀聚合確認手機 `DISABLED`、電腦 `ACTIVE`，`WEB_PUSH` channel 仍 `READY`，兩台既有成功紀錄與錯誤 0。
+- [ ] 最後一次獨立性測試失敗：使用者由未停用電腦發送後未收到，且電腦 UI 顯示 `DISABLED`；D1 唯讀卻顯示電腦 `ACTIVE`、手機 `DISABLED`、channel `READY`、delivery `SENT` 10／錯誤 0。已停止，不重複發送，移交主線釐清 UI／共用通知狀態矛盾後再恢復。
+
 ## SETUP-007　Firstrade CSV
 
 使用者不提供帳密。
