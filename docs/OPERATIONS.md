@@ -24,7 +24,7 @@ workers.dev的Access操作採目標導向，不把易改版的側邊欄名稱當
 - 使用者提供的 Cloudflare 結帳頁已明示「超出包含額度的額外使用量將以月為單位計費」並有授權每月向付款卡收取超額使用量；這個帳戶特定、去識別證據優先於先前的一般 Free 稽核結論。不得再寫「Zero Trust Free 超額一定不會扣款」。
 - 不自動啟用 Workers Paid、付費 R2、付費郵件、付費 API、Queues、KV 或第三方券商聚合器。Zero Trust／Access 的 Free label、seat 尚未用滿、沒有當期用量或 Budget alert 均不能當成 hard cap。
 - 目前專案 footprint 是 Workers、D1、Cron、Zero Trust／Access 與 Resend；`wrangler.toml` 沒有 KV／R2／Queues／Cloudflare Email binding。任何新 binding、SKU、plan 或帳戶產品都先視為 drift，未經 allowlist 審核不得啟用。
-- 正式成本防線計畫、官方來源、50／75／90%告警、95%降載、100% hard-stop／fail-closed、恢復與 owner 見 [`COST_GUARDRAIL_PLAN.md`](COST_GUARDRAIL_PLAN.md)。
+- 正式成本防線計畫、官方來源、50／70／75／80／85%告警、70／75%降載、80／85% internal hard-stop／fail-closed、恢復與 owner 見 [`COST_GUARDRAIL_PLAN.md`](COST_GUARDRAIL_PLAN.md)。目前 runtime 的 local ledger 不是 provider invoice truth；帳戶 exact allowance／remaining／reset／billing evidence 未完成前維持 `UNKNOWN`。
 
 ### 2026-08-14 官方 quota／計費基線（Asia/Taipei 查核）
 
@@ -39,8 +39,8 @@ workers.dev的Access操作採目標導向，不把易改版的側邊欄名稱當
 ### 操作規則
 
 1. Layer A 每次部署前及每日核對 plan／SKU、Workers billing model、D1／provider binding、Cron、Access seat／application、checkout overage authorization、usage alerts／Budget alerts；查不到即 `UNKNOWN`，不得寫成安全。
-2. Layer B 僅 exact metric 可計算百分比；50／75／90%依 `resource + metric + period + threshold` 去重，通知失敗仍保持風險／阻擋；Cloudflare Budget alert是 informational only，不會 pause或cap usage。
-3. Layer C 在95%或 provider safety threshold 停非必要排程、手動同步、Insights、bulk import、測試信與重試放大；100%／429／1027／1102／D1 quota error／metric失效時 circuit open、fail-closed，不自動切換付費方案。
+2. Layer B 僅 exact metric 可計算 provider 百分比；local conservative ledger 只能作 admission，不得當帳單真值。50／70／75／80／85%依 `resource + metric + period + threshold + source_version` 去重，通知失敗仍保持風險／阻擋；Cloudflare Budget alert 是 informational only，不會 pause 或 cap usage。
+3. Layer C 對 auto-overage／unknown 資源在 70% 降載、80% internal hard-stop；對 hard-reject-only 資源在 75% 降載、85% internal hard-stop。Workers inbound invocation、Access／Zero Trust 與 account billing 只能 observe／帳戶控制；429／1027／1102／D1 quota error／metric失效時 circuit open、fail-closed，不自動切換付費方案。
 4. 程式只能阻擋本產品後續 requests／writes／sync／notification；不能取消 checkout checkbox、付款方式、Workers Paid、Access seat、SKU或invoice。帳戶控制只能由 Cloudflare／provider 管理者在帳戶畫面完成。
 5. staging 只准 synthetic provider response、隔離D1與固定 quota clock；不得以真實同步、測試信、Push、R2／Queues／Email物件或 production OAuth 證明成本安全。production 上線前必須完成 `SETUP-010` 唯讀人工帳務核對。
 

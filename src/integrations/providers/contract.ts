@@ -27,6 +27,12 @@ export interface ProviderMetricFetchInput {
   to: string;
   content?: ProviderRawPayload[];
   selectedContentExternalIds?: string[];
+  requestGuard?: ProviderRequestGuard;
+}
+
+export interface ProviderRequestGuard {
+  beforeRequest(input: { resourceKey: import("@/modules/cost-guardrail/contracts").CostResourceKey; plannedAmount: number; operationKind: string }): Promise<import("@/modules/cost-guardrail/service").AdmissionReservation>;
+  afterRequest(reservation: import("@/modules/cost-guardrail/service").AdmissionReservation, succeeded: boolean): Promise<void>;
 }
 
 export interface IntegrationProvider {
@@ -35,8 +41,8 @@ export interface IntegrationProvider {
   authorize?(state: string, codeChallenge: string, redirectUri: string): URL;
   connect?(code: string, codeVerifier: string, redirectUri: string): Promise<unknown>;
   refreshCredentials?(connection: unknown): Promise<unknown>;
-  fetchAccounts(connection: unknown): Promise<ProviderRawPayload[]>;
-  fetchContent(connection: unknown): Promise<ProviderRawPayload[]>;
+  fetchAccounts(connection: unknown, requestGuard?: ProviderRequestGuard): Promise<ProviderRawPayload[]>;
+  fetchContent(connection: unknown, requestGuard?: ProviderRequestGuard): Promise<ProviderRawPayload[]>;
   fetchMetrics(connection: unknown, input: ProviderMetricFetchInput): Promise<ProviderRawPayload[]>;
   importFile?(file: ArrayBuffer, options: unknown): Promise<ProviderRawPayload[]>;
   normalize(payloads: ProviderRawPayload[]): Promise<NormalizedProviderBatch>;

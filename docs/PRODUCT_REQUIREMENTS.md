@@ -438,6 +438,6 @@ Facebook、Threads及方格子API延後。方格子可在未來依官方CSV或�
 
 #### NFR-001／OPS-002 成本安全驗收語意
 
-「零月費」只表示產品的部署與選型目標，不是 Cloudflare、第三方 provider 或付款帳戶的扣款保證。成本安全必須同時核對帳戶／方案 allowlist、超額計費授權、官方 quota／reset／usage source、50／75／90%告警、95%降載、100% hard-stop／fail-closed 及恢復稽核；細節與固定答案見 `docs/COST_GUARDRAIL_PLAN.md`。
+「零月費」只表示產品的部署與選型目標，不是 Cloudflare、第三方 provider 或付款帳戶的扣款保證。成本安全必須同時核對帳戶／方案 allowlist、超額計費授權、官方 quota／reset／usage source、50／70／75／80／85%告警、依 risk class 的 70／75% 降載、80／85% internal hard-stop／fail-closed 及恢復稽核；細節與固定答案見 `docs/COST_GUARDRAIL_PLAN.md`。Workers inbound invocation、Access／Zero Trust seat 與帳戶付款不受 App gate 控制，必須標為 `ACCOUNT_CONTROL_REQUIRED`。
 
 程式可以阻止本產品繼續發出非必要 requests、writes、sync、通知或 provider calls，也可以在帳戶／用量資料未知時停止；程式不能取消 Cloudflare checkout 授權、付款方式、Workers Paid／其他產品方案、Access seat 或帳戶 invoice。若沒有官方 API／hard cap 或帳戶特定狀態不明，相關功能不得以估算宣稱安全，必須停用、人工確認或維持 `EXTERNAL_BLOCKED`／`AWAITING_USER_SETUP`。

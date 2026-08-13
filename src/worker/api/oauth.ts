@@ -5,6 +5,8 @@ import { InstagramProvider, INSTAGRAM_SCOPES } from "@/integrations/instagram/pr
 import type { IntegrationProvider, ProviderRawPayload } from "@/integrations/providers/contract";
 import { YouTubeProvider, YOUTUBE_SCOPES } from "@/integrations/youtube/provider";
 import { prepareRawPayloadWrites } from "@/worker/api/provider-raw";
+import { d1SyncAdmissionEstimate } from "@/modules/cost-guardrail/contracts";
+import { commitD1AdmissionBudget, createProviderRequestGuard, reserveD1AdmissionBudget } from "@/modules/cost-guardrail/service";
 import type { Env } from "@/worker/env";
 
 const MIN_OAUTH_STATE_TTL_MINUTES = 10;
@@ -127,7 +129,8 @@ export async function finishOAuth(input: {
   const provider = providerFor(input.providerKey, input.env);
   if (!provider.connect) throw new ApiError(405, "OAUTH_CONFIGURATION_MISSING", "此provider不支援OAuth。");
   const credentials = await provider.connect(code, verifier, expectedRedirect) as Record<string, unknown>;
-  const rawAccounts = await provider.fetchAccounts(credentials);
+  const requestGuard = createProviderRequestGuard({ env: input.env, operationId: `oauth-finish:${stateRow.id}` });
+  const rawAccounts = await provider.fetchAccounts(credentials, requestGuard);
   const identity = accountIdentity(input.providerKey, credentials, rawAccounts);
   const accessToken = String(credentials.accessToken ?? "");
   const refreshToken = typeof credentials.refreshToken === "string" ? credentials.refreshToken : null;
@@ -163,6 +166,15 @@ export async function finishOAuth(input: {
       now, now, provider.definitionVersion, now, now));
   }
   const jobId = newId();
+  const estimate = d1SyncAdmissionEstimate({
+    payloadCount: rawAccounts.length,
+    payloadBytes: new TextEncoder().encode(JSON.stringify(rawAccounts)).length,
+    derivedMetricCount: 0,
+  });
+  const d1Budget = await reserveD1AdmissionBudget({
+    env: input.env, operationId: `oauth-finish:${stateRow.id}:persistence`,
+    rowsRead: estimate.rowsRead, rowsWritten: estimate.rowsWritten, storageBytes: estimate.storageBytes,
+  });
   const rawWrites = await prepareRawPayloadWrites(input.env, input.providerKey, runId, rawAccounts, now);
   statements.push(
     input.env.LIFE_DB.prepare("UPDATE oauth_states SET consumed_at = ? WHERE id = ? AND consumed_at IS NULL").bind(now, stateRow.id),
@@ -181,7 +193,13 @@ export async function finishOAuth(input: {
     ).bind(jobId, input.providerKey, connectionId, now, `provider-sync:${connectionId}`, now, now),
     ...rawWrites.statements,
   );
-  await input.env.LIFE_DB.batch(statements);
+  try {
+    await input.env.LIFE_DB.batch(statements);
+    await commitD1AdmissionBudget({ env: input.env, reservations: d1Budget, succeeded: true });
+  } catch (error) {
+    try { await commitD1AdmissionBudget({ env: input.env, reservations: d1Budget, succeeded: false }); } catch { /* preserve original error */ }
+    throw error;
+  }
   cleanRedirect.searchParams.set("connected", "1");
   return Response.redirect(cleanRedirect.toString(), 303);
 }

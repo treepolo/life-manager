@@ -68,6 +68,15 @@ const exportQueries: Record<string, string> = {
   conflict_records: "SELECT * FROM conflict_records",
   app_settings: "SELECT * FROM app_settings",
   audit_log: "SELECT * FROM audit_log",
+  cost_guardrail_contract_observations: "SELECT * FROM cost_guardrail_contract_observations",
+  cost_guardrail_usage_observations: "SELECT * FROM cost_guardrail_usage_observations",
+  cost_guardrail_budget_windows: "SELECT * FROM cost_guardrail_budget_windows",
+  cost_guardrail_reservations: "SELECT * FROM cost_guardrail_reservations",
+  cost_guardrail_ledger_events: "SELECT * FROM cost_guardrail_ledger_events",
+  cost_guardrail_alerts: "SELECT * FROM cost_guardrail_alerts",
+  cost_guardrail_breaker_events: "SELECT * FROM cost_guardrail_breaker_events",
+  cost_guardrail_overrides: "SELECT * FROM cost_guardrail_overrides",
+  cost_guardrail_drift_audits: "SELECT * FROM cost_guardrail_drift_audits",
 };
 
 export const moduleTables: Record<string, string[]> = {
@@ -79,6 +88,7 @@ export const moduleTables: Record<string, string[]> = {
   social: ["social_platforms", "social_accounts", "content_assets", "platform_posts", "social_metric_definitions", "social_metric_snapshots", "conversion_records", "comparison_definitions"],
   deadlines: ["deadline_items", "deadline_completions", "deadline_templates", "notification_deliveries"],
   imports: ["import_batches", "import_rows", "import_mapping_profiles"],
+  cost_guardrails: ["cost_guardrail_contract_observations", "cost_guardrail_usage_observations", "cost_guardrail_budget_windows", "cost_guardrail_reservations", "cost_guardrail_ledger_events", "cost_guardrail_alerts", "cost_guardrail_breaker_events", "cost_guardrail_overrides", "cost_guardrail_drift_audits"],
 };
 
 const restoreTableOrder = [
@@ -92,6 +102,7 @@ const restoreTableOrder = [
   "provider_connections", "provider_sync_runs", "provider_raw_payloads", "provider_sync_run_payloads", "social_metric_snapshots", "conversion_records", "comparison_definitions",
   "provider_sync_jobs", "deadline_templates", "deadline_items", "deadline_completions",
   "notification_channels", "notification_preferences", "notification_deliveries", "scheduled_jobs", "app_settings", "audit_log",
+  "cost_guardrail_contract_observations", "cost_guardrail_usage_observations", "cost_guardrail_budget_windows", "cost_guardrail_reservations", "cost_guardrail_ledger_events", "cost_guardrail_alerts", "cost_guardrail_breaker_events", "cost_guardrail_overrides", "cost_guardrail_drift_audits",
 ] as const;
 const restoreTableSet = new Set<string>(restoreTableOrder);
 const userRootTables = ["areas", "businesses", "metric_definitions", "task_definitions", "financial_transactions", "content_assets", "platform_posts", "deadline_items", "import_batches"];

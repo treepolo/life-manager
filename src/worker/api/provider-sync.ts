@@ -4,6 +4,8 @@ import { INSTAGRAM_MEDIA_INSIGHTS_PER_RUN, instagramMetricDefinitionVersion } fr
 import type { ProviderRawPayload } from "@/integrations/providers/contract";
 import { SYSTEM_PLATFORM_IDS } from "@/modules/social/platforms";
 import { connectionCredentials, refreshConnectionCredentialsIfNeeded } from "@/worker/api/oauth";
+import { commitD1AdmissionBudget, createProviderRequestGuard, reserveD1AdmissionBudget } from "@/modules/cost-guardrail/service";
+import { d1SyncAdmissionEstimate } from "@/modules/cost-guardrail/contracts";
 import { prepareRawPayloadWrites, type RawWithId } from "@/worker/api/provider-raw";
 import type { Env } from "@/worker/env";
 
@@ -434,8 +436,9 @@ export async function syncProviderConnection(input: {
       provider,
       credentials: storedCredentials,
     });
-    const accountPayloads = await provider.fetchAccounts(credentials);
-    const contentPayloads = await provider.fetchContent(credentials);
+    const requestGuard = createProviderRequestGuard({ env: input.env, operationId: `provider-sync:${runId}`, requestId: input.requestId });
+    const accountPayloads = await provider.fetchAccounts(credentials, requestGuard);
+    const contentPayloads = await provider.fetchContent(credentials, requestGuard);
     const instagramSelection = provider.key === "instagram"
       ? await selectInstagramMediaInsightIds(input.env, contentPayloads)
       : { selectedIds: [] as string[], skippedCount: 0 };
@@ -444,10 +447,32 @@ export async function syncProviderConnection(input: {
       to: input.to,
       content: contentPayloads,
       ...(provider.key === "instagram" ? { selectedContentExternalIds: instagramSelection.selectedIds } : {}),
+      requestGuard,
     });
     const payloads = [...accountPayloads, ...contentPayloads, ...metricPayloads];
-    const stored = await storeRawPayloads(input.env, provider.key, runId, payloads);
-    const counts = provider.key === "youtube" ? await persistYouTube(input.env, stored) : await persistInstagram(input.env, stored);
+    const estimate = d1SyncAdmissionEstimate({
+      payloadCount: payloads.length,
+      payloadBytes: new TextEncoder().encode(JSON.stringify(payloads)).length,
+      derivedMetricCount: metricPayloads.length,
+    });
+    const d1Budget = await reserveD1AdmissionBudget({
+      env: input.env, operationId: `provider-sync:${runId}:persistence`, requestId: input.requestId,
+      rowsRead: estimate.rowsRead, rowsWritten: estimate.rowsWritten, storageBytes: estimate.storageBytes,
+    });
+    let d1BudgetSettled = false;
+    let stored: RawWithId[];
+    let counts: { created: number; updated: number };
+    try {
+      stored = await storeRawPayloads(input.env, provider.key, runId, payloads);
+      counts = provider.key === "youtube" ? await persistYouTube(input.env, stored) : await persistInstagram(input.env, stored);
+      await commitD1AdmissionBudget({ env: input.env, reservations: d1Budget, succeeded: true });
+      d1BudgetSettled = true;
+    } catch (persistenceError) {
+      if (!d1BudgetSettled) {
+        try { await commitD1AdmissionBudget({ env: input.env, reservations: d1Budget, succeeded: false }); } catch { /* preserve original error */ }
+      }
+      throw persistenceError;
+    }
     const completedAt = nowIso();
     const configuredInterval = Number(input.env.PROVIDER_SYNC_INTERVAL_HOURS ?? "6");
     const intervalHours = Number.isFinite(configuredInterval) && configuredInterval > 0 ? configuredInterval : 6;

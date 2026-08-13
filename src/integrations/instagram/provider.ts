@@ -4,6 +4,7 @@ import type {
   NormalizedProviderBatch,
   ProviderHealth,
   ProviderMetricFetchInput,
+  ProviderRequestGuard,
   ProviderRawPayload,
 } from "@/integrations/providers/contract";
 
@@ -72,11 +73,20 @@ export class InstagramProvider implements IntegrationProvider {
     };
   }
 
-  private async api(path: string, accessToken: string, kind: string): Promise<ProviderRawPayload> {
+  private async api(path: string, accessToken: string, kind: string, requestGuard?: ProviderRequestGuard): Promise<ProviderRawPayload> {
     const url = new URL(`https://graph.instagram.com/${this.apiVersion}/${path}`);
     url.searchParams.set("access_token", accessToken);
-    const response = await fetch(url);
-    const payload = await response.json();
+    const reservation = requestGuard
+      ? await requestGuard.beforeRequest({ resourceKey: "instagram.graph_api_window", plannedAmount: 1, operationKind: `instagram.${kind}` })
+      : null;
+    let settled = false;
+    try {
+      const response = await fetch(url);
+      const payload = await response.json();
+      if (reservation) {
+        settled = true;
+        await requestGuard!.afterRequest(reservation, response.ok);
+      }
     if (!response.ok) {
       const error = payload as { error?: { code?: number; type?: string } };
       const providerCode = error.error?.type ?? error.error?.code ?? response.status;
@@ -87,33 +97,39 @@ export class InstagramProvider implements IntegrationProvider {
         providerCode: error.error?.type ?? error.error?.code ?? response.status,
       });
     }
-    return { kind, externalId: null, observedAt: new Date().toISOString(), apiVersion: this.apiVersion, payload };
+      return { kind, externalId: null, observedAt: new Date().toISOString(), apiVersion: this.apiVersion, payload };
+    } catch (error) {
+      if (reservation && !settled) {
+        try { await requestGuard!.afterRequest(reservation, false); } catch { /* preserve provider error */ }
+      }
+      throw error;
+    }
   }
 
-  async fetchAccounts(connection: InstagramCredentials): Promise<ProviderRawPayload[]> {
+  async fetchAccounts(connection: InstagramCredentials, requestGuard?: ProviderRequestGuard): Promise<ProviderRawPayload[]> {
     return [
       await this.api(
         "me?fields=user_id,username,name,account_type,profile_picture_url,followers_count,media_count",
         connection.accessToken,
-        "profile",
+        "profile", requestGuard,
       ),
     ];
   }
 
-  async fetchContent(connection: InstagramCredentials): Promise<ProviderRawPayload[]> {
+  async fetchContent(connection: InstagramCredentials, requestGuard?: ProviderRequestGuard): Promise<ProviderRawPayload[]> {
     return [
       await this.api(
         `${encodeURIComponent(connection.userId)}/media?fields=id,caption,media_type,media_product_type,permalink,timestamp,username&limit=50`,
         connection.accessToken,
-        "media",
+        "media", requestGuard,
       ),
     ];
   }
 
   async fetchMetrics(connection: InstagramCredentials, input: ProviderMetricFetchInput): Promise<ProviderRawPayload[]> {
     const path = `${encodeURIComponent(connection.userId)}/insights?metric=reach,profile_views,views,total_interactions&period=day&since=${encodeURIComponent(input.from)}&until=${encodeURIComponent(input.to)}`;
-    const result = [await this.api(path, connection.accessToken, "account_insights")];
-    const content = input.content ?? await this.fetchContent(connection);
+    const result = [await this.api(path, connection.accessToken, "account_insights", input.requestGuard)];
+    const content = input.content ?? await this.fetchContent(connection, input.requestGuard);
     const mediaPayload = content[0]?.payload as { data?: Array<{ id?: string }> } | undefined;
     const selectedIds = input.selectedContentExternalIds
       ? new Set(input.selectedContentExternalIds.slice(0, INSTAGRAM_MEDIA_INSIGHTS_PER_RUN))
@@ -127,7 +143,7 @@ export class InstagramProvider implements IntegrationProvider {
         await this.api(
           `${encodeURIComponent(media.id)}/insights?metric=views,reach,likes,comments,shares,saved,total_interactions`,
           connection.accessToken,
-          "media_insights",
+          "media_insights", input.requestGuard,
         ),
       );
       result.at(-1)!.externalId = media.id;

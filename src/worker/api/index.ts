@@ -20,6 +20,8 @@ import { formulaDefinitionInputSchema } from "@/modules/metrics/schema";
 import { notificationChannelOutputSchema, pushSubscriptionStatusOutputSchema } from "@/modules/notifications/schema";
 import { socialComparisonQuery } from "@/modules/social/query";
 import { completeTask, deferTask, listTodayActions } from "@/modules/tasks/service";
+import { COST_RESOURCE_KEYS } from "@/modules/cost-guardrail/contracts";
+import { createCostOverride, getCostGuardrailStatus, recordContractObservation, revokeCostOverride } from "@/modules/cost-guardrail/service";
 import { handleCrudRoute } from "@/worker/api/crud";
 import { connectionCredentials, startOAuth } from "@/worker/api/oauth";
 import { syncProviderConnection } from "@/worker/api/provider-sync";
@@ -29,6 +31,41 @@ import type { Env } from "@/worker/env";
 const operationEnvelopeSchema = z.object({
   operationId: operationIdSchema,
   data: z.record(z.string(), z.unknown()),
+});
+
+const costWindowInputSchema = z.object({
+  periodKey: z.string().min(1).max(160),
+  resetAt: z.iso.datetime().nullable(),
+  resetTimezone: z.string().min(1).max(80).nullable(),
+  billingPeriodStart: z.iso.datetime().nullable(),
+  billingPeriodEnd: z.iso.datetime().nullable(),
+  invoiceCutoff: z.iso.datetime().nullable(),
+});
+
+const costEvidenceSchema = z.record(z.string(), z.unknown()).superRefine((value, context) => {
+  const unsafeKey = Object.keys(value).find((key) => /token|secret|password|api[_-]?key|private|card|payment|email/i.test(key));
+  if (unsafeKey) context.addIssue({ code: "custom", message: "evidence 不得包含秘密或付款資料", path: [unsafeKey] });
+});
+
+const costContractObservationSchema = z.object({
+  resourceKey: z.enum(COST_RESOURCE_KEYS),
+  includedAmount: z.number().int().nonnegative().nullable(),
+  period: costWindowInputSchema,
+  quality: z.enum(["EXACT", "LOCAL_CONSERVATIVE", "UNKNOWN", "STALE", "MISMATCH"]),
+  behavior: z.enum(["HARD_REJECT", "SOFT_LIMIT", "AUTO_BILL", "ALERT_ONLY", "UNKNOWN"]).optional(),
+  evidence: costEvidenceSchema,
+  sourceUrl: z.url().nullable().optional(),
+  sourceVersion: z.string().max(160).nullable().optional(),
+  observedAt: z.iso.datetime().optional(),
+  staleAfter: z.iso.datetime().nullable().optional(),
+});
+
+const costOverrideSchema = z.object({
+  resourceKey: z.enum(COST_RESOURCE_KEYS),
+  periodKey: z.string().min(1).max(160),
+  approvedInternalLimit: z.number().int().positive(),
+  reason: z.string().min(10).max(500),
+  expiresAt: z.iso.datetime(),
 });
 
 const DEFAULT_DEVICE_DISPLAY_NAME = "此裝置";
@@ -238,6 +275,39 @@ export async function handleApi(input: {
   if (path === "/api/v1/health" && input.request.method === "GET") {
     const schema = await input.env.LIFE_DB.prepare("SELECT value FROM schema_metadata WHERE key = 'application_schema_version'").first<{ value: string }>();
     return Response.json({ data: { status: "ok", environment: input.env.ENVIRONMENT, schemaVersion: Number(schema?.value ?? 0) }, meta: { requestId: input.requestId } });
+  }
+  if (path === "/api/v1/cost-guardrail/status" && input.request.method === "GET") {
+    return Response.json({ data: await getCostGuardrailStatus({ env: input.env }), meta: { requestId: input.requestId } });
+  }
+  if (path === "/api/v1/cost-guardrail/contracts" && input.request.method === "POST") {
+    const body = costContractObservationSchema.safeParse(await jsonBody(input.request));
+    if (!body.success) throw new ApiError(400, "VALIDATION_FAILED", "成本 contract evidence 格式錯誤或包含禁止資料。", { issues: body.error.issues });
+    const result = await recordContractObservation({ env: input.env, observation: body.data });
+    const now = nowIso();
+    await input.env.LIFE_DB.prepare(
+      "INSERT INTO audit_log (id, request_id, actor_id, entity_type, entity_id, action, before_json, after_json, occurred_at) VALUES (?, ?, ?, 'cost-guardrail-contracts', ?, 'OBSERVE', NULL, ?, ?)",
+    ).bind(newId(), input.requestId, input.actorId, result.id, JSON.stringify({ resourceKey: body.data.resourceKey, quality: body.data.quality, periodKey: body.data.period.periodKey, sourceVersion: body.data.sourceVersion ?? null }), now).run();
+    return Response.json({ data: result, meta: { requestId: input.requestId } }, { status: 201 });
+  }
+  if (path === "/api/v1/cost-guardrail/overrides" && input.request.method === "POST") {
+    const body = costOverrideSchema.safeParse(await jsonBody(input.request));
+    if (!body.success) throw new ApiError(400, "COST_GUARDRAIL_OVERRIDE_INVALID", "成本 override 格式錯誤。", { issues: body.error.issues });
+    const result = await createCostOverride({ env: input.env, ...body.data, actorId: input.actorId });
+    const now = nowIso();
+    await input.env.LIFE_DB.prepare(
+      "INSERT INTO audit_log (id, request_id, actor_id, entity_type, entity_id, action, before_json, after_json, occurred_at) VALUES (?, ?, ?, 'cost-guardrail-overrides', ?, 'CREATE', NULL, ?, ?)",
+    ).bind(newId(), input.requestId, input.actorId, result.id, JSON.stringify({ resourceKey: body.data.resourceKey, periodKey: body.data.periodKey, approvedInternalLimit: body.data.approvedInternalLimit, expiresAt: result.expiresAt }), now).run();
+    return Response.json({ data: result, meta: { requestId: input.requestId } }, { status: 201 });
+  }
+  const costOverrideRevokeMatch = path.match(/^\/api\/v1\/cost-guardrail\/overrides\/([0-9a-f-]+)\/revoke$/i);
+  if (costOverrideRevokeMatch && input.request.method === "POST") {
+    const overrideId = identifierSchema.parse(costOverrideRevokeMatch[1]);
+    await revokeCostOverride({ env: input.env, overrideId, actorId: input.actorId });
+    const now = nowIso();
+    await input.env.LIFE_DB.prepare(
+      "INSERT INTO audit_log (id, request_id, actor_id, entity_type, entity_id, action, before_json, after_json, occurred_at) VALUES (?, ?, ?, 'cost-guardrail-overrides', ?, 'REVOKE', NULL, ?, ?)",
+    ).bind(newId(), input.requestId, input.actorId, overrideId, JSON.stringify({ overrideId }), now).run();
+    return Response.json({ data: { id: overrideId, status: "REVOKED" }, meta: { requestId: input.requestId } });
   }
   if (path === "/api/v1/dashboard" && input.request.method === "GET") {
     const today = url.searchParams.get("today") ?? localDateAt(new Date(), input.env.APP_TIMEZONE);

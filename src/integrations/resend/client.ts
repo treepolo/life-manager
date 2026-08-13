@@ -1,4 +1,5 @@
 import { ApiError } from "@/core/errors/api-error";
+import type { ProviderRequestGuard } from "@/integrations/providers/contract";
 
 export interface ResendResult {
   providerMessageId: string;
@@ -32,6 +33,7 @@ export async function sendDeadlineEmail(input: {
   importanceLabel: string;
   applicationUrl: string;
   idempotencyKey: string;
+  requestGuard?: ProviderRequestGuard;
 }): Promise<ResendResult> {
   if (!input.apiKey || !input.from || !input.to) {
     throw new ApiError(503, "NOTIFICATION_CONFIGURATION_MISSING", "Resend寄件設定尚未完成。");
@@ -40,6 +42,9 @@ export async function sendDeadlineEmail(input: {
   const subjectPrefix = userTest ? "【使用者測試】" : "";
   const testNotice = userTest ? "\n\n這是使用者觸發的測試。" : "";
   let response: Response;
+  const reservation = input.requestGuard
+    ? await input.requestGuard.beforeRequest({ resourceKey: "resend.emails", plannedAmount: 1, operationKind: "resend.email" })
+    : null;
   try {
     response = await fetch("https://api.resend.com/emails", {
       method: "POST",
@@ -57,7 +62,14 @@ export async function sendDeadlineEmail(input: {
       }),
     });
   } catch {
+    if (reservation) {
+      try { await input.requestGuard!.afterRequest(reservation, false); } catch { /* preserve provider error */ }
+    }
     throw new ApiError(502, "PROVIDER_ERROR", providerErrorMessage("NETWORK_ERROR"), { providerCode: "NETWORK_ERROR" });
+  }
+
+  if (reservation) {
+    await input.requestGuard!.afterRequest(reservation, response.ok);
   }
 
   let body: ResendErrorBody;

@@ -252,6 +252,12 @@ Cron以UTC執行，所有使用者日期與提醒時間先轉換Asia/Taipei。D1
 7. 每個模組可獨立停用；YouTube故障時財務及任務仍正常。
 8. 首頁與導覽對模組使用registry，新增模組只需註冊，不在多處硬編碼。
 
+### 8.1 成本防線模組
+
+`src/modules/cost-guardrail`以版本化quota contract保存來源、品質、measurement window、provider reset、billing period與決策層級。`migrations/0011_cost_guardrails.sql`及`0012_cost_guardrail_atomic_transitions.sql`只新增append-only觀測、local ledger、reservation、breaker、alert、override及drift audit資料；reservation的reserve／commit／release由D1 trigger原子更新，排程與手動同步共用同一budget。
+
+Provider能被應用層阻擋的工作必須先取得admission reservation；Workers inbound invocation、CPU、subrequest、Cron與Cloudflare Access／帳戶計費只能觀測、allowlist及drift audit，不能由Worker假裝硬停。未知、過期、對帳不一致或告警失敗時採fail-closed；local ledger永不宣稱是provider invoice truth。
+
 ## 9. 外部整合的完成狀態
 
 - 程式、測試與文件完成但尚未由使用者授權：`AWAITING_USER_SETUP`。

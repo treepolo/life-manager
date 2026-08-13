@@ -4,6 +4,7 @@ import type {
   NormalizedProviderBatch,
   ProviderHealth,
   ProviderMetricFetchInput,
+  ProviderRequestGuard,
   ProviderRawPayload,
 } from "@/integrations/providers/contract";
 
@@ -104,32 +105,48 @@ export class YouTubeProvider implements IntegrationProvider {
     };
   }
 
-  private async api(url: URL | string, accessToken: string, kind: string): Promise<ProviderRawPayload> {
-    const response = await fetch(url, { headers: { authorization: `Bearer ${accessToken}` } });
-    const payload = await response.json();
+  private async api(url: URL | string, accessToken: string, kind: string, requestGuard?: ProviderRequestGuard): Promise<ProviderRawPayload> {
+    const resourceKey = kind === "analytics" ? "youtube.analytics_api_requests" : "youtube.data_api_units";
+    const reservation = requestGuard
+      ? await requestGuard.beforeRequest({ resourceKey, plannedAmount: 1, operationKind: `youtube.${kind}` })
+      : null;
+    let settled = false;
+    try {
+      const response = await fetch(url, { headers: { authorization: `Bearer ${accessToken}` } });
+      const payload = await response.json();
+      if (reservation) {
+        settled = true;
+        await requestGuard!.afterRequest(reservation, response.ok);
+      }
     if (!response.ok) {
       const error = payload as { error?: { code?: number; status?: string } };
       throw new ApiError(response.status === 401 ? 401 : 502, "PROVIDER_ERROR", `YouTube ${kind}同步失敗。`, {
         providerCode: error.error?.status ?? error.error?.code ?? response.status,
       });
     }
-    return {
-      kind,
-      externalId: null,
-      observedAt: new Date().toISOString(),
-      apiVersion: this.definitionVersion,
-      payload,
-    };
+      return {
+        kind,
+        externalId: null,
+        observedAt: new Date().toISOString(),
+        apiVersion: this.definitionVersion,
+        payload,
+      };
+    } catch (error) {
+      if (reservation && !settled) {
+        try { await requestGuard!.afterRequest(reservation, false); } catch { /* preserve provider error */ }
+      }
+      throw error;
+    }
   }
 
-  private async pagedApi(url: URL, accessToken: string, kind: string): Promise<ProviderRawPayload[]> {
+  private async pagedApi(url: URL, accessToken: string, kind: string, requestGuard?: ProviderRequestGuard): Promise<ProviderRawPayload[]> {
     const pages: ProviderRawPayload[] = [];
     const seenPageTokens = new Set<string>();
     let pageToken: string | null = null;
     do {
       const pageUrl = new URL(url);
       if (pageToken) pageUrl.searchParams.set("pageToken", pageToken);
-      const page = await this.api(pageUrl, accessToken, kind);
+      const page = await this.api(pageUrl, accessToken, kind, requestGuard);
       pages.push(page);
       const nextPageToken = (page.payload as { nextPageToken?: unknown }).nextPageToken;
       if (typeof nextPageToken !== "string" || !nextPageToken) break;
@@ -142,15 +159,15 @@ export class YouTubeProvider implements IntegrationProvider {
     return pages;
   }
 
-  async fetchAccounts(connection: OAuthCredentials): Promise<ProviderRawPayload[]> {
+  async fetchAccounts(connection: OAuthCredentials, requestGuard?: ProviderRequestGuard): Promise<ProviderRawPayload[]> {
     const url = new URL("https://www.googleapis.com/youtube/v3/channels");
     url.searchParams.set("part", "id,snippet,contentDetails,statistics");
     url.searchParams.set("mine", "true");
-    return [await this.api(url, connection.accessToken, "channels")];
+    return [await this.api(url, connection.accessToken, "channels", requestGuard)];
   }
 
-  async fetchContent(connection: OAuthCredentials): Promise<ProviderRawPayload[]> {
-    const channels = await this.fetchAccounts(connection);
+  async fetchContent(connection: OAuthCredentials, requestGuard?: ProviderRequestGuard): Promise<ProviderRawPayload[]> {
+    const channels = await this.fetchAccounts(connection, requestGuard);
     const channelBody = channels[0].payload as { items?: Array<{ contentDetails?: { relatedPlaylists?: { uploads?: string } } }> };
     const uploads = channelBody.items?.[0]?.contentDetails?.relatedPlaylists?.uploads;
     if (!uploads) throw new ApiError(422, "PROVIDER_ERROR", "YouTube頻道沒有可讀取的上傳播放清單。");
@@ -158,7 +175,7 @@ export class YouTubeProvider implements IntegrationProvider {
     url.searchParams.set("part", "id,snippet,contentDetails");
     url.searchParams.set("playlistId", uploads);
     url.searchParams.set("maxResults", String(YOUTUBE_PAGE_SIZE));
-    const playlistPages = await this.pagedApi(url, connection.accessToken, "playlist_items");
+    const playlistPages = await this.pagedApi(url, connection.accessToken, "playlist_items", requestGuard);
     const videoIds = [...new Set(playlistPages.flatMap((page) => {
       const body = page.payload as { items?: Array<{ contentDetails?: { videoId?: string } }> };
       return (body.items ?? []).map((item) => item.contentDetails?.videoId).filter((id): id is string => Boolean(id));
@@ -169,7 +186,7 @@ export class YouTubeProvider implements IntegrationProvider {
       const detailsUrl = new URL("https://www.googleapis.com/youtube/v3/videos");
       detailsUrl.searchParams.set("part", "id,snippet,statistics,contentDetails");
       detailsUrl.searchParams.set("id", videoIds.slice(index, index + YOUTUBE_PAGE_SIZE).join(","));
-      videoPages.push(await this.api(detailsUrl, connection.accessToken, "videos"));
+      videoPages.push(await this.api(detailsUrl, connection.accessToken, "videos", requestGuard));
     }
     return [...playlistPages, ...videoPages];
   }
@@ -182,7 +199,7 @@ export class YouTubeProvider implements IntegrationProvider {
     url.searchParams.set("dimensions", "day");
     url.searchParams.set("metrics", "views,likes,comments");
     url.searchParams.set("sort", "day");
-    return [await this.api(url, connection.accessToken, "analytics")];
+    return [await this.api(url, connection.accessToken, "analytics", input.requestGuard)];
   }
 
   async normalize(payloads: ProviderRawPayload[]): Promise<NormalizedProviderBatch> {

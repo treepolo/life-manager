@@ -347,7 +347,7 @@ N2 自動固定答案補充：App列出的每台裝置狀態由伺服器保存�
 
 本閘門只規劃一個必要真人操作，不是現在要求使用者操作；在本閘門完成前不得把 `NFR-001`／`OPS-002` 標為 `VERIFIED`，也不得把 production 當成零超額風險。
 
-前置條件：`AT-OPS-03`～`AT-OPS-14`、`AT-OPS-16`～`AT-OPS-20` 的自動／synthetic 驗收通過；production 尚未承接流量；目前 staging 不需重新登入或送驗證碼。
+前置條件：`AT-OPS-03`～`AT-OPS-14`、`AT-OPS-16`～`AT-OPS-28` 的自動／synthetic 驗收通過；production 尚未承接流量；目前 staging 不需重新登入或送驗證碼。
 
 唯一人工操作：在已登入 Cloudflare 的中文介面，從「管理帳戶」→「計費」進行一次唯讀核對，依畫面查看「訂閱／方案」、`Billable Usage`、`Notifications`／`Budget alerts`、已啟用產品與 Zero Trust／Access 的超額計費授權；不按升級、購買、儲存、取消、刪除或任何會改變設定的按鈕。只向主線回報去識別摘要，不把截圖原始檔放進 repo。
 

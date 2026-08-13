@@ -104,6 +104,20 @@ Web Push的裝置狀態以`push_subscriptions.device_id`分開保存，裝置名
 - `sync_cursors`
 - `conflict_records`
 
+### 2.8 成本防線
+
+- `cost_guardrail_contract_observations`
+- `cost_guardrail_usage_observations`
+- `cost_guardrail_budget_windows`
+- `cost_guardrail_reservations`
+- `cost_guardrail_ledger_events`
+- `cost_guardrail_alerts`
+- `cost_guardrail_breaker_events`
+- `cost_guardrail_overrides`
+- `cost_guardrail_drift_audits`
+
+成本資料是append-only觀測／事件與可重建的local admission ledger。contract必須分開保存quota measurement window、authoritative reset、billing period、invoice cutoff、source/version及quality；沒有exact provider usage或reset證據時不得以local值冒充帳務真相。reservation的planned、retry、in-flight、scheduler race與reset clock skew overhead在同一D1 transaction內檢查，排程與手動同步不可繞過或各自計算budget。
+
 ## 3. 原始資料與正規化資料
 
 每次YouTube、Instagram或CSV匯入需：

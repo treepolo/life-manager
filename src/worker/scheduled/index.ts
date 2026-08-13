@@ -5,6 +5,7 @@ import { sendDeadlineEmail } from "@/integrations/resend/client";
 import { recordNotificationDeliveryOutcome } from "@/modules/notifications/persistence";
 import { planDeadlineDeliveries } from "@/modules/notifications/scheduler";
 import { sendDeadlinePush } from "@/modules/notifications/push";
+import { createProviderRequestGuard } from "@/modules/cost-guardrail/service";
 import { recoverStaleProviderSyncs, syncProviderConnection } from "@/worker/api/provider-sync";
 import type { Env } from "@/worker/env";
 
@@ -117,6 +118,7 @@ async function processDeadlineNotifications(env: Env, requestId: string, now: Da
             deadlineName: deadline.name,
             importanceLabel: deadline.importance === "SUPER_CRITICAL" ? "超級無敵重要" : "超級重要",
             applicationUrl: `${applicationUrl.replace(/\/$/, "")}/deadlines`, idempotencyKey: dedupeKey,
+            requestGuard: createProviderRequestGuard({ env, operationId: `notification:${delivery.id}`, requestId }),
           });
           await recordNotificationDeliveryOutcome({ db: env.LIFE_DB, deliveryId: delivery.id, channel: plan.channel, subscriptionId: null,
             status: "SENT", providerMessageId: result.providerMessageId, error: null, now: now.toISOString() });
@@ -184,7 +186,7 @@ export async function sendDeadlineNotificationTest(input: {
           : input.env.RESEND_TO;
         const result = await sendDeadlineEmail({ apiKey: input.env.RESEND_API_KEY, from: input.env.RESEND_FROM, to: recipient,
           deadlineName: deadline.name, importanceLabel: deadline.importance === "SUPER_CRITICAL" ? "超級無敵重要" : "超級重要",
-          applicationUrl, idempotencyKey: dedupeKey });
+          applicationUrl, idempotencyKey: dedupeKey, requestGuard: createProviderRequestGuard({ env: input.env, operationId: `notification:${delivery.id}`, requestId: input.operationId }) });
         await recordNotificationDeliveryOutcome({ db: input.env.LIFE_DB, deliveryId: delivery.id, channel: input.channel, subscriptionId: null,
           status: "SENT", providerMessageId: result.providerMessageId, error: null, now });
       } else if (input.channel === "WEB_PUSH" && target) {

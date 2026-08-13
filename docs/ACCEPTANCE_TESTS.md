@@ -416,30 +416,30 @@ D1 SQL匯出、還原及migration驗證通過。
 ### AT-OPS-04　固定答案 quota 計算
 
 **前置：** 使用官方來源版本化的 quota contract；測試資料不呼叫真實平台。
-**步驟：** 以固定輸入驗證：Workers 50,000／100,000 requests＝50%；D1 2,500,000／5,000,000 rows read＝50%、50,000／100,000 writes＝50%；KV 50,000／100,000 reads＝50%；R2 5／10 GB-month＝50%；Queues 5,000／10,000 operations＝50%；Resend 50／100 emails＝50%；YouTube 5,000／10,000 units＝50%；再驗證 D1 index write、YouTube method cost、Resend multiple recipients 的計數。
+**步驟：** 以固定輸入驗證官方 baseline 與本帳戶 evidence 分離：Workers 50,000／100,000 requests、D1 2,500,000／5,000,000 rows read、50,000／100,000 writes、Resend 50／100 emails、YouTube Data 5,000／10,000 units 可計算公式但仍須 exact account observation；YouTube Analytics、Instagram、Zero Trust／Access、KV、R2、Queues、Cloudflare Email 不得填入臆造 allowance，一律 `UNKNOWN`／帳戶控制；再驗證 D1 index write、YouTube method cost、Resend multiple recipients 的計數。
 **預期：** unit、period、reset、source、quality 均正確；不把列數、API request 數或 40 篇 Instagram 上限誤當不同 provider 的 quota。
 **證據：** 固定答案輸入／輸出、contract version、source URL、計算時間與 provenance。
 **禁止：** 不以估算值通過安全 gate、不把不同日／月窗口相加、不讀寫 staging／production 真實資料作計算測試。
 
-### AT-OPS-05　50／75／90%告警去重
+### AT-OPS-05　50／70／75／80／85%告警去重
 
 **前置：** exact metric、固定 period／reset 與可測試的告警 sink。
-**步驟：** 同一 resource 在 50／75／90% 各送兩次；在同一 window 重收、重試、服務重啟；再跨 reset 產生相同比例。
+**步驟：** 同一 resource 在 50／70／75／80／85% 各送兩次；在同一 window 重收、重試、服務重啟；再跨 reset 產生相同比例。
 **預期：** 每個 threshold／window 只產生一個業務告警；delivery retry 不產生第二個告警；新 period 才可重新告警。
 **證據：** dedupe key、alert row／event、delivery attempt、period／reset 與 notification log。
 **禁止：** 不因告警重試重送 provider request、不把缺 metric 當 0%、不刪除歷史 audit 以製造去重通過。
 
-### AT-OPS-06　95%／安全門檻降載
+### AT-OPS-06　70／75%降載與80／85% internal hard-stop
 
-**前置：** exact metric 已達 95% 或 provider contract 指定的更低安全門檻；排程與手動 sync 同時可觸發。
+**前置：** 分別準備 auto-overage／unknown resource 的 70／80% 與 hard-reject-only resource 的 75／85% exact contract fixture；排程與手動 sync 同時可觸發。
 **步驟：** 同時觸發非必要 provider sync、測試信、bulk import 與核心 read／write；觀察 request gate、scheduler、manual path。
-**預期：** 非必要操作被固定 `COST_GUARDRAIL_OPEN` 阻擋或降載，核心非相關模組仍可用；不清 outbox、不刪資料、不自動升級。
+**預期：** 非必要操作依狀態被固定 `COST_GUARDRAIL_DEGRADED` 或 `COST_GUARDRAIL_HARD_STOP` 阻擋／降載，核心非相關模組仍可用；不清 outbox、不刪資料、不自動升級。
 **證據：** gate decision、被省略的 operation、provider request count、核心操作結果、audit。
-**禁止：** 不以「最後一點額度」放行測試、不用 retry 繞過 95%、不把降載寫成帳戶 hard cap。
+**禁止：** 不以「最後一點額度」放行測試、不用 retry／in-flight／race 繞過 reserve、不把 internal stop 寫成 provider 或帳戶 hard cap。
 
-### AT-OPS-07　100% hard-stop／fail-closed
+### AT-OPS-07　unknown／平台失敗／internal stop fail-closed
 
-**前置：** metric 為 100%，或平台回 Workers 1027／1102、D1 quota／storage error、Resend 429 quota、YouTube quota error、Instagram rate-limit error。
+**前置：** metric quality 為 UNKNOWN／STALE／MISMATCH、internal budget 達 80／85%，或平台回 Workers 1027／1102、D1 quota／storage error、Resend 429 quota、YouTube quota error、Instagram rate-limit error。
 **步驟：** 觸發排程、手動同步、通知與同一 operation 的重試；再確認其他模組的 read path。
 **預期：** 對應資源 circuit open、後續 request 為 0、回固定安全錯誤並保存去敏證據；不把平台失敗轉為成功，非相關模組依 `NFR-009` 可用。
 **證據：** error code、request count、circuit state、delivery／audit log、其他模組 smoke。
@@ -448,7 +448,7 @@ D1 SQL匯出、還原及migration驗證通過。
 ### AT-OPS-08　排程／手動同步競態
 
 **前置：** 同一 provider connection、同一 quota window、scheduler 與 manual endpoint 可並行，且使用固定 provider stub。
-**步驟：** 同時送出 Cron claim 與 manual claim，讓第一個操作接近 95%，再讓第二個操作重試／超時。
+**步驟：** 同時送出 Cron claim 與 manual claim，讓第一個操作保留 retry／in-flight／scheduler race／reset skew reserve，再讓第二個操作重試／超時。
 **預期：** 只有一個 job 取得 claim；兩者共享 budget／breaker，不重複計算或發送外部 request；失敗一方得到可稽核的 deferred／guardrail 錯誤。
 **證據：** job claim、operation idempotency、budget delta、provider call count、scheduler／manual audit。
 **禁止：** 不以兩個成功 run 抵銷 quota、不用第二個 path 繞過 gate、不直接 SQL 改 job 狀態。
@@ -464,7 +464,7 @@ D1 SQL匯出、還原及migration驗證通過。
 ### AT-OPS-10　跨日／跨月 reset
 
 **前置：** 可注入 UTC day、provider billing month、Resend month、R2 GB-month 與 Zero Trust billing period 的 clock；所有資料仍為 synthetic。
-**步驟：** 在 reset 前達 90／95／100%，跨過 reset，再以新 window 送同一 threshold；另測「顯示日期已變但 provider reset 尚未確認」。
+**步驟：** 在 reset 前以 50／70／75／80／85% 的適用門檻推進，跨過 reset，再以新 window 送同一 threshold；另測「顯示日期已變但 provider reset 尚未確認」。
 **預期：** 只有觀測到官方 reset／新 period 才清除該 window 的 used／dedupe；舊 audit 保留，新 window 從 0 或官方回報值開始；未確認時維持 `UNKNOWN`／closed。
 **證據：** period start／end、reset_at、timezone、old／new dedupe key 與 alert history。
 **禁止：** 不用本機日期直接清 quota、不跨月沿用舊 quota、不重設正式帳戶用量。
@@ -480,7 +480,7 @@ D1 SQL匯出、還原及migration驗證通過。
 ### AT-OPS-12　通知失敗與安全狀態
 
 **前置：** in-app、Email、Push／外部通知 sink 可分別回 timeout／429／5xx；成本 gate 已被觸發。
-**步驟：** 送一次 50／75／90% 告警與一次 hard-stop 告警，讓通知失敗後重試，再查管理頁／操作 log。
+**步驟：** 送一次 50／70／75／80／85% 告警與一次 hard-stop 告警，讓通知失敗後重試，再查管理頁／操作 log。
 **預期：** 通知失敗不解除 breaker、不標 safe；依 backoff 去重重試，站內／audit 保留阻擋狀態；恢復需明確管理者動作。
 **證據：** notification delivery、attempt、去敏錯誤、gate state、audit。
 **禁止：** 不無限重試、不因 email／Push 失敗自動轉另一個付費 channel、不刪除失敗紀錄。
@@ -527,7 +527,7 @@ D1 SQL匯出、還原及migration驗證通過。
 
 ### AT-OPS-18　程式 hard-stop 與帳戶控制邊界
 
-**前置：** 成本 gate 可回 100%／unknown；帳戶 stub 同時含已授權超額扣款。
+**前置：** 成本 gate 可回 80%／85% internal hard-stop 或 `UNKNOWN`；帳戶 stub 同時含已授權超額扣款。
 **步驟：** 觸發 App hard-stop，檢查它是否只阻擋 request／write／schedule；再檢查文件／audit 是否聲稱取消付款或修改 plan。
 **預期：** App 只停止本產品用量並保存 audit；Cloudflare checkout／付款／Access／plan 狀態維持原值，文件明確標示需帳戶管理者控制。
 **證據：** network zero-after-stop、account state unchanged、error／audit、文案 scan。
@@ -535,7 +535,7 @@ D1 SQL匯出、還原及migration驗證通過。
 
 ### AT-OPS-19　reset／人工批准後安全恢復
 
-**前置：** resource 曾被 95／100% 阻擋；官方 reset 已觀測或管理者已核准解除，且下一個 operation 為 synthetic。
+**前置：** resource 曾被 80／85% internal hard-stop 阻擋；官方 reset 已觀測或管理者已核准解除，且下一個 operation 為 synthetic。
 **步驟：** 先重收 exact metric，再執行一個小批 synthetic；確認結果後才解除指定 circuit，並測試 scheduler／manual 不重疊。
 **預期：** reset／批准前仍 blocked；批准後只恢復指定 resource／window，告警 history 保留；若 metric 再變 unknown，立即回 closed。
 **證據：** reset observation、approval audit、synthetic result、circuit transition、後續 request count。
@@ -548,6 +548,70 @@ D1 SQL匯出、還原及migration驗證通過。
 **預期：** 只有 `EXACT` 可計算百分比與解除安全 gate；`ESTIMATE` 顯示「估算／不可作安全證據」；`UNKNOWN`／stale 阻擋；source version／unit／period 變更開新 audit window，不覆寫舊 evidence。
 **證據：** observation schema、source URL／version、quality、period／reset、dedupe key、gate decision。
 **禁止：** 不把 estimate 標成精確、不把累積值當區間、不刪除舊來源以製造一致性。
+
+### AT-OPS-21　逐資源 risk class 與 reserve 固定答案
+
+**前置：** 載入 versioned contract fixtures，分別包含 auto-overage／unknown、hard-reject-only、account-control 與 unknown allowance。
+**步驟：** 驗證 auto-overage／unknown 為 maximum 80%、degrade 70%、hard 80%；hard-reject-only 為 85%、75%、85%；account-control 不建立 App gate。
+**預期：** 每個 resource 都有 unit、owner、source、quality、measurement window、reset 與 billing fields；缺 exact allowance 或 remaining 不計百分比並回 `COST_GUARDRAIL_UNKNOWN`／`ACCOUNT_CONTROL_REQUIRED`。
+**證據：** contract version、固定輸入／輸出、resource decision、錯誤碼與 audit。
+**禁止：** 不把官方 baseline 當成本帳戶實際 allowance，不把 seat／40 篇／43 subrequest 當其他 provider quota。
+
+### AT-OPS-22　原子 reserve／commit／release 與競態
+
+**前置：** 同一 resource／period 同時執行 scheduled、manual、retry 與 duplicate operation。
+**步驟：** 以 `planned + retry + in_flight + scheduler_race + reset_clock_skew` 計算 reservation，並測試 budget window、reservation、ledger transition 失敗。
+**預期：** 競態只有安全的一方取得 reservation；commit／release／expire 任一重複呼叫不重複扣減；交易失敗不留下 orphan reservation 或 ledger。
+**證據：** window counters、reservation status、append-only ledger、breaker event、provider call count。
+**禁止：** 不以非原子先加 counter 再補 row、不用重試繞過同一 operation budget。
+
+### AT-OPS-23　local ledger 與 provider usage mismatch
+
+**前置：** provider 回傳 remaining／reset 與 local reservation 不一致、stale、timeout 或 invoice period 不同。
+**步驟：** 分別提交 exact observation、local conservative observation、MISMATCH／STALE observation。
+**預期：** UI／API 明確回 `providerInvoiceTruth=false`；對帳失敗時非必要功能 fail-closed，不把 local consumed 宣稱為 provider usage。
+**證據：** observation quality、measurement／billing periods、source version、decision 與錯誤碼。
+**禁止：** 不把 local ledger 轉成帳單數字，不以估算值放寬 internal limit。
+
+### AT-OPS-24　告警失敗不能解除 breaker
+
+**前置：** 50／70／75／80／85% alert sink 回 timeout／429／5xx，breaker 已 DEGRADED 或 OPEN。
+**步驟：** 重試告警、重啟 worker、重新送相同 operation。
+**預期：** alert dedupe row 保留失敗與 attempt；通知失敗不標 safe、不 release、不關閉 breaker；只有 reset 或具 expiry 的管理者 override 才能恢復。
+**證據：** alert row、attempt/error、breaker state、audit log。
+**禁止：** 不把「通知送不出去」當成「沒有超額風險」。
+
+### AT-OPS-25　quota reset 與 billing cycle 分離
+
+**前置：** UTC day、Pacific day、rolling provider window、monthly plan 與 invoice cutoff 使用不同 clock fixture。
+**步驟：** 跨 quota reset、billing period start/end、invoice cutoff 與 Asia/Taipei 顯示日期各執行一次操作。
+**預期：** period／reset／billing fields 分開保存；未取得 authoritative reset_at 或 timezone 時維持 UNKNOWN；新 window 才產生新的 dedupe key。
+**證據：** period key、reset_at、reset timezone、billing fields、source／observed_at。
+**禁止：** 不用 invoice month 推算 YouTube Pacific day、D1 UTC day 或 Instagram rolling reset。
+
+### AT-OPS-26　expiry override、解除與稽核
+
+**前置：** exact contract 已使 resource DEGRADED／OPEN；管理者提出有 reason、actor、expiry 的短期 override。
+**步驟：** 建立不超過 allowance 且不超過 24 小時的 override，測試到期、錯誤 actor／reason／limit 與重複解除。
+**預期：** override 只能放寬 local admission 到核准上限；到期自動 EXPIRED；所有 transition 有 actor、reason、expiry、audit；不能作用於 account-control resource。
+**證據：** override row、breaker event、audit log、expiry 後錯誤碼。
+**禁止：** 不允許無 expiry、超過 exact allowance、永久 bypass 或以 override 改 Cloudflare billing。
+
+### AT-OPS-27　provider gate 與 account-control 邊界
+
+**前置：** YouTube Data、Instagram、Resend 有 gate；YouTube Analytics／Access／Workers inbound 使用 unknown／observe-only fixture。
+**步驟：** 分別觸發 scheduled、manual、OAuth finish、provider request、Workers inbound 與 Access seat 狀態。
+**預期：** gate resource 在未知／降載／hard-stop 前不發起下一個 provider／D1 persistence work；Workers invocation 與 Access／帳務只回 `OBSERVE_ONLY`／`ACCOUNT_CONTROL_REQUIRED`，不假稱可 hard-stop。
+**證據：** request guard、provider fetch count、D1 reservation、API／UI decision、drift audit。
+**禁止：** 不以 Worker 內 gate 宣稱能阻止已發生的 invocation 或 Cloudflare 扣款。
+
+### AT-OPS-28　config drift 與 production 前停止點
+
+**前置：** 在 synthetic copy 中加入 KV、R2、Queues、Email binding／付費 SKU drift；production 尚未承接流量。
+**步驟：** 執行 config allowlist scan、runtime drift audit、build／secret scan，並檢查未套用 migration 與未部署狀態。
+**預期：** drift 以固定錯誤阻擋非必要工作與 production gate；staging synthetic 不呼叫真實 paid provider、不寄送 Email／Push；`SETUP-010` 未完成時 NFR-001／OPS-002 保持 IN_PROGRESS／AWAITING_USER_SETUP。
+**證據：** scan output、drift row、migration list、egress／stub log、status 文件。
+**禁止：** 不部署 production、不套用遠端 migration、不修改付款／方案／Secrets／vars／Access。
 
 ### AT-SETUP-01
 

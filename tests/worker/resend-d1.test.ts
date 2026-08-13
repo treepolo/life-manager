@@ -4,6 +4,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { v7 as uuidv7 } from "uuid";
 
 import type { Env } from "@/worker/env";
+import { recordContractObservation } from "@/modules/cost-guardrail/service";
 import { sendDeadlineNotificationTest } from "@/worker/scheduled";
 
 describe("Resend delivery D1 contract", () => {
@@ -34,6 +35,26 @@ describe("Resend delivery D1 contract", () => {
     await env.LIFE_DB.prepare(
       "UPDATE notification_channels SET enabled = 1, status = 'READY', last_success_at = NULL, last_error_code = NULL, last_error_message_redacted = NULL WHERE channel_kind = 'EMAIL'",
     ).run();
+    await recordContractObservation({
+      env,
+      observation: {
+        resourceKey: "resend.emails",
+        includedAmount: 100,
+        period: {
+          periodKey: "MONTH:2026-08",
+          resetAt: "2026-09-01T00:00:00.000Z",
+          resetTimezone: "UTC",
+          billingPeriodStart: "2026-08-01T00:00:00.000Z",
+          billingPeriodEnd: "2026-09-01T00:00:00.000Z",
+          invoiceCutoff: "2026-09-01T00:00:00.000Z",
+        },
+        quality: "EXACT",
+        behavior: "AUTO_BILL",
+        evidence: { source: "synthetic-test-contract", providerInvoiceTruth: false },
+        sourceUrl: "https://resend.com/docs/knowledge-base/account-quotas-and-limits",
+        sourceVersion: "synthetic-test@2026-08-14",
+      },
+    });
     const successFetch = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
       const payload = JSON.parse(String(init?.body)) as Record<string, unknown>;
       expect(payload.subject).toContain("使用者測試");
