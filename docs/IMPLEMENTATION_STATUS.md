@@ -31,6 +31,16 @@
 - 唯讀smoke證據：未登入`/api/v1/health`回`302`，Access邊界仍在；已登入staging`/finance`載入正式空資料狀態，前端console error為0；遠端D1 migration回報`No migrations to apply`。本輪未套用migration、未執行D1寫入、未讀取Secret值，也未在App按正式匯入。
 - 完成後依規則將`INV-002`／`SETUP-007`恢復為`AWAITING_USER_SETUP`。真人CSV阻擋仍具體列為：遮蔽副本在被Git忽略的`private-imports/`，但正式匯入尚未執行；下一個獨立操作才是正式匯入，之後仍需App畫面核對預期筆數／金額合計，才能完成`AT-INV-05`。未遮蔽CSV、帳號、姓名、地址與帳密不得進入Codex、Git、log、snapshot或文件。
 
+## 2026-08-13 Firstrade正式匯入與AT-INV-05完成
+
+- 本輪開始時依正式規則將`INV-002`／`SETUP-007`列為`IN_PROGRESS`；本輪只處理Firstrade真實遮蔽樣本的正式匯入、合計及人工來源核對，未修改其他產品線、既有migration、共用finance、DEFER-004或DEFER-005。
+- 正式staging前提：共用staging版本`db41ff0c-7864-43d2-9a98-54000cebfa92`承接100%流量；遠端migration無待套用；正式匯入前D1 SQL與App完整JSON備份、bytes／SHA-256／JSON checksum均已核對；本輪未讀取Secret值。
+- 正式staging匯入結果：batch `019ffa7d-2483-7396-87a3-fdd7c8a5ba6e`於`2026-08-13T09:42:02.922Z`完成，`totalRows=486`、`importedRows=486`、`duplicateRows=0`、`errorRows=0`；staging App畫面顯示相同的`486／486／0／0`。
+- 去識別D1合計證據：486筆活動均為USD，`SUM(amount_minor)=1781`（USD 17.81）；活動計數為BUY255、SELL182、DIVIDEND7、INTEREST15、UNCLASSIFIED27；`Other` 27列的原始列證據仍保留，未知類型未丟棄；既有重跑契約為0新增／486重複。
+- 真人官方來源核對：Firstrade官方「賬戶紀錄」以完整日期範圍顯示總數486；以`04/16/2025`、BUY、單一symbol的唯讀篩選確認兩筆`MSTU`交易，兩筆數量均為`1.00`、金額均為`-5.71`，使用者確認與遮蔽樣本第39、40列一致。未要求貼CSV，未保存或輸出帳號、姓名、地址或未遮蔽內容。
+- 受影響驗證：`npm run lint`、`npm run typecheck`、`npm run test`（14 files／43 tests）、`npm run test:worker`（21 tests）、`npm run build:client`、`npm run scan`、`npm run verify:requirements`及完整`npm run test:e2e`均以exit 0通過；另以短路徑重跑正式UI寫入D1案例，desktop、mobile-390及mobile-320均通過。`git diff --check`通過。
+- 本輪決定：`AT-INV-02`～`AT-INV-05`證據齊全，`INV-002`／`SETUP-007`由`IN_PROGRESS`轉為`VERIFIED`；本線無外部阻擋。實作仍不包含Firstrade自動provider或深度投資帳務。
+
 ## 第一批需求帳本
 
 | 需求ID | 狀態 | 實作路徑 | migration | 測試／證據 | 阻擋／備註 |
@@ -55,7 +65,7 @@
 | FIN-007 | VERIFIED | `src/modules/finance/analytics.ts` | `0003_finance_investments.sql` | 覆蓋率、基準、超過基準月份固定答案 | 無 |
 | FIN-008 | VERIFIED | `FinancePage.tsx`, finance query schema、`MetricLineChart.tsx` | 不需新migration | 月／季／年、原幣/TWD、來源／事業／分類／帳戶篩選API及UI；軸、刻度、單位、圖例、tooltip與設定E2E通過 | 無 |
 | INV-001 | VERIFIED | investment account/snapshot/UI | `0003_finance_investments.sql` | 手動券商總值與現金納入淨值／配置 | 無 |
-| INV-002 | AWAITING_USER_SETUP | `src/integrations/firstrade-csv/importer.ts`, `src/integrations/firstrade-csv/service.ts`, `src/app/pages/InvestmentImportPanel.tsx`, `src/worker/api/index.ts` | `0003_finance_investments.sql`；本輪不新增migration | `tests/unit/firstrade.test.ts`、`tests/worker/api-d1.test.ts`固定答案；遮蔽真實樣本：486列／0 parse errors／UTF-8逗號、Amount合計USD 17.81、D1首次486新增／0同檔重複、重跑0新增／486重複、活動BUY255／SELL182／DIVIDEND7／INTEREST15／UNCLASSIFIED27、未知Other 27列原始證據保留；staging App預覽486列／0錯誤，Firstrade官方紀錄總數486；正式staging D1 SQL／App完整JSON備份已完成，bytes／SHA-256／JSON checksum均已核對；修正版staging部署版本`7d7171c5-7be9-49c8-a28b-e7e0b2dfbe18`承接100%，未登入health 302、已登入`/finance` smoke正常、遠端migration無待套用 | 外部阻擋為正式匯入及App畫面金額合計核對；未完成AT-INV-05前不可改為`VERIFIED` |
+| INV-002 | VERIFIED | `src/integrations/firstrade-csv/importer.ts`, `src/integrations/firstrade-csv/service.ts`, `src/app/pages/InvestmentImportPanel.tsx`, `src/worker/api/index.ts` | `0003_finance_investments.sql`；本輪不新增migration | `tests/unit/firstrade.test.ts`、`tests/worker/api-d1.test.ts`固定答案；遮蔽真實樣本486列／0 parse errors／UTF-8逗號；正式staging App結果486／486／0／0；去識別D1 Amount合計USD 17.81（1781 minor units）、活動BUY255／SELL182／DIVIDEND7／INTEREST15／UNCLASSIFIED27、未知Other 27列原始證據保留；重跑0新增／486重複；Firstrade官方紀錄總數486，唯讀篩選確認2025-04-16兩筆MSTU BUY、數量1.00及金額-5.71均一致；正式staging D1 SQL／App完整JSON備份已完成，bytes／SHA-256／JSON checksum均已核對；共用staging版本`db41ff0c-7864-43d2-9a98-54000cebfa92`承接100%，遠端migration無待套用 | AT-INV-02～AT-INV-05及SETUP-007證據完成；不包含自動provider、深度投資帳務，無本線阻擋 |
 | INV-003 | VERIFIED | provider policy、scan | 不需 | 無帳密／逆向登入／下單；secret與關鍵字掃描通過 | 無 |
 | INV-004 | VERIFIED | investment schema/import boundary | `0003_finance_investments.sql` | 僅保存來源回報活動，不推導成本或損益 | 無 |
 | SOC-001 | VERIFIED | social resources、entity-tags | `0004_social_integrations.sql` | content/post分離、平台帳號、內容標籤 | 無 |
@@ -113,7 +123,7 @@
 | 外部設定 | SETUP-002 | VERIFIED | 獨立staging D1／Worker、migration 8、部署版本、未授權302、JWK 200、本人health 200、單一Allow政策及電腦／手機實體App全部通過 | 無；跨裝置資料同步另由`OFF-005`追蹤，不混入本設定閘門 |
 | 外部設定 | SETUP-003 | VERIFIED | Google Project、OAuth client、必要Worker Secret、真實callback、本人頻道、Studio 26天精確核對、Google App「實際運作中」、撤銷／Cron失敗隔離／重連、refresh token續期均通過；2026-08-10版本14安全更新與新版pending UI、MANUAL成功、四類有序per-run raw、snapshot provenance／唯一性、job與財務隔離全數通過 |
 | 外部設定 | SETUP-001, SETUP-004, SETUP-005, SETUP-006, SETUP-008, SETUP-009 | AWAITING_USER_SETUP | `docs/SETUP_CHECKLIST.md`已填名稱、路徑、secret與驗證；待各自真實帳號、裝置或production階段 |
-| 外部設定 | SETUP-007 | AWAITING_USER_SETUP | `docs/SETUP_CHECKLIST.md`已記錄官方匯出、遮蔽副本位置、不可提交邊界、staging App預覽與Firstrade官方紀錄證據；正式staging D1 SQL／App完整JSON備份已完成並有bytes／SHA-256／JSON checksum證據；修正版staging版本`7d7171c5-7be9-49c8-a28b-e7e0b2dfbe18`已部署並完成唯讀smoke | 遮蔽副本已放置且預覽顯示486列／0錯誤；下一步唯一人工操作為正式匯入，之後才核對App畫面金額合計完成AT-INV-05；未遮蔽原檔與完整JSON不得交給Codex、進Git、進log、snapshot或文件 |
+| 外部設定 | SETUP-007 | VERIFIED | `docs/SETUP_CHECKLIST.md`已記錄官方匯出、遮蔽副本位置、不可提交邊界、staging App預覽與Firstrade官方紀錄證據；正式staging D1 SQL／App完整JSON備份已完成並有bytes／SHA-256／JSON checksum證據；共用staging版本`db41ff0c-7864-43d2-9a98-54000cebfa92`已完成正式匯入與唯讀smoke | 遮蔽副本預覽486列／0錯誤；正式App結果486／486／0／0；D1 Amount合計USD 17.81；Firstrade官方兩筆MSTU BUY人工核對一致；未遮蔽原檔與完整JSON不得交給Codex、進Git、進log、snapshot或文件 |
 
 ## 2026-08-03 staging雲端接管紀錄
 
@@ -383,7 +393,7 @@
 - 完整閘門：`npm run verify`於2026-08-03 09:48重新執行，依序完成lint、雙TypeScript、27 unit、16 Worker/D1與API契約、client build、12個隔離D1 Playwright、正式碼掃描及112-ID狀態表驗證，09:57完成，exit 0、總耗時510.9秒。
 - fake-data scan：`npm run scan`，`src`及`public`通過；未發現fixture import、demoData、Math.random、秘密、任意程式執行、Firstrade帳密或RSC正式入口；掃描規則sentinel自驗通過。
 - unfinished scan：通過；`TODO`、`FIXME`、`NotImplemented`為正式碼阻擋項；13個測試／設定檔未發現`.skip`、`.todo`、`.fixme`或`.only`。
-- requirement status gate：完整本機閘門時為`VERIFIED=71`、`AWAITING_USER_SETUP=41`；staging Access與電腦／手機實體App證據完成後為`VERIFIED=72`、`AWAITING_USER_SETUP=40`；`OFF-005`兩台實體裝置與D1唯讀聚合驗收完成後已重跑，實際通過為`VERIFIED=73`、`AWAITING_USER_SETUP=39`。
+- requirement status gate：完整本機閘門時為`VERIFIED=71`、`AWAITING_USER_SETUP=41`；staging Access與電腦／手機實體App證據完成後為`VERIFIED=72`、`AWAITING_USER_SETUP=40`；`OFF-005`兩台實體裝置與D1唯讀聚合驗收完成後為`VERIFIED=73`、`AWAITING_USER_SETUP=39`；本輪`INV-002`／`SETUP-007`真實Firstrade匯入及AT-INV-05人工核對完成，最新為`VERIFIED=77`、`AWAITING_USER_SETUP=35`。
 - migration fresh：`applyD1Migrations`套用`0001`~`0008`，schema version 8、使用者資料表全空、僅正式系統預設；通過。
 - migration upgrade：本輪本機D1按新增順序套用`0001`~`0008`，最後`wrangler d1 migrations apply --local`回報no migrations；未修改已套用migration。因尚無上一個release，無跨release資料集。
 - staging migration：D1 `4a9da6fd-2fe5-41e1-b17f-0f444e60e14c`由0 tables依序套用`0001`~`0008`，schema version 8、五個核心使用者表0筆、remote migration list為no migrations；未修改既有migration。
@@ -396,7 +406,7 @@
 - Cloudflare Access：使用者已將真實中文「網域」頁的生產Worker URL由「公開」改為「受限」；無session邊界拒絕、JWK 200及本人登入health 200通過，team domain／application audience與`ACCESS_ALLOWED_EMAIL`皆已設定，部署後Secret名稱仍存在且未讀取值；使用者確認只有本人單一Allow政策，電腦與手機實體App首頁均正常。Staging Access完成；Production Access仍等待SETUP-009。
 - YouTube：Project ID `life-manager-personal-505006`下的Web OAuth client、三個必要Secret、兩項唯讀scope與60分鐘state已完成；第二次真實callback成功並建立AES-GCM access／refresh token密文。修正版真實Cron已成功，D1去敏聚合確認1頻道、31影片、574快照、raw provenance缺失0、同語意鍵重複0；本人重新整理後仍確認job=`READY`／attempt 0、connection=`CONNECTED`／錯誤0。Studio與API對齊2026/7/12至2026/8/6後觀看次數總計布林式精確相等，`AT-YT-04`通過；Google App已切換「實際運作中」且未提交公開驗證，等待AT-YT-05撤銷重連驗收。
 - Instagram：adapter、scope/state測試完成；等待Meta App及真實專業帳號。
-- Firstrade CSV：官方來源遮蔽樣本已完成486列／0 parse errors／UTF-8逗號的staging App預覽，官方帳戶紀錄總數亦為486；第39、40列經官方唯讀篩選確認為兩筆來源交易，importer已以決定性 occurrence ordinal保留同檔相同列，`Other` 27列保留原始證據，重跑0新增／486重複。正式staging D1 SQL／App完整JSON備份已完成並核對bytes、檔案SHA-256與JSON checksum；修正版staging已部署並完成未登入302／已登入`/finance`／migration唯讀smoke；AT-INV-05仍等待正式匯入後App畫面金額合計核對，未遮蔽資料不得進入本線。
+- Firstrade CSV：`INV-002`／`SETUP-007`已`VERIFIED`。正式staging batch完成486／486／0／0，App結果與D1一致；D1去識別Amount合計USD 17.81、活動分類及未知Other原始證據完整，重跑0新增／486重複；Firstrade官方完整日期範圍總數486，唯讀篩選確認2025-04-16兩筆MSTU BUY的數量與金額均一致；正式staging D1 SQL／App完整JSON備份已核對，未遮蔽資料不得進入本線。
 - Web Push手機：密文、多裝置及停用契約完成；等待真實手機接收。
 - Web Push電腦：密文、多裝置及停用契約完成；等待真實電腦接收。
 - Resend Email：adapter、去重、retry完成；等待API key、from與本人收件。
@@ -406,7 +416,7 @@
 ### 未完成清單
 不得填「無」除非所有第一批項目為`VERIFIED`。
 
-- `INV-002`, `SETUP-007`：遮蔽真實樣本、staging App預覽及Firstrade官方唯讀紀錄已取得；importer已修正同檔完全相同來源列被錯誤折疊的契約缺陷，正式staging D1 SQL／App完整JSON備份已完成並核對；修正版staging已部署並完成唯讀smoke，等待正式匯入後App畫面金額合計核對，維持`AWAITING_USER_SETUP`。`SOC-010`, `DDL-008`, `DDL-009`仍等待各自真實資料／帳號／裝置；`SOC-009`的真實YouTube授權、撤銷、重連、同步與來源證據已`VERIFIED`。
+- `SOC-010`, `DDL-008`, `DDL-009`仍等待各自真實資料／帳號／裝置；`SOC-009`的真實YouTube授權、撤銷、重連、同步與來源證據已`VERIFIED`。`INV-002`／`SETUP-007`已在本輪真實Firstrade匯入及AT-INV-05核對完成後標為`VERIFIED`。
 - `SEC-001`, `SEC-002`, `SEC-003`, `SEC-004`, `SEC-005`：本機安全邊界完成，等待真實Cloudflare Access與外部通道驗收。
-- `NFR-001`~`NFR-010`, `OPS-001`~`OPS-011`, `SETUP-001`, `SETUP-004`~`SETUP-006`, `SETUP-008`~`SETUP-009`：本機可驗證部分與staging已完成；整組因production部署、外部服務及其真實裝置smoke尚未完成而維持`AWAITING_USER_SETUP`。`SETUP-002`與`SETUP-003`已獨立`VERIFIED`；`SETUP-007`另由`INV-002`追蹤為`AWAITING_USER_SETUP`。
+- `NFR-001`~`NFR-010`, `OPS-001`~`OPS-011`, `SETUP-001`, `SETUP-004`~`SETUP-006`, `SETUP-008`~`SETUP-009`：本機可驗證部分與staging已完成；整組因production部署、外部服務及其真實裝置smoke尚未完成而維持`AWAITING_USER_SETUP`。`SETUP-002`、`SETUP-003`與本輪`SETUP-007`已各自獨立`VERIFIED`。
 - 唯一下一步：Codex實作並驗證migration 10的provider run↔raw payload完整關聯；使用者保持目前頁面，不重複同步、重新整理或撤銷連線。
