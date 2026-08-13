@@ -45,6 +45,16 @@
 - 唯讀smoke證據：未登入`/api/v1/health`回`302`，Access邊界仍在；已登入staging`/finance`載入正式空資料狀態，前端console error為0；遠端D1 migration回報`No migrations to apply`。本輪未套用migration、未執行D1寫入、未讀取Secret值，也未在App按正式匯入。
 - 完成後依規則將`INV-002`／`SETUP-007`恢復為`AWAITING_USER_SETUP`。真人CSV阻擋仍具體列為：遮蔽副本在被Git忽略的`private-imports/`，但正式匯入尚未執行；下一個獨立操作才是正式匯入，之後仍需App畫面核對預期筆數／金額合計，才能完成`AT-INV-05`。未遮蔽CSV、帳號、姓名、地址與帳密不得進入Codex、Git、log、snapshot或文件。
 
+## 2026-08-13 Firstrade正式匯入與AT-INV-05完成
+
+- 本輪開始時依正式規則將`INV-002`／`SETUP-007`列為`IN_PROGRESS`；本輪只處理Firstrade真實遮蔽樣本的正式匯入、合計及人工來源核對，未修改其他產品線、既有migration、共用finance、DEFER-004或DEFER-005。
+- 正式staging前提：共用staging版本`db41ff0c-7864-43d2-9a98-54000cebfa92`承接100%流量；遠端migration無待套用；正式匯入前D1 SQL與App完整JSON備份、bytes／SHA-256／JSON checksum均已核對；本輪未讀取Secret值。
+- 正式staging匯入結果：batch `019ffa7d-2483-7396-87a3-fdd7c8a5ba6e`於`2026-08-13T09:42:02.922Z`完成，`totalRows=486`、`importedRows=486`、`duplicateRows=0`、`errorRows=0`；staging App畫面顯示相同的`486／486／0／0`。
+- 去識別D1合計證據：486筆活動均為USD，`SUM(amount_minor)=1781`（USD 17.81）；活動計數為BUY255、SELL182、DIVIDEND7、INTEREST15、UNCLASSIFIED27；`Other` 27列的原始列證據仍保留，未知類型未丟棄；既有重跑契約為0新增／486重複。
+- 真人官方來源核對：Firstrade官方「賬戶紀錄」以完整日期範圍顯示總數486；以`04/16/2025`、BUY、單一symbol的唯讀篩選確認兩筆`MSTU`交易，兩筆數量均為`1.00`、金額均為`-5.71`，使用者確認與遮蔽樣本第39、40列一致。未要求貼CSV，未保存或輸出帳號、姓名、地址或未遮蔽內容。
+- 受影響驗證：`npm run lint`、`npm run typecheck`、`npm run test`（14 files／43 tests）、`npm run test:worker`（21 tests）、`npm run build:client`、`npm run scan`、`npm run verify:requirements`及完整`npm run test:e2e`均以exit 0通過；另以短路徑重跑正式UI寫入D1案例，desktop、mobile-390及mobile-320均通過。`git diff --check`通過。
+- 本輪決定：`AT-INV-02`～`AT-INV-05`證據齊全，`INV-002`／`SETUP-007`由`IN_PROGRESS`轉為`VERIFIED`；本線無外部阻擋。實作仍不包含Firstrade自動provider或深度投資帳務。
+
 ## 第一批需求帳本
 
 | 需求ID | 狀態 | 實作路徑 | migration | 測試／證據 | 阻擋／備註 |
@@ -69,7 +79,7 @@
 | FIN-007 | VERIFIED | `src/modules/finance/analytics.ts` | `0003_finance_investments.sql` | 覆蓋率、基準、超過基準月份固定答案 | 無 |
 | FIN-008 | VERIFIED | `FinancePage.tsx`, finance query schema、`MetricLineChart.tsx` | 不需新migration | 月／季／年、原幣/TWD、來源／事業／分類／帳戶篩選API及UI；軸、刻度、單位、圖例、tooltip與設定E2E通過 | 無 |
 | INV-001 | VERIFIED | investment account/snapshot/UI | `0003_finance_investments.sql` | 手動券商總值與現金納入淨值／配置 | 無 |
-| INV-002 | AWAITING_USER_SETUP | `src/integrations/firstrade-csv/importer.ts`, `src/integrations/firstrade-csv/service.ts`, `src/app/pages/InvestmentImportPanel.tsx`, `src/worker/api/index.ts` | `0003_finance_investments.sql`；本輪不新增migration | `tests/unit/firstrade.test.ts`、`tests/worker/api-d1.test.ts`固定答案；遮蔽真實樣本：486列／0 parse errors／UTF-8逗號、Amount合計USD 17.81、D1首次486新增／0同檔重複、重跑0新增／486重複、活動BUY255／SELL182／DIVIDEND7／INTEREST15／UNCLASSIFIED27、未知Other 27列原始證據保留；staging App預覽486列／0錯誤，Firstrade官方紀錄總數486；正式staging D1 SQL／App完整JSON備份已完成，bytes／SHA-256／JSON checksum均已核對；修正版staging部署版本`7d7171c5-7be9-49c8-a28b-e7e0b2dfbe18`承接100%，未登入health 302、已登入`/finance` smoke正常、遠端migration無待套用 | 外部阻擋為正式匯入及App畫面金額合計核對；未完成AT-INV-05前不可改為`VERIFIED` |
+| INV-002 | VERIFIED | `src/integrations/firstrade-csv/importer.ts`, `src/integrations/firstrade-csv/service.ts`, `src/app/pages/InvestmentImportPanel.tsx`, `src/worker/api/index.ts` | `0003_finance_investments.sql`；本輪不新增migration | `tests/unit/firstrade.test.ts`、`tests/worker/api-d1.test.ts`固定答案；遮蔽真實樣本486列／0 parse errors／UTF-8逗號；正式staging App結果486／486／0／0；去識別D1 Amount合計USD 17.81（1781 minor units）、活動BUY255／SELL182／DIVIDEND7／INTEREST15／UNCLASSIFIED27、未知Other 27列原始證據保留；重跑0新增／486重複；Firstrade官方紀錄總數486，唯讀篩選確認2025-04-16兩筆MSTU BUY、數量1.00及金額-5.71均一致；正式staging D1 SQL／App完整JSON備份已完成，bytes／SHA-256／JSON checksum均已核對；共用staging版本`db41ff0c-7864-43d2-9a98-54000cebfa92`承接100%，遠端migration無待套用 | AT-INV-02～AT-INV-05及SETUP-007證據完成；不包含自動provider、深度投資帳務，無本線阻擋 |
 | INV-003 | VERIFIED | provider policy、scan | 不需 | 無帳密／逆向登入／下單；secret與關鍵字掃描通過 | 無 |
 | INV-004 | VERIFIED | investment schema/import boundary | `0003_finance_investments.sql` | 僅保存來源回報活動，不推導成本或損益 | 無 |
 | SOC-001 | VERIFIED | social resources、entity-tags | `0004_social_integrations.sql` | content/post分離、平台帳號、內容標籤 | 無 |
@@ -128,7 +138,7 @@
 | 外部設定 | SETUP-003 | VERIFIED | Google Project、OAuth client、必要Worker Secret、真實callback、本人頻道、Studio 26天精確核對、Google App「實際運作中」、撤銷／Cron失敗隔離／重連、refresh token續期均通過；2026-08-10版本14安全更新與新版pending UI、MANUAL成功、四類有序per-run raw、snapshot provenance／唯一性、job與財務隔離全數通過 |
 | 外部設定 | SETUP-004 | VERIFIED | Meta App、兩項最小permission、staging callback、本人專業帳號、關閉越界Webhook、兩個Secret、本人同意與OAuth callback/profile connection均已完成；第3步Webhook欄位空白、Review／發佈未啟用符合自用Standard Access範圍。budget fix已部署，兩次真實Instagram同步成功，AT-IG-01～05、raw／run link／snapshot、冪等及輪替證據完整；不需migration | A線完成；不涉及production資源或SETUP-009 |
 | 外部設定 | SETUP-001, SETUP-008, SETUP-009 | AWAITING_USER_SETUP | `docs/SETUP_CHECKLIST.md`已填名稱、路徑、secret與驗證；待各自真實帳號、裝置或production階段 |
-| 外部設定 | SETUP-007 | AWAITING_USER_SETUP | `docs/SETUP_CHECKLIST.md`已記錄官方匯出、遮蔽副本位置、不可提交邊界、staging App預覽與Firstrade官方紀錄證據；正式staging D1 SQL／App完整JSON備份已完成並有bytes／SHA-256／JSON checksum證據；修正版staging版本`7d7171c5-7be9-49c8-a28b-e7e0b2dfbe18`已部署並完成唯讀smoke | 遮蔽副本已放置且預覽顯示486列／0錯誤；下一步唯一人工操作為正式匯入，之後才核對App畫面金額合計完成AT-INV-05；未遮蔽原檔與完整JSON不得交給Codex、進Git、進log、snapshot或文件 |
+| 外部設定 | SETUP-007 | VERIFIED | `docs/SETUP_CHECKLIST.md`已記錄官方匯出、遮蔽副本位置、不可提交邊界、staging App預覽與Firstrade官方紀錄證據；正式staging D1 SQL／App完整JSON備份已完成並有bytes／SHA-256／JSON checksum證據；共用staging版本`db41ff0c-7864-43d2-9a98-54000cebfa92`已完成正式匯入與唯讀smoke | 遮蔽副本預覽486列／0錯誤；正式App結果486／486／0／0；D1 Amount合計USD 17.81；Firstrade官方兩筆MSTU BUY人工核對一致；未遮蔽原檔與完整JSON不得交給Codex、進Git、進log、snapshot或文件 |
 | 外部設定 | SETUP-006 | IN_PROGRESS | `docs/SETUP_CHECKLIST.md`、`docs/OPERATIONS.md`、staging Worker／build設定與Push專屬裝置驗收 | VAPID private key／subject只進Cloudflare Secret；public var與兩個Secret名稱／型別仍存在，A已以只輸出布林結果核對同一public key進入client bundle且未發現secret identifier；最新staging version`db41ff0c-7864-43d2-9a98-54000cebfa92`為100%流量、remote migration list為空；N2已完成共用scheduler狀態回寫、逐裝置GET API、Deadlines UI與固定答案；尚未完成Access session授權GET smoke、手機與電腦真實授權、測試通知、每裝置實收及獨立停用；未完成前維持`IN_PROGRESS` |
 | 外部設定 | SETUP-005 | VERIFIED | `docs/SETUP_CHECKLIST.md`、`src/integrations/resend`、通知測試入口；本線不需migration | 自動驗證已完成；兩個Secret、加密收件地址、Email `READY`與1筆正式`OPEN`期限均已核對；App測試請求由delivery log證明寄送成功，使用者確認在垃圾郵件收到測試信；shared通道摘要修正已由N線完成並隨A整合版本部署，本項`VERIFIED`仍只代表Resend既有真人寄信驗收，未重做真人寄信 |
 
