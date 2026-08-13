@@ -200,6 +200,13 @@ App內：
 
 `recordNotificationDeliveryOutcome`以D1 batch同步`notification_deliveries`、`notification_channels`及（Web Push時）指定`push_subscriptions`。成功寫入時間並清除同一通道的錯誤；provider error保存去敏錯誤；404／410標記該訂閱`EXPIRED`，仍有其他ACTIVE訂閱時通道保持`READY`。`GET /api/v1/push-subscriptions`只回傳每台最新安全欄位，Deadlines頁面顯示成功時間／錯誤代碼／狀態；空訂閱不產生示範資料。這些是本機固定答案，不能替代staging VAPID設定、Access及兩台真人裝置收件。
 
+### N2 共用通知獨立性修正（2026-08-13）
+
+- 裝置標籤以`sync_devices.display_name`為權威；同步客戶端的預設「此裝置」不會覆寫使用者已改名的標籤。Push API以伺服器端解密比對同一裝置的明文 endpoint，避免AES-GCM隨機IV使同 endpoint 重訂閱產生重複列。
+- API與scheduler都先依`device_id`以`updated_at`、`created_at`、`id`降冪取最新列，再只選`ACTIVE`且未停用的列；因此最新手機`DISABLED`會遮蔽舊列，不會因目前瀏覽器的`Notification.permission`或local endpoint把狀態套到其他裝置。
+- Web Push成功只代表 Push service 接受加密訊息傳輸；沒有 provider message ID 時仍可依契約記錄`SENT`，但UI使用「服務接受」語意，不宣稱瀏覽器顯示或真人已看見。channel摘要依每裝置最新列重新聚合；有活動裝置且另一台失敗時保持`READY`並保留錯誤摘要。
+- 本修正不新增migration、不執行remote migration、不部署；A需整合後重新部署，C再依`SETUP-006`完成真人雙裝置驗收。
+
 ### A整合線第二階段部署證據（2026-08-12）
 
 - A整合branch以暫時`VITE_VAPID_PUBLIC_KEY`完成799 modules client build，`dist`含public key且未發現private／subject／其他secret identifier；環境變數未寫入`.env`、`wrangler.toml`、source、Git或文件。

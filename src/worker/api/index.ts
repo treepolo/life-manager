@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { encryptSecret, sha256 } from "@/core/crypto/secrets";
+import { decryptSecret, encryptSecret, sha256 } from "@/core/crypto/secrets";
 import { newId, nowIso } from "@/core/database/d1";
 import { ApiError } from "@/core/errors/api-error";
 import { pullChanges, applySyncBatch, resolveSyncConflict } from "@/core/sync/server";
@@ -30,6 +30,8 @@ const operationEnvelopeSchema = z.object({
   operationId: operationIdSchema,
   data: z.record(z.string(), z.unknown()),
 });
+
+const DEFAULT_DEVICE_DISPLAY_NAME = "此裝置";
 
 async function jsonBody(request: Request): Promise<unknown> {
   try {
@@ -69,15 +71,41 @@ async function registerDevice(request: Request, env: Env, requestId: string): Pr
     env.LIFE_DB.prepare(
       `INSERT INTO sync_devices (id, display_name, user_agent_summary, last_seen_at, created_at, updated_at, version)
        VALUES (?, ?, ?, ?, ?, ?, 1)
-       ON CONFLICT(id) DO UPDATE SET display_name = excluded.display_name, user_agent_summary = excluded.user_agent_summary,
+       ON CONFLICT(id) DO UPDATE SET display_name = CASE WHEN excluded.display_name = ? THEN sync_devices.display_name ELSE excluded.display_name END,
+       user_agent_summary = excluded.user_agent_summary,
        last_seen_at = excluded.last_seen_at, updated_at = excluded.updated_at, version = sync_devices.version + 1`,
-    ).bind(data.id, data.displayName, data.userAgentSummary, now, now, now),
+    ).bind(data.id, data.displayName, data.userAgentSummary, now, now, now, DEFAULT_DEVICE_DISPLAY_NAME),
     env.LIFE_DB.prepare("INSERT OR IGNORE INTO sync_cursors (device_id, last_pulled_cursor, updated_at) VALUES (?, 0, ?)").bind(data.id, now),
     env.LIFE_DB.prepare(
       "INSERT INTO api_idempotency (operation_id, request_hash, resource_type, resource_id, response_status, response_json, created_at) VALUES (?, ?, 'sync-device', ?, 200, ?, ?)",
     ).bind(operationId, await sha256(JSON.stringify(data)), data.id, JSON.stringify(response), now),
   ]);
   return Response.json(response);
+}
+
+interface ExistingPushSubscriptionRow {
+  id: string;
+  endpoint_encrypted: string;
+  created_at: string;
+  updated_at: string;
+}
+
+async function findPushSubscriptionByEndpoint(input: {
+  env: Env;
+  deviceId: string;
+  endpoint: string;
+}): Promise<ExistingPushSubscriptionRow | null> {
+  const rows = await input.env.LIFE_DB.prepare(
+    "SELECT id, endpoint_encrypted, created_at, updated_at FROM push_subscriptions WHERE device_id = ? ORDER BY updated_at DESC, created_at DESC, id DESC",
+  ).bind(input.deviceId).all<ExistingPushSubscriptionRow>();
+  for (const row of rows.results) {
+    try {
+      if (await decryptSecret(row.endpoint_encrypted, input.env.TOKEN_ENCRYPTION_KEY) === input.endpoint) return row;
+    } catch {
+      // A corrupt historical ciphertext must not be exposed or prevent a new device registration.
+    }
+  }
+  return null;
 }
 
 async function saveNotificationPreferences(request: Request, env: Env, requestId: string): Promise<Response> {
@@ -131,25 +159,37 @@ async function savePushSubscription(request: Request, env: Env, requestId: strin
   const prior = await env.LIFE_DB.prepare("SELECT response_json FROM api_idempotency WHERE operation_id = ?").bind(operationId).first<{ response_json: string }>();
   if (prior) return Response.json(JSON.parse(prior.response_json));
   const now = nowIso();
+  const existing = await findPushSubscriptionByEndpoint({ env, deviceId: data.deviceId, endpoint: data.endpoint });
   const [endpoint, p256dh, auth] = await Promise.all([
     encryptSecret(data.endpoint, env.TOKEN_ENCRYPTION_KEY),
     encryptSecret(data.keys.p256dh, env.TOKEN_ENCRYPTION_KEY),
     encryptSecret(data.keys.auth, env.TOKEN_ENCRYPTION_KEY),
   ]);
-  const response = { data: { id: data.id, deviceId: data.deviceId, status: "ACTIVE", lastSuccessAt: null }, meta: { requestId } };
-  await env.LIFE_DB.batch([
-    env.LIFE_DB.prepare("UPDATE push_subscriptions SET status = 'DISABLED', disabled_at = ?, updated_at = ?, version = version + 1 WHERE device_id = ? AND status = 'ACTIVE'").bind(now, now, data.deviceId),
-    env.LIFE_DB.prepare(
+  const persistedId = existing?.id ?? data.id;
+  const response = { data: { id: persistedId, deviceId: data.deviceId, status: "ACTIVE", lastSuccessAt: null }, meta: { requestId } };
+  const disableOtherActive = existing
+    ? env.LIFE_DB.prepare("UPDATE push_subscriptions SET status = 'DISABLED', disabled_at = ?, updated_at = ?, version = version + 1 WHERE device_id = ? AND id <> ? AND status = 'ACTIVE'").bind(now, now, data.deviceId, persistedId)
+    : env.LIFE_DB.prepare("UPDATE push_subscriptions SET status = 'DISABLED', disabled_at = ?, updated_at = ?, version = version + 1 WHERE device_id = ? AND status = 'ACTIVE'").bind(now, now, data.deviceId);
+  const saveCurrent = existing
+    ? env.LIFE_DB.prepare(
+      `UPDATE push_subscriptions SET endpoint_encrypted = ?, p256dh_encrypted = ?, auth_encrypted = ?, content_encoding = 'aes128gcm',
+       user_agent_summary = ?, status = 'ACTIVE', last_success_at = NULL, last_error_code = NULL, disabled_at = NULL,
+       updated_at = ?, version = version + 1 WHERE id = ? AND device_id = ?`,
+    ).bind(endpoint, p256dh, auth, data.userAgentSummary, now, persistedId, data.deviceId)
+    : env.LIFE_DB.prepare(
       `INSERT INTO push_subscriptions
        (id, device_id, endpoint_encrypted, p256dh_encrypted, auth_encrypted, content_encoding,
         user_agent_summary, status, created_at, updated_at, version)
        VALUES (?, ?, ?, ?, ?, 'aes128gcm', ?, 'ACTIVE', ?, ?, 1)`,
-    ).bind(data.id, data.deviceId, endpoint, p256dh, auth, data.userAgentSummary, now, now),
+    ).bind(data.id, data.deviceId, endpoint, p256dh, auth, data.userAgentSummary, now, now);
+  await env.LIFE_DB.batch([
+    disableOtherActive,
+    saveCurrent,
     env.LIFE_DB.prepare("UPDATE notification_channels SET enabled = 1, status = ?, updated_at = ?, version = version + 1 WHERE channel_kind = 'WEB_PUSH'")
       .bind(env.WEB_PUSH_VAPID_PUBLIC_KEY && env.WEB_PUSH_VAPID_PRIVATE_KEY && env.WEB_PUSH_VAPID_SUBJECT ? "READY" : "UNCONFIGURED", now),
     env.LIFE_DB.prepare(
       "INSERT INTO api_idempotency (operation_id, request_hash, resource_type, resource_id, response_status, response_json, created_at) VALUES (?, ?, 'push-subscription', ?, 201, ?, ?)",
-    ).bind(operationId, await sha256(data.endpoint), data.id, JSON.stringify(response), now),
+    ).bind(operationId, await sha256(data.endpoint), persistedId, JSON.stringify(response), now),
   ]);
   return Response.json(response, { status: 201 });
 }
@@ -487,15 +527,20 @@ export async function handleApi(input: {
   }
   if (path === "/api/v1/push-subscriptions" && input.request.method === "GET") {
     const rows = await input.env.LIFE_DB.prepare(
-      `SELECT id, device_id, user_agent_summary, status, last_success_at, last_error_code, disabled_at, updated_at, version
+      `SELECT p.id, p.device_id,
+              CASE WHEN d.display_name IS NULL OR TRIM(d.display_name) = '' OR d.display_name = ?
+                   THEN COALESCE(NULLIF(d.user_agent_summary, ''), NULLIF(p.user_agent_summary, ''), p.device_id)
+                   ELSE d.display_name END AS device_name,
+              p.user_agent_summary, p.status, p.last_success_at, p.last_error_code, p.disabled_at, p.updated_at, p.version
        FROM (
-         SELECT id, device_id, user_agent_summary, status, last_success_at, last_error_code, disabled_at, updated_at, version,
+         SELECT id, device_id, user_agent_summary, status, last_success_at, last_error_code, disabled_at, updated_at, version, created_at,
                 ROW_NUMBER() OVER (PARTITION BY device_id ORDER BY updated_at DESC, created_at DESC, id DESC) AS row_number
          FROM push_subscriptions
-       )
-       WHERE row_number = 1
-       ORDER BY device_id`,
-    ).all();
+       ) AS p
+       LEFT JOIN sync_devices AS d ON d.id = p.device_id
+       WHERE p.row_number = 1
+       ORDER BY device_name COLLATE NOCASE, p.device_id`,
+    ).bind(DEFAULT_DEVICE_DISPLAY_NAME).all();
     const data = pushSubscriptionStatusOutputSchema.array().parse(rows.results);
     return Response.json({ data, meta: { requestId: input.requestId } });
   }

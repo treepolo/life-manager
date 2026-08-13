@@ -674,8 +674,19 @@ describe("正式D1 migration與API契約", () => {
       await responseBody(await jsonRequest("/api/v1/sync/devices", "POST", { operationId: uuidv7(), data: { id: deviceId, displayName: label, userAgentSummary: "worker-test" } }));
       await responseBody(await jsonRequest("/api/v1/push-subscriptions", "POST", { operationId: uuidv7(), data: { id: uuidv7(), deviceId, endpoint: `https://push.example.test/${deviceId}`, expirationTime: null, keys: { p256dh: "p256dh-test-value-with-sufficient-length", auth: "auth-test-value" }, userAgentSummary: "worker-test" } }));
     }
-    const encrypted = await env.LIFE_DB.prepare("SELECT endpoint_encrypted FROM push_subscriptions WHERE device_id = ?").bind(deviceA).first<{ endpoint_encrypted: string }>();
+    const originalSubscriptionA = await env.LIFE_DB.prepare("SELECT id FROM push_subscriptions WHERE device_id = ?").bind(deviceA).first<{ id: string }>();
+    await responseBody(await jsonRequest("/api/v1/sync/devices", "POST", { operationId: uuidv7(), data: { id: deviceA, displayName: "Computer", userAgentSummary: "desktop-browser" } }));
+    const resubscribe = await responseBody(await jsonRequest("/api/v1/push-subscriptions", "POST", { operationId: uuidv7(), data: { id: uuidv7(), deviceId: deviceA, endpoint: `https://push.example.test/${deviceA}`, expirationTime: null, keys: { p256dh: "p256dh-test-value-with-sufficient-length", auth: "auth-test-value" }, userAgentSummary: "desktop-browser" } }));
+    expect((resubscribe.data as Record<string, unknown>).id).toBe(originalSubscriptionA?.id);
+    expect(Number((await env.LIFE_DB.prepare("SELECT COUNT(*) AS count FROM push_subscriptions WHERE device_id = ?").bind(deviceA).first<{ count: number }>())?.count)).toBe(1);
+    const labelled = (await responseBody(await jsonRequest("/api/v1/push-subscriptions"))).data as Array<Record<string, unknown>>;
+    expect(labelled).toEqual(expect.arrayContaining([expect.objectContaining({ device_id: deviceA, device_name: "Computer", status: "ACTIVE" })]));
+    const updatedEndpoint = `https://push.example.test/${deviceA}/updated`;
+    await responseBody(await jsonRequest("/api/v1/push-subscriptions", "POST", { operationId: uuidv7(), data: { id: uuidv7(), deviceId: deviceA, endpoint: updatedEndpoint, expirationTime: null, keys: { p256dh: "p256dh-test-value-with-sufficient-length", auth: "auth-test-value" }, userAgentSummary: "desktop-browser-updated" } }));
+    expect(Number((await env.LIFE_DB.prepare("SELECT COUNT(*) AS count FROM push_subscriptions WHERE device_id = ?").bind(deviceA).first<{ count: number }>())?.count)).toBe(2);
+    const encrypted = await env.LIFE_DB.prepare("SELECT endpoint_encrypted FROM push_subscriptions WHERE device_id = ? AND status = 'ACTIVE'").bind(deviceA).first<{ endpoint_encrypted: string }>();
     expect(encrypted?.endpoint_encrypted).not.toContain("push.example.test");
+    expect(await decryptSecret(encrypted!.endpoint_encrypted, env.TOKEN_ENCRYPTION_KEY)).toBe(updatedEndpoint);
     await responseBody(await jsonRequest("/api/v1/push-subscriptions/disable", "POST", { operationId: uuidv7(), data: { deviceId: deviceA } }));
     expect(Number((await env.LIFE_DB.prepare("SELECT COUNT(*) AS count FROM push_subscriptions WHERE status = 'ACTIVE'").first<{ count: number }>())?.count)).toBe(1);
     expect((await env.LIFE_DB.prepare("SELECT enabled FROM notification_channels WHERE channel_kind = 'WEB_PUSH'").first<{ enabled: number }>())?.enabled).toBe(1);

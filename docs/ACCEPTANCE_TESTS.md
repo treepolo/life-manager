@@ -247,7 +247,7 @@ W-8BEN與報稅範本固定最高級；可編輯日期及說明但不能降級�
 
 手機與電腦各訂閱一次，送出測試Push並收到；停用一台不影響另一台。
 
-N線自動固定答案（2026-08-12）：`tests/worker/notifications-writeback-d1.test.ts`以兩個有效訂閱驗證同一 shared test-send operation 只送一次；裝置A收到provider 410時保存`EXPIRED`／`PUSH_SUBSCRIPTION_EXPIRED`，裝置B成功時保存`ACTIVE`／`last_success_at`，共用Web Push channel仍為`READY`且成功摘要可讀回；`GET /api/v1/push-subscriptions`回傳兩台逐裝置狀態。空訂閱回傳`PUSH_SUBSCRIPTION_MISSING`且API為空陣列，不產生示範資料。此為自動化與API/UI資料路徑證據，不取代A部署後由C執行的兩台真人收件、獨立停用與瀏覽器通知授權；本驗收維持`IN_PROGRESS`。
+N線自動固定答案（2026-08-13）：`tests/worker/notifications-writeback-d1.test.ts`以兩個有效訂閱驗證同一 shared test-send operation 只送一次；裝置A收到provider 410時保存`EXPIRED`／`PUSH_SUBSCRIPTION_EXPIRED`，裝置B成功時保存`ACTIVE`／`last_success_at`，共用Web Push channel仍為`READY`且以「有活動裝置但仍有裝置錯誤」保留錯誤摘要；`GET /api/v1/push-subscriptions`回傳兩台逐裝置狀態。另一個固定答案以同一時間戳的手機舊`ACTIVE`列與最新`DISABLED`列、電腦`ACTIVE`列重現C情境：API顯示手機`DISABLED`／電腦`ACTIVE`，測試只呼叫電腦端點，delivery以`SENT`保存且`provider_message_id`可為空；裝置名稱由`sync_devices.display_name`對應，並覆蓋同 endpoint 重訂閱、改名與穩定排序。Push 2xx 的語意是 Push service accepted，不代表瀏覽器顯示或真人已看見。空訂閱回傳`PUSH_SUBSCRIPTION_MISSING`且API為空陣列，不產生示範資料。此為自動化與API/UI資料路徑證據，不取代A後續部署及C執行的兩台真人收件、獨立停用與瀏覽器通知授權；本驗收維持`IN_PROGRESS`。
 
 ### AT-MAIL-01　真實郵件
 

@@ -95,6 +95,8 @@ Occurrence需可重建但不得因排程修改而抹除歷史。Completion為app
 
 `deadline_items`只有兩種importance。提醒啟動依`actionable_from_local_date`，可另有`due_local_date`。全域通知時間及重複週期放在`notification_preferences`，不為每一事項建立多階段日期。
 
+Web Push的裝置狀態以`push_subscriptions.device_id`分開保存，裝置名稱以`sync_devices.display_name`對應；同步客戶端的預設名稱不得覆寫使用者已設定的名稱。因 endpoint 以AES-GCM隨機IV加密，API比對同裝置重訂閱時必須在伺服器端解密比對明文，不能以`endpoint_encrypted`直接做邏輯相等。API與排程以`updated_at`、`created_at`、`id`的穩定降冪順序取每台裝置最新列，再篩選`ACTIVE`且未停用；Push provider成功欄位代表服務接受傳輸，不代表瀏覽器顯示或真人已看見。這些規則使用既有`0005`欄位，不新增migration。
+
 ### 2.7 Sync
 
 - `sync_operations`

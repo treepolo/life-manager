@@ -10,7 +10,7 @@ export async function sendDeadlinePush(input: {
   deadlineName: string;
   importance: "SUPER_CRITICAL" | "CRITICAL";
   url: string;
-}): Promise<void> {
+}): Promise<{ providerAccepted: true; providerMessageId: string | null }> {
   if (!input.publicKey || !input.privateKey || !input.subject) {
     throw new ApiError(503, "NOTIFICATION_CONFIGURATION_MISSING", "Web Push VAPID設定尚未完成。");
   }
@@ -33,4 +33,7 @@ export async function sendDeadlinePush(input: {
       providerCode: response.status,
     });
   }
+  // Web Push 2xx means the push service accepted the encrypted message for
+  // transport. It does not prove that a browser displayed or a person saw it.
+  return { providerAccepted: true, providerMessageId: null };
 }
