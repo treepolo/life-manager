@@ -19,13 +19,13 @@
 | Deadlines | DDL-001, DDL-002, DDL-003, DDL-004, DDL-005, DDL-006, DDL-007, DDL-008, DDL-009 | AT-DDL-01~07, AT-PUSH-01, AT-MAIL-01, AT-UI-05 |
 | Offline | OFF-001, OFF-002, OFF-003, OFF-004, OFF-005, OFF-006 | AT-OFF-01~08 |
 | Data | DATA-001, DATA-002, DATA-003, DATA-004 | AT-DATA-01~05 |
-| Non-functional | NFR-001, NFR-002, NFR-003, NFR-004, NFR-005, NFR-006, NFR-007, NFR-008, NFR-009, NFR-010 | AT-OPS-01~02, AT-SEC-01~04, AT-UI-01~06, AT-DATA-01~05 |
+| Non-functional | NFR-001, NFR-002, NFR-003, NFR-004, NFR-005, NFR-006, NFR-007, NFR-008, NFR-009, NFR-010 | AT-OPS-01~20, AT-SEC-01~04, AT-UI-01~06, AT-DATA-01~05 |
 | Architecture | ARCH-001, ARCH-002, ARCH-003 | AT-ARCH-01~03 |
 | UI | UI-001, UI-002, UI-003, UI-004, UI-005, UI-006 | AT-UI-01~06 |
 | Charts | UI-CHART-001, UI-CHART-002, UI-CHART-003, UI-CHART-004, UI-CHART-005, UI-CHART-006, UI-CHART-007, UI-CHART-008, UI-CHART-009, UI-CHART-010 | AT-CHART-01~10 |
 | Security | SEC-001, SEC-002, SEC-003, SEC-004, SEC-005 | AT-SEC-01~04, AT-DATA-05 |
-| Operations | OPS-001, OPS-002, OPS-003, OPS-004, OPS-005, OPS-006, OPS-007, OPS-008, OPS-009, OPS-010, OPS-011 | AT-OPS-01~02, AT-DATA-03, AT-SETUP-01 |
-| Setup gates | SETUP-001, SETUP-002, SETUP-003, SETUP-004, SETUP-005, SETUP-006, SETUP-007, SETUP-008, SETUP-009 | AT-SETUP-01, live smoke tests |
+| Operations | OPS-001, OPS-002, OPS-003, OPS-004, OPS-005, OPS-006, OPS-007, OPS-008, OPS-009, OPS-010, OPS-011 | AT-OPS-01~20, AT-DATA-03, AT-SETUP-01, SETUP-010 |
+| Setup gates | SETUP-001, SETUP-002, SETUP-003, SETUP-004, SETUP-005, SETUP-006, SETUP-007, SETUP-008, SETUP-009, SETUP-010 | AT-SETUP-01, AT-OPS-15, live smoke tests |
 
 ## 2026-08-13 最終整合與 AT-GATE-08
 
@@ -34,6 +34,14 @@
 - `DDL-008`／`SETUP-006`／`AT-PUSH-01`：手機與電腦各自收件；手機停用後為`DISABLED`，電腦維持`ACTIVE`並收件；UI／Push API／D1／delivery一致，最新delivery送至ACTIVE 1、DISABLED 0、錯誤0。
 - `SOC-010`／`SETUP-004`／`AT-IG-01`～`AT-IG-05`與`DDL-009`／`SETUP-005`／`AT-MAIL-01`維持既有`VERIFIED`；YouTube與其他既有已驗收ID未重做或降級。結論：`AT-GATE-08` `PASSED`。
 - B／C完成線相對已部署A runtime僅帶入正式文件與去識別證據，沒有`src/`、`public/`、設定、script或migration差異；因此 bundle unchanged，最終整合不需重部署。最終 local gate 的 lint（明確排除被保護的`backups/`）、雙typecheck、unit 15 files／52 tests、Worker/D1/API 3 files／27 tests、client build 799 modules、隔離Playwright 13/13、scan、112-ID coverage與`git diff --check`均通過；staging version維持100% active，remote migration list為`No migrations to apply!`。
+
+## 2026-08-13 NFR-001／OPS-002 成本防線文件計畫
+
+- 使用者提供的 Cloudflare 結帳頁是本帳戶特定第一手證據：超出包含額度的使用量按月計費，且已出現授權超額扣款的選項。這項去識別證據優先於先前「Zero Trust Free 超額不會自動扣款」的稽核結論；本矩陣不記錄付款資料、帳戶 email、末四碼或圖片路徑。
+- `NFR-001`／`OPS-002` 本輪狀態為 `IN_PROGRESS`（文件計畫，不是 runtime 已完成）。Cloudflare／Resend／Google／Meta 的一般 Free 或 quota 文件只能證明其官方產品行為，不能取代本帳戶 checkout authorization、plan／SKU、usage、alert 與 invoice 核對。
+- 新增計畫文件：`docs/COST_GUARDRAIL_PLAN.md`。它只規劃帳戶 drift、平台 usage、App rate／budget／circuit breaker／降載與恢復，不宣稱程式能阻止帳戶扣款；KV、R2、Queues、Cloudflare Email 在未審核前維持禁用。
+- 新增固定答案驗收：`AT-OPS-03`～`AT-OPS-20`；新增唯一規劃中的真人設定閘門 `SETUP-010`。本輪不執行 `SETUP-010`，不新增 migration、不部署、不修改 Cloudflare 帳務／方案／付款／Secrets／vars／Access。
+- 現有 project／wrangler／runtime 只作 footprint 證據；D1 batch、Instagram 40 篇／run、43 subrequests 等是 App／Workers 護欄，不能冒充 provider quota 或帳戶 hard cap。外部 metric／API 失效、period/reset 不明或 billing authorization 不明時，預期結果是 `UNKNOWN`、fail-closed 或 `EXTERNAL_BLOCKED`。
 
 規格衝突紀錄：本檔原有一列寫作`ARCH-001~008`，但`ARCHITECTURE.md`目前只定義`ARCH-001`、`ARCH-002`、`ARCH-003`。未定義的`ARCH-004~008`不列入虛構需求；原列保留供規格擁有者修正。
 
@@ -60,7 +68,7 @@
 | 離線輸入，恢復網路後同步 | OFF-002~006 | IndexedDB、outbox、sync API | AT-OFF-02~08 |
 | 不想自己開電腦、Docker或養伺服器 | NFR-008, OPS-001 | Workers、D1、Cron | AT-OPS-01 |
 | 不需要另一套帳號與登入系統 | NFR-002, SEC-001 | Cloudflare Access | AT-SEC-01 |
-| 免費 | NFR-001, OPS-002 | 免費額度與成本防線 | AT-OPS-02 |
+| 免費／成本安全 | NFR-001, OPS-002 | `docs/COST_GUARDRAIL_PLAN.md`、`docs/OPERATIONS.md`、帳戶／方案 allowlist、平台 usage、App quota gate、恢復稽核 | AT-OPS-02～AT-OPS-20、SETUP-010 |
 | 功能未來會增加，架構不能一改就炸 | CORE-003, ARCH-001~008 | 模組化單體、migration、provider | AT-ARCH-01~03 |
 | 在軟體內增加領域、事業與想追蹤的東西 | CORE-001~006 | core、metrics、views | AT-CORE-01~06 |
 | 複雜新行為仍交給Codex正式開發 | CORE-003 | 模組規則 | AT-ARCH-02 |

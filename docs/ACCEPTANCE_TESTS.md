@@ -399,9 +399,155 @@ D1 SQL匯出、還原及migration驗證通過。
 
 ### AT-OPS-02
 
-Cloudflare、Resend及其他服務設定未啟用付費方案；文件列出目前方案與額度查核日期。
+**前置：** 已有去識別的 Cloudflare 結帳頁證據、官方 quota／billing 來源與 `docs/COST_GUARDRAIL_PLAN.md`；staging 可驗證，production 尚未上線。
+**步驟：** 對照帳戶特定 checkout authorization、產品／方案 allowlist、官方配額、用量來源與告警狀態；同時對照 Resend／YouTube／Instagram 的外部 quota 契約。
+**預期：** 結帳頁明示的超額按月計費與授權使帳戶狀態為「存在自動超額計費風險」，Free 標籤、seat 未滿或沒有當期用量不能改寫為「不會扣款」；未完成帳戶核對時 `NFR-001`／`OPS-002` 不得標 `VERIFIED`。
+**證據：** `docs/PRODUCT_REQUIREMENTS.md`、`docs/OPERATIONS.md`、`docs/COST_GUARDRAIL_PLAN.md`、官方來源 URL、去識別 checkout 摘要與 audit id；不得保存付款資料。
+**禁止：** 不得用一般 onboarding 文件否定 checkout、不得以 seat 額滿／登入阻擋當成所有成本安全、不得自動升級、綁卡、取消授權或修改帳戶設定。
 
-D線支援證據（2026-08-12）：`docs/OPERATIONS.md`已記錄Resend官方免費額度與限制、Idempotency-Key及查核日期；實際帳號方案與用量仍待Resend Usage頁人工核對，故不單獨宣稱`AT-OPS-02`已完成。
+### AT-OPS-03　帳戶付費產品／SKU drift
+
+**前置：** 有版本化的 account／plan allowlist，並能以唯讀 dashboard 或官方 API 取得產品、方案、binding 與 billing authorization 狀態。
+**步驟：** 注入「Workers Paid、R2、Queues、Cloudflare Email Sending、額外 Zero Trust product 或未知 SKU」各一種 drift；再注入讀取失敗與欄位改版。
+**預期：** 未列入 allowlist 或狀態為 `UNKNOWN` 時，audit 失敗、production gate fail、非必要同步／部署停止；不自動改方案。
+**證據：** 去敏 plan／SKU／binding 摘要、allowlist diff、audit id、固定錯誤碼與阻擋決定。
+**禁止：** 不建立資源、不啟用付費產品、不以「目前用量為零」消除 drift。
+
+### AT-OPS-04　固定答案 quota 計算
+
+**前置：** 使用官方來源版本化的 quota contract；測試資料不呼叫真實平台。
+**步驟：** 以固定輸入驗證：Workers 50,000／100,000 requests＝50%；D1 2,500,000／5,000,000 rows read＝50%、50,000／100,000 writes＝50%；KV 50,000／100,000 reads＝50%；R2 5／10 GB-month＝50%；Queues 5,000／10,000 operations＝50%；Resend 50／100 emails＝50%；YouTube 5,000／10,000 units＝50%；再驗證 D1 index write、YouTube method cost、Resend multiple recipients 的計數。
+**預期：** unit、period、reset、source、quality 均正確；不把列數、API request 數或 40 篇 Instagram 上限誤當不同 provider 的 quota。
+**證據：** 固定答案輸入／輸出、contract version、source URL、計算時間與 provenance。
+**禁止：** 不以估算值通過安全 gate、不把不同日／月窗口相加、不讀寫 staging／production 真實資料作計算測試。
+
+### AT-OPS-05　50／75／90%告警去重
+
+**前置：** exact metric、固定 period／reset 與可測試的告警 sink。
+**步驟：** 同一 resource 在 50／75／90% 各送兩次；在同一 window 重收、重試、服務重啟；再跨 reset 產生相同比例。
+**預期：** 每個 threshold／window 只產生一個業務告警；delivery retry 不產生第二個告警；新 period 才可重新告警。
+**證據：** dedupe key、alert row／event、delivery attempt、period／reset 與 notification log。
+**禁止：** 不因告警重試重送 provider request、不把缺 metric 當 0%、不刪除歷史 audit 以製造去重通過。
+
+### AT-OPS-06　95%／安全門檻降載
+
+**前置：** exact metric 已達 95% 或 provider contract 指定的更低安全門檻；排程與手動 sync 同時可觸發。
+**步驟：** 同時觸發非必要 provider sync、測試信、bulk import 與核心 read／write；觀察 request gate、scheduler、manual path。
+**預期：** 非必要操作被固定 `COST_GUARDRAIL_OPEN` 阻擋或降載，核心非相關模組仍可用；不清 outbox、不刪資料、不自動升級。
+**證據：** gate decision、被省略的 operation、provider request count、核心操作結果、audit。
+**禁止：** 不以「最後一點額度」放行測試、不用 retry 繞過 95%、不把降載寫成帳戶 hard cap。
+
+### AT-OPS-07　100% hard-stop／fail-closed
+
+**前置：** metric 為 100%，或平台回 Workers 1027／1102、D1 quota／storage error、Resend 429 quota、YouTube quota error、Instagram rate-limit error。
+**步驟：** 觸發排程、手動同步、通知與同一 operation 的重試；再確認其他模組的 read path。
+**預期：** 對應資源 circuit open、後續 request 為 0、回固定安全錯誤並保存去敏證據；不把平台失敗轉為成功，非相關模組依 `NFR-009` 可用。
+**證據：** error code、request count、circuit state、delivery／audit log、其他模組 smoke。
+**禁止：** 不自動切 Workers Paid、不修改付款／Access／plan、不無限重試、不用 mock success 冒充平台恢復。
+
+### AT-OPS-08　排程／手動同步競態
+
+**前置：** 同一 provider connection、同一 quota window、scheduler 與 manual endpoint 可並行，且使用固定 provider stub。
+**步驟：** 同時送出 Cron claim 與 manual claim，讓第一個操作接近 95%，再讓第二個操作重試／超時。
+**預期：** 只有一個 job 取得 claim；兩者共享 budget／breaker，不重複計算或發送外部 request；失敗一方得到可稽核的 deferred／guardrail 錯誤。
+**證據：** job claim、operation idempotency、budget delta、provider call count、scheduler／manual audit。
+**禁止：** 不以兩個成功 run 抵銷 quota、不用第二個 path 繞過 gate、不直接 SQL 改 job 狀態。
+
+### AT-OPS-09　外部 metric／API 失效不得誤報安全
+
+**前置：** quota endpoint timeout、HTTP 5xx、malformed header、缺 included quota、stale timestamp、plan mismatch 各有固定 stub。
+**步驟：** 對每一種失效執行一次 schedule、manual sync、告警收集與管理頁讀取。
+**預期：** quality 為 `UNKNOWN`，不計算安全百分比、不顯示「目前安全」、非必要外部操作 fail-closed；保留來源錯誤與下一個人工處置。
+**證據：** raw error（去敏）、observed_at／stale 判定、quality、gate decision、通知／audit。
+**禁止：** 不以 0、上一期、估算或 Free plan label 補空值，不把 collector timeout 當成 quota reset。
+
+### AT-OPS-10　跨日／跨月 reset
+
+**前置：** 可注入 UTC day、provider billing month、Resend month、R2 GB-month 與 Zero Trust billing period 的 clock；所有資料仍為 synthetic。
+**步驟：** 在 reset 前達 90／95／100%，跨過 reset，再以新 window 送同一 threshold；另測「顯示日期已變但 provider reset 尚未確認」。
+**預期：** 只有觀測到官方 reset／新 period 才清除該 window 的 used／dedupe；舊 audit 保留，新 window 從 0 或官方回報值開始；未確認時維持 `UNKNOWN`／closed。
+**證據：** period start／end、reset_at、timezone、old／new dedupe key 與 alert history。
+**禁止：** 不用本機日期直接清 quota、不跨月沿用舊 quota、不重設正式帳戶用量。
+
+### AT-OPS-11　時區與顯示
+
+**前置：** 固定 UTC、Pacific、Resend provider window、Asia/Taipei UI 的 clock fixtures，含跨日與 DST 邊界。
+**步驟：** 對 Workers／D1 用 UTC、YouTube 用 Pacific、App 顯示用 Asia/Taipei 計算同一事件；比較 UI、API、audit。
+**預期：** 計費／quota 判定使用 provider contract timezone，畫面明確顯示時區；不把 Asia/Taipei 午夜當成 Cloudflare／YouTube reset。
+**證據：** fixed clock、period、reset_at、UI label、API provenance。
+**禁止：** 不用瀏覽器 local timezone 靜默改變帳戶判定、不省略時間粒度或時區。
+
+### AT-OPS-12　通知失敗與安全狀態
+
+**前置：** in-app、Email、Push／外部通知 sink 可分別回 timeout／429／5xx；成本 gate 已被觸發。
+**步驟：** 送一次 50／75／90% 告警與一次 hard-stop 告警，讓通知失敗後重試，再查管理頁／操作 log。
+**預期：** 通知失敗不解除 breaker、不標 safe；依 backoff 去重重試，站內／audit 保留阻擋狀態；恢復需明確管理者動作。
+**證據：** notification delivery、attempt、去敏錯誤、gate state、audit。
+**禁止：** 不無限重試、不因 email／Push 失敗自動轉另一個付費 channel、不刪除失敗紀錄。
+
+### AT-OPS-13　管理者解除與稽核
+
+**前置：** resource 被 hard-stop；測試角色不是帳戶管理者，另有一個被允許的管理者流程 stub。
+**步驟：** 非管理者嘗試解除；管理者先完成 plan／quota／帳務核對，再提交一次明確解除理由與有效 period；執行一個 synthetic operation。
+**預期：** 非管理者被拒；管理者解除只影響指定 resource／window；解除前後、理由、證據、操作者角色與 expiry 均 audit；不修改付款設定。
+**證據：** authorization decision、解除 audit、synthetic result、scope／expiry、後續 50% 觀測。
+**禁止：** 不提供全域無期限 bypass、不把人工核對省略成按鈕、不保存帳戶 email／付款資料。
+
+### AT-OPS-14　staging 模擬不消耗真實付費 quota
+
+**前置：** staging 使用隔離 D1、provider stub／recorded contract fixture、禁止真實 send／authorize 開關；production credentials 不可被測試讀取。
+**步驟：** 依序模擬所有 quota、429、reset、告警與恢復案例；檢查 network allowlist、provider call log、Cloudflare／Resend／Google／Meta usage 前後證據。
+**預期：** 外部真實 request、email、Push、付費 storage／queue／R2 object 均為 0；所有成功來自 synthetic response；測試不得改 production 或帳戶設定。
+**證據：** stub invocation、egress deny log、隔離 D1、無真實 provider delivery、測試前後去識別 usage snapshot。
+**禁止：** 不用 staging 真實 OAuth／sync／test email 驗證成本 gate，不按會送出同步或通知的按鈕，不執行 migration／部署作為此案替代。
+
+### AT-OPS-15　production 上線前人工帳務核對
+
+**前置：** 所有自動成本固定答案與 staging synthetic gate 已通過；production 尚未建立或尚未承接流量；管理者能以唯讀方式查看 Cloudflare 中文介面。
+**步驟：** 依 `SETUP-010` 一次完成唯讀核對：Cloudflare 首頁 →「管理帳戶」→「計費」，查看「訂閱」／方案、Billable Usage、Notifications／Budget alerts、已啟用產品與 checkout 超額授權；只回報去識別摘要。
+**預期：** 明確記錄 product／plan／SKU、超額授權狀態、usage／reset／alert 可用性與未核對欄位；任何未知、付款授權風險或 allowlist drift 都阻擋 production。
+**證據：** 去識別畫面摘要／截圖（不進 repo）或管理者逐項摘要、查核日期、audit id；不保存卡片、email、帳號 ID 或原始圖片路徑。
+**禁止：** 本階段不要求使用者執行、不修改／儲存／升級／取消任何設定、不要求 OTP、不要求貼付款資料。
+
+### AT-OPS-16　checkout evidence 優先於一般 Free 說明
+
+**前置：** 測試輸入同時包含一般 Free onboarding「無基本費」說明與帳戶特定 checkout「超額按月計費／授權扣款」證據。
+**步驟：** 以不同輸入順序交給 evidence resolver，並檢查 plan／billing state。
+**預期：** resolver 一律以帳戶特定 checkout 設為 `RISK_PRESENT`；一般文件只補充 base plan，不能覆寫 overage authorization。
+**證據：** 去識別 evidence priority decision、source type／timestamp、固定 output。
+**禁止：** 不以 seat 尚未用滿、目前 invoice 為零或 generic docs 將結果改為「不會扣款」。
+
+### AT-OPS-17　provider fixed quota／unknown 邊界
+
+**前置：** YouTube Data API 有官方 method cost／10,000 units/day fixture；Resend 有 quota／rate headers；Instagram response 缺少可驗證 account quota。
+**步驟：** 分別跑 YouTube exact calculation、Resend header calculation、Instagram 40 Insights／43 subrequest application guard。
+**預期：** YouTube／Resend 可在 exact source 下計算；Instagram 狀態為 `UNKNOWN`，40／43 只限本程式／Workers，不足以放行長期同步，故 provider gate fail-closed。
+**證據：** method／header／provider source、quality、request count、固定 error code。
+**禁止：** 不以本地上限冒充 Meta quota、不捏造 Instagram quota 數字、不用成功一次推算整月安全。
+
+### AT-OPS-18　程式 hard-stop 與帳戶控制邊界
+
+**前置：** 成本 gate 可回 100%／unknown；帳戶 stub 同時含已授權超額扣款。
+**步驟：** 觸發 App hard-stop，檢查它是否只阻擋 request／write／schedule；再檢查文件／audit 是否聲稱取消付款或修改 plan。
+**預期：** App 只停止本產品用量並保存 audit；Cloudflare checkout／付款／Access／plan 狀態維持原值，文件明確標示需帳戶管理者控制。
+**證據：** network zero-after-stop、account state unchanged、error／audit、文案 scan。
+**禁止：** 不在程式放入「取消卡片／阻止 invoice」假 API、不以 budget alert 當 hard cap。
+
+### AT-OPS-19　reset／人工批准後安全恢復
+
+**前置：** resource 曾被 95／100% 阻擋；官方 reset 已觀測或管理者已核准解除，且下一個 operation 為 synthetic。
+**步驟：** 先重收 exact metric，再執行一個小批 synthetic；確認結果後才解除指定 circuit，並測試 scheduler／manual 不重疊。
+**預期：** reset／批准前仍 blocked；批准後只恢復指定 resource／window，告警 history 保留；若 metric 再變 unknown，立即回 closed。
+**證據：** reset observation、approval audit、synthetic result、circuit transition、後續 request count。
+**禁止：** 不以時間經過自動清除 hard-stop、不整批重送 backlog、不跳過 quota 重新核對。
+
+### AT-OPS-20　指標品質、來源版本與告警 window 稽核
+
+**前置：** 同一資源提供 `EXACT`、`ESTIMATE`、`UNKNOWN`、stale 與 source version 變更的固定 observations。
+**步驟：** 執行百分比、告警、降載、恢復與報表輸出，檢查每項 provenance。
+**預期：** 只有 `EXACT` 可計算百分比與解除安全 gate；`ESTIMATE` 顯示「估算／不可作安全證據」；`UNKNOWN`／stale 阻擋；source version／unit／period 變更開新 audit window，不覆寫舊 evidence。
+**證據：** observation schema、source URL／version、quality、period／reset、dedupe key、gate decision。
+**禁止：** 不把 estimate 標成精確、不把累積值當區間、不刪除舊來源以製造一致性。
 
 ### AT-SETUP-01
 

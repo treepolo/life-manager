@@ -425,7 +425,7 @@ Facebook、Threads及方格子API延後。方格子可在未來依官方CSV或�
 
 ## 4. 非功能需求
 
-- NFR-001：零月費為部署目標，不購買網域亦可使用。
+- NFR-001：零月費為部署目標，不購買網域亦可使用；但 Free 基本方案不等於帳戶永遠不會產生按量費用。帳戶特定結帳頁若授權超出包含額度按月計費，必須優先視為存在自動超額計費風險，不得以一般 Free 說明或 seat 尚未用滿宣稱零費用。
 - NFR-002：單人使用，不自建帳號系統。
 - NFR-003：資料敏感，所有正式路由由Cloudflare Access保護。
 - NFR-004：手機與電腦響應式完整可用。
@@ -435,3 +435,9 @@ Facebook、Threads及方格子API延後。方格子可在未來依官方CSV或�
 - NFR-008：不需要使用者每天開電腦、Docker或維護伺服器。
 - NFR-009：外部平台錯誤不能阻止其他模組使用。
 - NFR-010：介面文字以正體中文為主，時間以Asia/Taipei呈現。
+
+#### NFR-001／OPS-002 成本安全驗收語意
+
+「零月費」只表示產品的部署與選型目標，不是 Cloudflare、第三方 provider 或付款帳戶的扣款保證。成本安全必須同時核對帳戶／方案 allowlist、超額計費授權、官方 quota／reset／usage source、50／75／90%告警、95%降載、100% hard-stop／fail-closed 及恢復稽核；細節與固定答案見 `docs/COST_GUARDRAIL_PLAN.md`。
+
+程式可以阻止本產品繼續發出非必要 requests、writes、sync、通知或 provider calls，也可以在帳戶／用量資料未知時停止；程式不能取消 Cloudflare checkout 授權、付款方式、Workers Paid／其他產品方案、Access seat 或帳戶 invoice。若沒有官方 API／hard cap 或帳戶特定狀態不明，相關功能不得以估算宣稱安全，必須停用、人工確認或維持 `EXTERNAL_BLOCKED`／`AWAITING_USER_SETUP`。

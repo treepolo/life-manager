@@ -20,20 +20,29 @@ workers.dev的Access操作採目標導向，不把易改版的側邊欄名稱當
 
 ## OPS-002　零成本防線
 
-- 使用Cloudflare提供網址，第一批不要求購買網域。
-- 只選用有免費方案且不要求綁付費承諾的功能。
-- 不自動啟用Workers Paid、付費R2、付費郵件、付費API或第三方券商聚合器。
-- 在文件記錄所有免費額度與查核日期；額度接近時在App管理頁顯示，不自動升級。
-- 若某整合無法在零成本正式使用，標為`EXTERNAL_BLOCKED`並保留手動／CSV正式路徑，不使用不安全替代品。
+- 使用 Cloudflare 提供網址，第一批不要求購買網域；「零月費」是部署目標，不是付款帳戶永不出帳的保證。
+- 使用者提供的 Cloudflare 結帳頁已明示「超出包含額度的額外使用量將以月為單位計費」並有授權每月向付款卡收取超額使用量；這個帳戶特定、去識別證據優先於先前的一般 Free 稽核結論。不得再寫「Zero Trust Free 超額一定不會扣款」。
+- 不自動啟用 Workers Paid、付費 R2、付費郵件、付費 API、Queues、KV 或第三方券商聚合器。Zero Trust／Access 的 Free label、seat 尚未用滿、沒有當期用量或 Budget alert 均不能當成 hard cap。
+- 目前專案 footprint 是 Workers、D1、Cron、Zero Trust／Access 與 Resend；`wrangler.toml` 沒有 KV／R2／Queues／Cloudflare Email binding。任何新 binding、SKU、plan 或帳戶產品都先視為 drift，未經 allowlist 審核不得啟用。
+- 正式成本防線計畫、官方來源、50／75／90%告警、95%降載、100% hard-stop／fail-closed、恢復與 owner 見 [`COST_GUARDRAIL_PLAN.md`](COST_GUARDRAIL_PLAN.md)。
 
-2026-08-11官方額度查核（Resend項目）：
+### 2026-08-14 官方 quota／計費基線（Asia/Taipei 查核）
 
-- Workers Free：每日100,000個動態請求、每次10ms CPU；靜態資產請求免費且不計入動態請求。來源：<https://developers.cloudflare.com/workers/platform/pricing/>。
-- D1 Free：每日5,000,000 rows read、100,000 rows written，總儲存5GB；超額時操作失敗，不會自動轉成付費。來源：<https://developers.cloudflare.com/d1/platform/pricing/>。
-- Resend Free：每日100封、每月3,000封交易郵件；官方說明指出寄出與收到的郵件都計入額度，多個To／CC／BCC收件人分別計數。Free方案的API起始速率限制為每秒5個請求；超額或429時保留失敗證據，不自動升級付費。來源：[Resend account quotas and limits](https://resend.com/docs/knowledge-base/account-quotas-and-limits)、[Resend usage limits](https://resend.com/docs/api-reference/rate-limit)。本數字只代表2026-08-11查核當日官方文件，不宣稱未來額度不變。
-- Resend API `Idempotency-Key`可用於`POST /emails`，官方文件寫明key最長256字元、保留24小時；本產品仍以D1唯一`dedupe_key`與delivery log作本地冪等證據，不能把Resend 24小時保留誤當成永久去重。來源：[Resend Send Email API](https://resend.com/docs/api-reference/emails/send-email)、[Resend idempotency keys](https://resend.com/docs/dashboard/emails/idempotency-keys)。
-- 無自有驗證網域時，`onboarding@resend.dev`只用於測試，且Resend要求只能寄到Resend帳號本人地址；本線不得用它寄給第三方。來源：[403 error using resend.dev domain](https://resend.com/docs/knowledge-base/403-error-resend-dev-domain)。
-- 上線後每月由Cloudflare D1 Metrics及Resend Usage頁人工核對；達任一免費額度80%時先停用非必要手動同步／測試信並記錄，不自動變更方案。每次核對要記錄日期、方案、當日／當月用量與官方頁面，不保存API key或完整收件地址。
+- Workers Free：每日100,000 requests、每次10ms CPU、每次50個外部 subrequests、每帳戶5個 Cron；request 超額回1027、CPU超額回1102，requests於00:00 UTC重置。來源：[Workers limits](https://developers.cloudflare.com/workers/platform/limits/)、[Workers pricing](https://developers.cloudflare.com/workers/platform/pricing/)。Workers Paid 是獨立按量產品。
+- D1 Free：每日5,000,000 rows read、100,000 rows written、總storage 5GB；Free 讀／寫達上限時 query 失敗，storage cap 阻擋新增／schema／index；官方可由query meta、D1 Metrics或GraphQL觀測，Free每日00:00 UTC reset。來源：[D1 pricing](https://developers.cloudflare.com/d1/platform/pricing/)。這只說明目前 Free 平台失敗行為，不能推論其他已授權產品沒有超額費用。
+- Zero Trust／Access：Access logs Free保留24小時；seat、application、IdP與policy有平台上限，active user一個seat，seat不足時登入阻擋。實際帳戶包含量、SKU、超額授權與付款行為以帳戶人工核對為準。來源：[Zero Trust logs](https://developers.cloudflare.com/cloudflare-one/insights/logs/)、[account limits](https://developers.cloudflare.com/cloudflare-one/account-limits/)、[seat management](https://developers.cloudflare.com/cloudflare-one/team-and-resources/users/seat-management/)。
+- Resend Free：每日100、每月3,000封 transactional email，收發均計入，多收件人分別計數；起始rate limit 5 req/s，quota／429時保留去敏錯誤，不自動升級。來源：[account quotas](https://resend.com/docs/knowledge-base/account-quotas-and-limits)、[usage limits](https://resend.com/docs/api-reference/rate-limit)。`Idempotency-Key`與D1 delivery log只保護重送，不是費用上限。
+- YouTube Data API：預設10,000 units/day，method cost依官方表，所有 request至少1 unit，Pacific midnight reset；quota由Google API Console／response error核對。Analytics帳戶 quota不可用Data API數字代替。來源：[YouTube quota usage](https://developers.google.com/youtube/v3/getting-started)、[quota audits](https://developers.google.com/youtube/v3/guides/quota_and_compliance_audits)、[quota cost](https://developers.google.com/youtube/v3/determine_quota_cost)。
+- Instagram／Meta：以官方 Graph API rate-limit 契約與 response metric為準；本專案每輪40篇Insights／最多43次外部subrequest只代表程式／Workers護欄，不代表Meta帳戶quota。來源：[Meta Graph API rate limiting](https://developers.facebook.com/docs/graph-api/overview/rate-limiting/)。若指標不可得，停止非必要同步，不用估算放行。
+- 尚未使用的 KV／R2／Queues／Cloudflare Email 的官方數字、按量行為與禁止邊界已集中在 `COST_GUARDRAIL_PLAN.md`；未經 review 不建立 namespace、bucket、queue 或 Email Sending binding。
+
+### 操作規則
+
+1. Layer A 每次部署前及每日核對 plan／SKU、Workers billing model、D1／provider binding、Cron、Access seat／application、checkout overage authorization、usage alerts／Budget alerts；查不到即 `UNKNOWN`，不得寫成安全。
+2. Layer B 僅 exact metric 可計算百分比；50／75／90%依 `resource + metric + period + threshold` 去重，通知失敗仍保持風險／阻擋；Cloudflare Budget alert是 informational only，不會 pause或cap usage。
+3. Layer C 在95%或 provider safety threshold 停非必要排程、手動同步、Insights、bulk import、測試信與重試放大；100%／429／1027／1102／D1 quota error／metric失效時 circuit open、fail-closed，不自動切換付費方案。
+4. 程式只能阻擋本產品後續 requests／writes／sync／notification；不能取消 checkout checkbox、付款方式、Workers Paid、Access seat、SKU或invoice。帳戶控制只能由 Cloudflare／provider 管理者在帳戶畫面完成。
+5. staging 只准 synthetic provider response、隔離D1與固定 quota clock；不得以真實同步、測試信、Push、R2／Queues／Email物件或 production OAuth 證明成本安全。production 上線前必須完成 `SETUP-010` 唯讀人工帳務核對。
 
 ## OPS-003　Cloudflare部署
 

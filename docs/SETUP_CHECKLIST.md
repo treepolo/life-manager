@@ -343,4 +343,18 @@ N2 自動固定答案補充：App列出的每台裝置狀態由伺服器保存�
 - [ ] 下載第一份JSON、CSV及D1 SQL備份。
 - [ ] `IMPLEMENTATION_STATUS.md`更新為真實狀態。
 
+## SETUP-010　正式上線前成本／帳務唯讀核對（規劃；本階段不執行）
+
+本閘門只規劃一個必要真人操作，不是現在要求使用者操作；在本閘門完成前不得把 `NFR-001`／`OPS-002` 標為 `VERIFIED`，也不得把 production 當成零超額風險。
+
+前置條件：`AT-OPS-03`～`AT-OPS-14`、`AT-OPS-16`～`AT-OPS-20` 的自動／synthetic 驗收通過；production 尚未承接流量；目前 staging 不需重新登入或送驗證碼。
+
+唯一人工操作：在已登入 Cloudflare 的中文介面，從「管理帳戶」→「計費」進行一次唯讀核對，依畫面查看「訂閱／方案」、`Billable Usage`、`Notifications`／`Budget alerts`、已啟用產品與 Zero Trust／Access 的超額計費授權；不按升級、購買、儲存、取消、刪除或任何會改變設定的按鈕。只向主線回報去識別摘要，不把截圖原始檔放進 repo。
+
+固定記錄欄位：查核日期、產品／plan／SKU、超額授權為已見／未見／未知、當期 usage／quota／reset 是否可取得、告警／Budget alert 是否存在、allowlist drift、audit id。不得記錄付款卡資料、末四碼、帳戶 email、完整帳號識別或付款頁原始路徑。
+
+成功判據：Cloudflare 帳戶的產品／方案與 allowlist 一致；checkout 超額授權、usage period／reset、alert 可用性均有明確去識別證據；若任一項未知、仍存在超額授權風險而沒有可接受 hard-stop，production gate 維持 `AWAITING_USER_SETUP`／`EXTERNAL_BLOCKED`，不得以「Free」或 Budget alert 通過。
+
+證據與回復：由主線保存去識別摘要與 audit id，若核對失敗不改帳戶，停止 production；後續須由帳戶管理者依 Cloudflare 帳務程序處理，App 不代為取消付款授權或切換方案。此設定閘門不要求提供 OTP、不要求傳送資料、不執行 migration 或部署。
+
 上線後使用者可直接從手機圖示或電腦網址開啟，不需要每天開電腦、Docker或終端機。
