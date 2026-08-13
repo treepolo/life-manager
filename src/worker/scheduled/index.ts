@@ -26,10 +26,27 @@ interface DeadlineRow {
 
 interface SubscriptionRow {
   id: string;
+  device_id: string;
   endpoint_encrypted: string;
   p256dh_encrypted: string;
   auth_encrypted: string;
 }
+
+const latestActivePushSubscriptionsQuery = `
+  WITH ranked AS (
+    SELECT id, device_id, endpoint_encrypted, p256dh_encrypted, auth_encrypted,
+           status, disabled_at, updated_at, created_at,
+           ROW_NUMBER() OVER (
+             PARTITION BY device_id
+             ORDER BY updated_at DESC, created_at DESC, id DESC
+           ) AS row_number
+    FROM push_subscriptions
+  )
+  SELECT id, device_id, endpoint_encrypted, p256dh_encrypted, auth_encrypted
+  FROM ranked
+  WHERE row_number = 1 AND status = 'ACTIVE' AND disabled_at IS NULL
+  ORDER BY device_id, updated_at DESC, created_at DESC, id DESC
+`;
 
 async function createDelivery(env: Env, input: {
   deadlineId: string;
@@ -72,9 +89,7 @@ async function processDeadlineNotifications(env: Env, requestId: string, now: Da
     existingDedupeKeys: new Set(existing.results.map((row) => row.dedupe_key)),
     now,
   });
-  const subscriptionRows = await env.LIFE_DB.prepare(
-    "SELECT id, endpoint_encrypted, p256dh_encrypted, auth_encrypted FROM push_subscriptions WHERE status = 'ACTIVE' AND disabled_at IS NULL",
-  ).all<SubscriptionRow>();
+  const subscriptionRows = await env.LIFE_DB.prepare(latestActivePushSubscriptionsQuery).all<SubscriptionRow>();
   let sent = 0;
   let retries = 0;
   let deduped = 0;
@@ -106,7 +121,7 @@ async function processDeadlineNotifications(env: Env, requestId: string, now: Da
           await recordNotificationDeliveryOutcome({ db: env.LIFE_DB, deliveryId: delivery.id, channel: plan.channel, subscriptionId: null,
             status: "SENT", providerMessageId: result.providerMessageId, error: null, now: now.toISOString() });
         } else if (target) {
-          await sendDeadlinePush({
+          const providerResult = await sendDeadlinePush({
             subscription: {
               endpoint: await decryptSecret(target.endpoint_encrypted, env.TOKEN_ENCRYPTION_KEY),
               expirationTime: null,
@@ -123,7 +138,7 @@ async function processDeadlineNotifications(env: Env, requestId: string, now: Da
             url: `${applicationUrl.replace(/\/$/, "")}/deadlines`,
           });
           await recordNotificationDeliveryOutcome({ db: env.LIFE_DB, deliveryId: delivery.id, channel: plan.channel, subscriptionId: target.id,
-            status: "SENT", providerMessageId: null, error: null, now: now.toISOString() });
+            status: "SENT", providerMessageId: providerResult.providerMessageId, error: null, now: now.toISOString() });
         }
         sent++;
       } catch (error) {
@@ -150,7 +165,7 @@ export async function sendDeadlineNotificationTest(input: {
   const now = nowIso();
   const applicationUrl = `${(input.env.OAUTH_CALLBACK_BASE_URL ?? "").replace(/\/$/, "")}/deadlines`;
   const targets = input.channel === "WEB_PUSH"
-    ? (await input.env.LIFE_DB.prepare("SELECT id, endpoint_encrypted, p256dh_encrypted, auth_encrypted FROM push_subscriptions WHERE status = 'ACTIVE' AND disabled_at IS NULL").all<SubscriptionRow>()).results
+    ? (await input.env.LIFE_DB.prepare(latestActivePushSubscriptionsQuery).all<SubscriptionRow>()).results
     : [null];
   if (!targets.length) throw new Error("PUSH_SUBSCRIPTION_MISSING");
   const preference = input.channel === "EMAIL" ? await input.env.LIFE_DB.prepare(
@@ -173,12 +188,12 @@ export async function sendDeadlineNotificationTest(input: {
         await recordNotificationDeliveryOutcome({ db: input.env.LIFE_DB, deliveryId: delivery.id, channel: input.channel, subscriptionId: null,
           status: "SENT", providerMessageId: result.providerMessageId, error: null, now });
       } else if (input.channel === "WEB_PUSH" && target) {
-        await sendDeadlinePush({ subscription: { endpoint: await decryptSecret(target.endpoint_encrypted, input.env.TOKEN_ENCRYPTION_KEY), expirationTime: null,
+        const providerResult = await sendDeadlinePush({ subscription: { endpoint: await decryptSecret(target.endpoint_encrypted, input.env.TOKEN_ENCRYPTION_KEY), expirationTime: null,
           keys: { p256dh: await decryptSecret(target.p256dh_encrypted, input.env.TOKEN_ENCRYPTION_KEY), auth: await decryptSecret(target.auth_encrypted, input.env.TOKEN_ENCRYPTION_KEY) } },
           publicKey: input.env.WEB_PUSH_VAPID_PUBLIC_KEY, privateKey: input.env.WEB_PUSH_VAPID_PRIVATE_KEY, subject: input.env.WEB_PUSH_VAPID_SUBJECT,
           deadlineName: deadline.name, importance: deadline.importance, url: applicationUrl });
         await recordNotificationDeliveryOutcome({ db: input.env.LIFE_DB, deliveryId: delivery.id, channel: input.channel, subscriptionId: target.id,
-          status: "SENT", providerMessageId: null, error: null, now });
+          status: "SENT", providerMessageId: providerResult.providerMessageId, error: null, now });
       } else {
         await recordNotificationDeliveryOutcome({ db: input.env.LIFE_DB, deliveryId: delivery.id, channel: input.channel, subscriptionId: null,
           status: "SENT", providerMessageId: null, error: null, now });

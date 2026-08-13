@@ -264,6 +264,8 @@ Codex先提供：
 6. 先在其中一台按「停用此裝置 Web Push」；成功判據是該裝置顯示停用，另一台仍為 `READY`／`ACTIVE`。
 7. 再從未停用的另一台執行一次測試發送；成功判據是另一台仍收到通知，停用裝置沒有收到新的測試通知。
 
+N2 自動固定答案補充：App列出的每台裝置狀態由伺服器保存的`device_id`、`device_name`與subscription狀態決定，不取目前控制瀏覽器的全域`Notification.permission`或local endpoint代替其他裝置狀態。排程只傳送每台裝置最新且`ACTIVE`的subscription；Push UI的「服務接受」只代表provider接收加密訊息，不代表瀏覽器顯示或真人已看見。這些固定答案不能替代下列兩台真人驗收，且本需求仍為`IN_PROGRESS`。
+
 驗收紀錄只保存裝置類型（手機／電腦）、操作時間、App 顯示的狀態／錯誤碼及是否收到通知，不保存 endpoint、訂閱 keys、Access 身分或通知內容中的私人資料。若裝置不支援 Push 或拒絕權限，App 必須明確顯示，不得假裝成功；站內與 Email 仍可運作。
 
 ## SETUP-007　Firstrade CSV

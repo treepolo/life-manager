@@ -61,6 +61,7 @@ describe("shared notification writeback D1/API contract", () => {
       if (input.subscription.endpoint.endsWith(deviceA)) {
         throw new ApiError(410, "PROVIDER_ERROR", "Web Push傳送失敗。", { providerCode: 410 });
       }
+      return { providerAccepted: true, providerMessageId: null };
     });
     const notificationEnv = { ...env, WEB_PUSH_VAPID_PUBLIC_KEY: "public", WEB_PUSH_VAPID_PRIVATE_KEY: "private", WEB_PUSH_VAPID_SUBJECT: "mailto:test@example.test" } as Env;
 
@@ -84,8 +85,8 @@ describe("shared notification writeback D1/API contract", () => {
     expect(channel).toEqual(expect.objectContaining({
       status: "READY",
       last_success_at: expect.any(String),
-      last_error_code: null,
-      last_error_message_redacted: null,
+      last_error_code: "PUSH_SUBSCRIPTION_EXPIRED",
+      last_error_message_redacted: "Web Push 訂閱已失效。",
     }));
 
     const apiResponse = await SELF.fetch("https://life-manager.test/api/v1/push-subscriptions");
@@ -117,5 +118,83 @@ describe("shared notification writeback D1/API contract", () => {
     const body = await response.json() as { data: unknown[] };
     expect(body.data).toEqual([]);
     await env.LIFE_DB.prepare("DELETE FROM deadline_items WHERE id = ?").bind(deadlineId).run();
+  });
+
+  it("N2: disabled mobile does not affect active computer and only the latest active device is sent", async () => {
+    const deadlineId = uuidv7();
+    const computerDeviceId = uuidv7();
+    const mobileDeviceId = uuidv7();
+    const computerSubscriptionId = "computer-current";
+    const mobileOldSubscriptionId = "mobile-aaa-old";
+    const mobileCurrentSubscriptionId = "mobile-zzz-current";
+    const now = "2026-08-11T00:00:00.000Z";
+    const [computerEndpoint, mobileOldEndpoint, mobileCurrentEndpoint, p256dh, auth] = await Promise.all([
+      encryptSecret("https://push.example.test/computer", env.TOKEN_ENCRYPTION_KEY),
+      encryptSecret("https://push.example.test/mobile-old", env.TOKEN_ENCRYPTION_KEY),
+      encryptSecret("https://push.example.test/mobile-current", env.TOKEN_ENCRYPTION_KEY),
+      encryptSecret("p256dh-test-value-with-sufficient-length", env.TOKEN_ENCRYPTION_KEY),
+      encryptSecret("auth-test-value", env.TOKEN_ENCRYPTION_KEY),
+    ]);
+    await env.LIFE_DB.batch([
+      env.LIFE_DB.prepare(
+        `INSERT INTO deadline_items
+         (id, name, actionable_from_local_date, completion_condition, importance, status, source_type, created_at, updated_at)
+         VALUES (?, ?, '2026-08-01', 'N2 device independence', 'CRITICAL', 'OPEN', 'MANUAL', ?, ?)`,
+      ).bind(deadlineId, "N2 device independence", now, now),
+      env.LIFE_DB.prepare(
+        `INSERT INTO sync_devices (id, display_name, user_agent_summary, last_seen_at, created_at, updated_at, version)
+         VALUES (?, 'Computer', 'desktop-browser', ?, ?, ?, 1), (?, 'Mobile', 'mobile-browser', ?, ?, ?, 1)`,
+      ).bind(computerDeviceId, now, now, now, mobileDeviceId, now, now, now),
+      env.LIFE_DB.prepare(
+        `INSERT INTO push_subscriptions
+         (id, device_id, endpoint_encrypted, p256dh_encrypted, auth_encrypted, content_encoding, user_agent_summary, status, created_at, updated_at, version)
+         VALUES (?, ?, ?, ?, ?, 'aes128gcm', 'desktop-browser', 'ACTIVE', ?, ?, 1),
+                (?, ?, ?, ?, ?, 'aes128gcm', 'mobile-browser-old', 'ACTIVE', ?, ?, 1),
+                (?, ?, ?, ?, ?, 'aes128gcm', 'mobile-browser', 'DISABLED', ?, ?, 2)`,
+      ).bind(
+        computerSubscriptionId, computerDeviceId, computerEndpoint, p256dh, auth, now, now,
+        mobileOldSubscriptionId, mobileDeviceId, mobileOldEndpoint, p256dh, auth, now, now,
+        mobileCurrentSubscriptionId, mobileDeviceId, mobileCurrentEndpoint, p256dh, auth, now, now,
+      ),
+      env.LIFE_DB.prepare(
+        `UPDATE notification_channels SET enabled = 1, status = 'READY', last_success_at = NULL,
+         last_error_code = NULL, last_error_message_redacted = NULL, updated_at = ?, version = version + 1
+         WHERE channel_kind = 'WEB_PUSH'`,
+      ).bind(now),
+    ]);
+
+    const pushSender = vi.mocked(sendDeadlinePush);
+    pushSender.mockClear();
+    pushSender.mockResolvedValue({ providerAccepted: true, providerMessageId: null });
+    const notificationEnv = { ...env, WEB_PUSH_VAPID_PUBLIC_KEY: "public", WEB_PUSH_VAPID_PRIVATE_KEY: "private", WEB_PUSH_VAPID_SUBJECT: "mailto:test@example.test" } as Env;
+    const result = await sendDeadlineNotificationTest({ env: notificationEnv, deadlineId, channel: "WEB_PUSH", operationId: "n2-device-independence" });
+    expect(result).toEqual({ sent: 1, failed: 0 });
+    expect(pushSender).toHaveBeenCalledTimes(1);
+    expect(pushSender.mock.calls[0][0].subscription.endpoint).toBe("https://push.example.test/computer");
+
+    const delivery = await env.LIFE_DB.prepare(
+      "SELECT target_ref, status, provider_message_id, error_code FROM notification_deliveries WHERE deadline_item_id = ?",
+    ).bind(deadlineId).first();
+    expect(delivery).toEqual({ target_ref: computerSubscriptionId, status: "SENT", provider_message_id: null, error_code: null });
+
+    const channel = await env.LIFE_DB.prepare(
+      "SELECT status, last_success_at, last_error_code FROM notification_channels WHERE channel_kind = 'WEB_PUSH'",
+    ).first();
+    expect(channel).toEqual(expect.objectContaining({ status: "READY", last_success_at: expect.any(String), last_error_code: null }));
+
+    const response = await SELF.fetch("https://life-manager.test/api/v1/push-subscriptions");
+    const body = await response.json() as { data: Array<Record<string, unknown>> };
+    expect(body.data).toEqual(expect.arrayContaining([
+      expect.objectContaining({ device_id: computerDeviceId, device_name: "Computer", status: "ACTIVE" }),
+      expect.objectContaining({ device_id: mobileDeviceId, device_name: "Mobile", status: "DISABLED" }),
+    ]));
+
+    await env.LIFE_DB.batch([
+      env.LIFE_DB.prepare("DELETE FROM notification_deliveries WHERE deadline_item_id = ?").bind(deadlineId),
+      env.LIFE_DB.prepare("DELETE FROM deadline_items WHERE id = ?").bind(deadlineId),
+      env.LIFE_DB.prepare("DELETE FROM push_subscriptions WHERE id IN (?, ?, ?)").bind(computerSubscriptionId, mobileOldSubscriptionId, mobileCurrentSubscriptionId),
+      env.LIFE_DB.prepare("DELETE FROM sync_devices WHERE id IN (?, ?)").bind(computerDeviceId, mobileDeviceId),
+      env.LIFE_DB.prepare("UPDATE notification_channels SET enabled = 0, status = 'DISABLED', last_success_at = NULL, last_error_code = NULL, last_error_message_redacted = NULL, version = version + 1 WHERE channel_kind = 'WEB_PUSH'"),
+    ]);
   });
 });

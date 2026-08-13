@@ -17,6 +17,7 @@ export const notificationChannelOutputSchema = z.object({
 export const pushSubscriptionStatusOutputSchema = z.object({
   id: z.string(),
   device_id: z.string(),
+  device_name: z.string(),
   user_agent_summary: z.string(),
   status: pushSubscriptionStatusSchema,
   last_success_at: z.string().nullable(),

@@ -21,7 +21,7 @@ function failureFor(channel: NotificationChannelKind, error: unknown): DeliveryF
   if (channel === "WEB_PUSH" && code !== null && ["404", "410"].includes(code)) {
     return {
       channelErrorCode: "PUSH_SUBSCRIPTION_EXPIRED",
-      channelErrorMessage: "Web Push訂閱已失效，請重新啟用此裝置。",
+      channelErrorMessage: "Web Push 訂閱已失效。",
       pushStatus: "EXPIRED",
     };
   }
@@ -39,6 +39,54 @@ function failureFor(channel: NotificationChannelKind, error: unknown): DeliveryF
   };
 }
 
+const latestPushSubscriptionSummary = `
+  WITH latest AS (
+    SELECT id, device_id, status, disabled_at, last_success_at, last_error_code,
+           updated_at, created_at,
+           ROW_NUMBER() OVER (
+             PARTITION BY device_id
+             ORDER BY updated_at DESC, created_at DESC, id DESC
+           ) AS row_number
+    FROM push_subscriptions
+  ),
+  summary AS (
+    SELECT
+      COALESCE(MAX(CASE WHEN row_number = 1 AND status = 'ACTIVE' AND disabled_at IS NULL THEN 1 ELSE 0 END), 0) AS has_active,
+      COALESCE(MAX(CASE WHEN row_number = 1 AND status IN ('ERROR', 'EXPIRED') THEN 1 ELSE 0 END), 0) AS has_failure,
+      (
+        SELECT last_error_code
+        FROM latest
+        WHERE row_number = 1 AND status IN ('ERROR', 'EXPIRED')
+        ORDER BY updated_at DESC, created_at DESC, id DESC
+        LIMIT 1
+      ) AS error_code
+    FROM latest
+  )
+  UPDATE notification_channels
+  SET status = CASE
+        WHEN enabled = 0 THEN status
+        WHEN status = 'UNCONFIGURED' THEN status
+        WHEN (SELECT has_active FROM summary) = 1 THEN 'READY'
+        WHEN (SELECT has_failure FROM summary) = 1 THEN 'ERROR'
+        ELSE 'DISABLED'
+      END,
+      last_success_at = CASE WHEN ? = 'SENT' THEN ? ELSE last_success_at END,
+      last_error_code = CASE
+        WHEN (SELECT has_failure FROM summary) = 1 THEN (SELECT error_code FROM summary)
+        ELSE NULL
+      END,
+      last_error_message_redacted = CASE
+        WHEN (SELECT has_failure FROM summary) = 1
+          THEN CASE (SELECT error_code FROM summary)
+            WHEN 'PUSH_SUBSCRIPTION_EXPIRED' THEN 'Web Push 訂閱已失效。'
+            ELSE 'Web Push provider 回應失敗。'
+          END
+        ELSE NULL
+      END,
+      updated_at = ?, version = version + 1
+  WHERE channel_kind = 'WEB_PUSH'
+`;
+
 export async function recordNotificationDeliveryOutcome(input: {
   db: D1Database;
   deliveryId: string;
@@ -51,8 +99,13 @@ export async function recordNotificationDeliveryOutcome(input: {
 }): Promise<void> {
   const failed = input.status === "RETRY";
   const failure = failed ? failureFor(input.channel, input.error) : null;
+  const deliveryErrorCode = failed
+    ? input.channel === "WEB_PUSH" ? failure!.channelErrorCode : "DELIVERY_FAILED"
+    : null;
   const deliveryErrorMessage = failed
-    ? input.error instanceof ApiError ? input.error.message.slice(0, 240) : "通知傳送失敗。"
+    ? input.channel === "WEB_PUSH"
+      ? failure!.channelErrorMessage
+      : input.error instanceof ApiError ? input.error.message.slice(0, 240) : failure!.channelErrorMessage
     : null;
   const statements = [
     input.db.prepare(
@@ -62,7 +115,7 @@ export async function recordNotificationDeliveryOutcome(input: {
     ).bind(
       input.status,
       input.providerMessageId,
-      failed ? "DELIVERY_FAILED" : null,
+      deliveryErrorCode,
       deliveryErrorMessage,
       input.status,
       input.status === "SENT" ? input.now : null,
@@ -75,25 +128,23 @@ export async function recordNotificationDeliveryOutcome(input: {
     if (failed) {
       statements.push(input.db.prepare(
         `UPDATE push_subscriptions SET status = ?, last_error_code = ?, updated_at = ?, version = version + 1
-         WHERE id = ? AND status IN ('ACTIVE', 'ERROR')`,
+         WHERE id = ? AND status IN ('ACTIVE', 'ERROR') AND disabled_at IS NULL`,
       ).bind(failure!.pushStatus, failure!.channelErrorCode, input.now, input.subscriptionId));
     } else {
       statements.push(input.db.prepare(
         `UPDATE push_subscriptions SET status = 'ACTIVE', last_success_at = ?, last_error_code = NULL,
-         updated_at = ?, version = version + 1 WHERE id = ?`,
+         updated_at = ?, version = version + 1 WHERE id = ? AND status = 'ACTIVE' AND disabled_at IS NULL`,
       ).bind(input.now, input.now, input.subscriptionId));
     }
   }
 
-  if (failed) {
+  if (input.channel === "WEB_PUSH") {
+    statements.push(input.db.prepare(latestPushSubscriptionSummary).bind(input.status, input.now, input.now));
+  } else if (failed) {
     const error = failure!;
     statements.push(input.db.prepare(
       `UPDATE notification_channels SET
-       status = CASE
-         WHEN enabled = 0 THEN status
-         WHEN channel_kind = 'WEB_PUSH' AND EXISTS (SELECT 1 FROM push_subscriptions WHERE status = 'ACTIVE' AND disabled_at IS NULL) THEN 'READY'
-         ELSE 'ERROR'
-       END,
+       status = CASE WHEN enabled = 0 THEN status ELSE 'ERROR' END,
        last_error_code = ?, last_error_message_redacted = ?, updated_at = ?, version = version + 1
        WHERE channel_kind = ?`,
     ).bind(error.channelErrorCode, error.channelErrorMessage, input.now, input.channel));
