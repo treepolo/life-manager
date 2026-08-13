@@ -518,3 +518,10 @@
 - build／秘密邊界：暫時從C既有staging public binding注入`VITE_VAPID_PUBLIC_KEY`；bundle含public key布林核對為true，dist／source map未發現private／subject／其他secret identifier，`.env`未新增；新版本public var與C既有binding完全一致。`WEB_PUSH_VAPID_PRIVATE_KEY`與`WEB_PUSH_VAPID_SUBJECT`只以名稱／型別核對存在，未讀取值。
 - staging：依`wrangler deploy --config wrangler.toml --env staging --keep-vars`完成上傳；CLI在上傳成功後受Windows既有程序問題以`0xC0000409`結束，但唯讀deployment status確認`26d3ca9b-c910-452b-b3aa-f6a8c59b9450`承接100%流量，新version public binding存在、既有VAPID Secret名稱存在，remote `d1 migrations list --remote`回報`No migrations to apply!`。
 - smoke與未完成：未授權GET `/deadlines`、`/api/v1/notifications/channels`、`/api/v1/push-subscriptions`及`/api/v1/integrations`均受Access邊界回302；本階段沒有可用的Access session，故未把登入頁當成授權API／期限頁通過證據，也未觸發任何POST、真人Email、Push或Firstrade匯入。C可在取得既有Access session後依SETUP-006繼續兩台真人裝置驗收；`AT-GATE-08`不執行。
+
+### 2026-08-13 A整合線 N2／C final 最小安全整合開工
+
+- 本階段範圍：維持`DDL-008`／`SETUP-006`／`AT-PUSH-01`為`IN_PROGRESS`，納入遠端N2 `724fa63b9588130b7719b92713cfaa36d83278fb`的shared notification device state isolation修正，以及C final `441b9d3c6941a6571d3660d4fce3359191ff5223`的去識別失敗／移交證據；`SOC-010`／`SETUP-004`／`AT-IG-01`～`AT-IG-05`、`DDL-009`／`SETUP-005`／`AT-MAIL-01`等既有`VERIFIED`不降級，`INV-002`／`SETUP-007`維持`AWAITING_USER_SETUP`，不執行`AT-GATE-08`。
+- 預定修改與核對：`src/modules/notifications/**`、`src/worker/api/index.ts`、`src/worker/scheduled/index.ts`、`src/app/pages/DeadlinesPage.tsx`及直接Worker／D1／API測試；`docs/ACCEPTANCE_TESTS.md`、`docs/DATA_AND_SYNC.md`、`docs/IMPLEMENTATION_STATUS.md`、`docs/OPERATIONS.md`、`docs/SETUP_CHECKLIST.md`、`docs/TRACEABILITY_MATRIX.md`與`docs/WORKTREE_CLEANUP_TODO.md`只合併事實證據。保留cleanup TODO，不刪除或清理任何worktree。
+- 預定驗證：lint（保護ignored backups）、雙typecheck、unit、Worker／D1／API contract、client build、完整隔離Playwright、正式碼／secret／fake／skip／未實作／需求狀態掃描；以既有暫時`VITE_VAPID_PUBLIC_KEY`方式建置並依`--keep-vars`部署staging，唯讀核對active 100%、bundle／Secret邊界、remote migration與基本smoke。
+- 外部阻擋：C final證據顯示最後一次獨立性測試的真人收件、UI狀態與D1狀態矛盾；本階段只修共用狀態根因並重新部署，不代替C操作手機／電腦、不重複發送真人Push、不執行Firstrade正式匯入、不修改任何secret值，部署後停止等主線喚醒C重新執行`AT-PUSH-01`。
