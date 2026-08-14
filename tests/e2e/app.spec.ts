@@ -120,6 +120,146 @@ async function reconnectAndSync(page: Page, context: BrowserContext, testInfo: T
   return { uploaded: uploadedText, pulled: pulledText };
 }
 
+test("REM-NAV-001 正式導覽涵蓋桌面九路由、手機次要入口與固定 surface 幾何", async ({ page, context }, testInfo) => {
+  test.setTimeout(120_000);
+  await openAndRegister(page, "/");
+
+  const viewportWidth = page.viewportSize()?.width ?? 0;
+  const secondaryRoutes = [
+    ["/social", "社群"],
+    ["/deadlines", "重要期限"],
+    ["/metrics", "指標／事件"],
+    ["/integrations", "外部連線"],
+    ["/data", "資料管理"],
+  ] as const;
+
+  if (viewportWidth > 760) {
+    const desktopNavigation = page.getByRole("navigation", { name: "主要導覽" });
+    await expect(desktopNavigation.getByRole("link")).toHaveCount(9);
+    for (const [path] of [["/"], ["/areas"], ["/tasks"], ["/finance"], ...secondaryRoutes] as const) {
+      const link = desktopNavigation.locator(`a[href="${path}"]`);
+      await expect(link).toBeVisible();
+      await link.click();
+      await expect(page).toHaveURL(new RegExp(`${path === "/" ? "/$" : `${path}$`}`));
+      await expect(link).toHaveAttribute("aria-current", "page");
+    }
+
+    await page.goBack();
+    await expect(page).toHaveURL(/\/integrations$/);
+    await expect(desktopNavigation.locator('a[href="/integrations"]')).toHaveAttribute("aria-current", "page");
+  } else {
+    const mobileNavigation = page.getByRole("navigation", { name: "手機主要導覽" });
+    await expect(mobileNavigation.getByRole("link")).toHaveCount(4);
+    for (const [path, label] of [["/areas", "總覽"], ["/tasks", "任務"], ["/finance", "財務"]] as const) {
+      const link = mobileNavigation.getByRole("link", { name: label, exact: true });
+      await link.click();
+      await expect(page).toHaveURL(new RegExp(`${path}$`));
+      await expect(link).toHaveAttribute("aria-current", "page");
+    }
+    await mobileNavigation.getByRole("link", { name: "今日", exact: true }).click();
+    await expect(page).toHaveURL(/\/$/);
+
+    const moreButton = mobileNavigation.getByRole("button", { name: "更多", exact: true });
+    await moreButton.focus();
+    await page.keyboard.press("Enter");
+    const keyboardMenu = page.locator("#mobile-secondary-nav");
+    await expect(keyboardMenu).toBeVisible();
+    await expect(moreButton).toHaveAttribute("aria-expanded", "true");
+    await page.keyboard.press("Tab");
+    await expect(keyboardMenu.getByRole("link", { name: "重要期限", exact: true })).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(moreButton).toBeFocused();
+
+    for (const [path, label] of secondaryRoutes) {
+      await moreButton.click();
+      const moreMenu = page.locator("#mobile-secondary-nav");
+      await expect(moreMenu).toBeVisible();
+      await expect(moreMenu.getByRole("link")).toHaveCount(5);
+      await moreMenu.getByRole("link", { name: label, exact: true }).click();
+      await expect(page).toHaveURL(new RegExp(`${path}$`));
+      await expect(moreButton).toHaveAttribute("aria-expanded", "false");
+      await page.goBack();
+      await expect(page).toHaveURL(/\/$/);
+    }
+
+    await moreButton.click();
+    await expect(page.locator("#mobile-secondary-nav")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.locator("#mobile-secondary-nav")).toBeHidden();
+    await expect(moreButton).toBeFocused();
+
+    await moreButton.click();
+    await page.locator("#mobile-secondary-nav").getByRole("link", { name: "指標／事件", exact: true }).click();
+    await expect(page).toHaveURL(/\/metrics$/);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await expect(page).toHaveURL(/\/metrics$/);
+    await expect(page.locator("#mobile-secondary-nav")).toHaveCount(0);
+    await expect(moreButton).toHaveAttribute("aria-expanded", "false");
+    await page.goBack();
+    await expect(page).toHaveURL(/\/$/);
+
+    await context.setOffline(true);
+    await moreButton.click();
+    await page.locator("#mobile-secondary-nav").getByRole("link", { name: "重要期限", exact: true }).click();
+    await expect(page).toHaveURL(/\/deadlines$/);
+    await expect(mobileNavigation).toBeVisible();
+    await expect(page.locator("main")).not.toContainText(/示範資料|demo data/i);
+    await context.setOffline(false);
+  }
+
+  await page.route("**/api/v1/**", async (route) => {
+    await route.fulfill({
+      status: 401,
+      contentType: "application/json",
+      body: JSON.stringify({ error: { code: "AUTH_REQUIRED", message: "需要重新登入" } }),
+    });
+  });
+  if (viewportWidth > 760) {
+    await page.getByRole("navigation", { name: "主要導覽" }).locator('a[href="/metrics"]').click();
+  } else {
+    await page.getByRole("navigation", { name: "手機主要導覽" }).getByRole("link", { name: "今日", exact: true }).click();
+  }
+  await expect(page.locator(".app-shell")).toBeVisible();
+  await expect(page.getByRole("navigation", { name: viewportWidth > 760 ? "主要導覽" : "手機主要導覽" })).toBeVisible();
+  await expect(page.locator("main")).not.toContainText(/示範資料|demo data/i);
+  await page.unroute("**/api/v1/**");
+
+  const geometry = await page.evaluate(() => {
+    const root = document.documentElement;
+    const mobileNav = document.querySelector<HTMLElement>(".mobile-nav");
+    const mobileSync = document.querySelector<HTMLElement>(".mobile-sync-status");
+    const items = [...document.querySelectorAll<HTMLElement>(".mobile-nav a, .mobile-nav button")];
+    const navRect = mobileNav?.getBoundingClientRect();
+    const syncRect = mobileSync?.getBoundingClientRect();
+    return {
+      width: window.innerWidth,
+      scrollWidth: root.scrollWidth,
+      nav: navRect ? { top: navRect.top, bottom: navRect.bottom } : null,
+      sync: syncRect ? { top: syncRect.top, bottom: syncRect.bottom } : null,
+      touchTargets: items.map((item) => ({ width: item.getBoundingClientRect().width, height: item.getBoundingClientRect().height })),
+    };
+  });
+  expect(geometry.scrollWidth).toBeLessThanOrEqual(geometry.width);
+  if (viewportWidth <= 760) {
+    expect(geometry.nav?.bottom).toBeCloseTo(geometry.width === 320 ? 568 : 844, 0);
+    expect(geometry.sync?.bottom).toBeLessThanOrEqual((geometry.nav?.top ?? 0) + 1);
+    for (const target of geometry.touchTargets) {
+      expect(target.width).toBeGreaterThanOrEqual(44);
+      expect(target.height).toBeGreaterThanOrEqual(44);
+    }
+  }
+
+  if (testInfo.project.name === "desktop") {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await expect(page.getByRole("navigation", { name: "主要導覽" })).toBeVisible();
+    await testInfo.attach("REM-NAV-001-1280", { body: await page.screenshot({ fullPage: true }), contentType: "image/png" });
+    await page.setViewportSize({ width: 1366, height: 900 });
+    await testInfo.attach("REM-NAV-001-1366", { body: await page.screenshot({ fullPage: true }), contentType: "image/png" });
+  } else if (viewportWidth <= 760) {
+    await testInfo.attach(`REM-NAV-001-${viewportWidth}`, { body: await page.screenshot({ fullPage: true }), contentType: "image/png" });
+  }
+});
+
 test("正式 UI 可寫入 D1，離線建立後可同步，且版面不水平溢出", async ({ page, context }, testInfo) => {
   test.setTimeout(120_000);
   const suffix = `${testInfo.project.name}-${Date.now()}`;

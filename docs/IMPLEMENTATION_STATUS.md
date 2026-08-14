@@ -13,7 +13,7 @@
 
 ## 2026-08-14 Governance Retrofit Wave 0 current ledger
 
-本節是本次 Wave 0 的 canonical working record；完成後仍須以同一節的 evidence 更新，不得以聊天摘要取代。`REM-GOV-001` 已由 current/history static verifier收斂為 `VERIFIED`；其餘治理／filesystem／成本整合仍依下表保守維持 `IN_PROGRESS`，Wave 1 以後的 runtime／UI／provider 行為維持 `NOT_STARTED`，不因建立 acceptance 而宣稱已實作。
+本節是本次 Wave 0 的 canonical working record；完成後仍須以同一節的 evidence 更新，不得以聊天摘要取代。`REM-GOV-001` 已由 current/history static verifier收斂為 `VERIFIED`；其餘治理／filesystem／成本整合仍依下表保守維持 `IN_PROGRESS`。`REM-NAV-001` 已依 `RETROFIT-W2A-MOBILE-NAV` 派工完成本線實作，狀態為 `IMPLEMENTED_UNVERIFIED`；其他未受本線影響的 Wave 1 以後 runtime／UI／provider 行為維持原狀，不因建立 acceptance 而宣稱已實作。
 
 | Requirement ID | 狀態 | 預定／實際文件 | migration | 預定驗證與 evidence | blocker／next owner |
 |---|---|---|---|---|---|
@@ -42,10 +42,29 @@
 - Acceptance：`AT-REM-REL-003`、`AT-REM-REL-006`與`AT-REM-ASYNC-003`的local synthetic browser checks在desktop、390px與320px通過；loading／empty／error／success、duplicate click、reload recovery與offline fallback有unit／E2E evidence。真實provider、staging Access、OAuth、billing、remote D1及真人scenario維持`NOT_RUN`，因此兩項requirement不升級為`VERIFIED`。
 - Migration：不新增migration；`0011`、`0012`、既有`0013`均未修改或套用。本線只新增client IndexedDB transaction helper與既有`appSettings` pending-command evidence。
 - Verification：`npm run lint`、`npm run typecheck`、`npm test`（18 files／67 tests）、`npm run test:worker`（5 files／46 tests）、`npm run build:client`、`npm run scan`與`git diff --check`通過。受影響Playwright atomic recovery與async-job persisted truth在desktop、mobile-390、mobile-320均通過；本機in-app browser 320×568核對`scrollWidth=320`且空資料不造假。repo預設`npm run test:e2e`未能完成：Windows Wrangler isolated runtime先出現`std::terminate()`，重試後既有正式UI案例在`openAndRegister`等待`/api/v1/sync/devices`超過120秒；因此full-suite記為environment-blocked，不宣稱PASS。`npm run verify:requirements` exit 1只因既有`NFR-001`／`OPS-002`為`IN_PROGRESS`，保留該非零原因，不改寫為PASS。
-| `REM-NAV-001` | `NOT_STARTED` | `docs/GOVERNANCE_RETROFIT_PLAN.md`、後續 frontend route／mobile work | 不預設 migration | 未執行；desktop/mobile/narrow visual acceptance待後續 | Wave 2 frontend owner |
+| `REM-NAV-001` | `IMPLEMENTED_UNVERIFIED` | `src/app/layouts/AppShell.tsx`、`src/styles.css`（僅navigation／safe-area／fixed surface）、`tests/unit/app-shell-navigation.test.tsx`、`tests/e2e/app.spec.ts`、本檔與受影響 canonical docs | 不新增 migration；不修改既有 migration | desktop九route；手機四主要入口＋「更多」五secondary與系統sync／PWA status；1366／1280／768／390／320 local browser、mouse／Enter／Tab／Escape／focus return／active／back／deep reload／offline／401 simulation、geometry與無假資料 evidence通過 | Access／staging未授權route、真人手機與production scenario未執行；不可標`VERIFIED`，後續唯一 integrator＋human checkpoint |
 | `REM-FORM-001` | `NOT_STARTED` | `docs/GOVERNANCE_RETROFIT_PLAN.md`、後續 frontend/API contract | 不預設 migration | 未執行；不得猜 API default | Wave 2 frontend owner |
 | `REM-INT-001` | `NOT_STARTED` | `docs/GOVERNANCE_RETROFIT_PLAN.md`、後續 integration lifecycle contract | 後續評估 | 未執行；不新增多帳號 scope | Wave 3 integration/cost integrator |
 | `REM-TABLE-001` | `NOT_STARTED` | `docs/GOVERNANCE_RETROFIT_PLAN.md`、後續 server query/UI work | 後續評估 | 未執行；archive／cursor／mobile row acceptance待後續 | Wave 3 API＋frontend owner |
+
+### RETROFIT-W2A-MOBILE-NAV 起始紀錄（2026-08-14；Execution Plane）
+
+- Task ID：`RETROFIT-W2A-MOBILE-NAV`；parent thread：`019fe72d-de0b-7f91-8125-5919749607c1`；owner為Navigation／mobile reachability／responsive shell writer；branch／HEAD：`codex/accept-external-integrations`／`fe6448575fa935425cdec3dfed574811ff49a824`；upstream同SHA；canonical worktree clean。
+- Scope：只處理`REM-NAV-001`與`AT-REM-NAV-001`～`006`，保留九個正式desktop route入口，新增手機固定主要入口與「更多」secondary/system navigation，修正窄版鍵盤／focus／back／deep-route reload／safe-area／fixed surface幾何；不新增route、不改router架構、不修改TasksPage、IntegrationsPage、資料／API／sync／worker／modules或migration。
+- 預定修改：`src/app/layouts/AppShell.tsx`、`src/styles.css`（只限navigation／safe-area／fixed bottom/update surface）、必要的navigation unit／a11y tests、`tests/e2e/app.spec.ts`或獨立REM-NAV E2E，以及`docs/TRACEABILITY_MATRIX.md`、`docs/ACCEPTANCE_TESTS.md`、`docs/UI_DESIGN.md`與本檔的Requirement→Acceptance→Traceability→Status evidence。
+- 預定驗證：固定route inventory（desktop／390／320）、mouse／Tab／Enter／Escape／focus return／active state／browser back／deep reload、更多選單找得到期限／指標／外部連線／資料、loading／offline／session失效／empty／error真實狀態、320px `scrollWidth`與44px touch target、fixed sync/update surface不遮主要操作；依AGENTS再執行lint、雙typecheck、unit、relevant Worker regression、client build、Playwright affected/full suite、scan、requirements verifier與diff check。
+- 文件／實作衝突紀錄：現有文件仍將`REM-NAV-001`列為`NOT_STARTED`且描述為後續route／mobile remediation，本次主控派工明確授權本線進入Wave 2A並修改既有AppShell／CSS；本線依最新派工決策施工，不擴大為REM-FORM／REM-INT／REM-TABLE。
+- 外部／人類阻擋：本線不執行OAuth、provider／billing、remote migration、staging／production deploy、real data或cleanup；local synthetic browser evidence可完成實作驗證，但Access session與真人手機／production scenario若未提供，不能將需求或AT-REM-NAV-006標為`VERIFIED`。
+
+### RETROFIT-W2A-MOBILE-NAV 完成證據（2026-08-14；Execution Plane）
+
+- Status：`REM-NAV-001`為`IMPLEMENTED_UNVERIFIED`。本線完成navigation／mobile reachability／responsive shell implementation與local synthetic evidence；未把local、文件或401 simulation當作Access／staging／真人驗收。
+- 實際修改：`src/app/layouts/AppShell.tsx`保留desktop九個正式route，新增mobile四個主要入口與「更多」secondary／system disclosure；`src/styles.css`只改navigation focus、safe-area、fixed sync／update／more surface與touch geometry；新增`tests/unit/app-shell-navigation.test.tsx`與`tests/e2e/app.spec.ts`的`REM-NAV-001`。沒有新增route、router、資料／API／sync／worker／modules或migration。
+- Acceptance：`AT-REM-NAV-001` semantic route map、`AT-REM-NAV-003` 1280／1366／768／390／320 geometry、`AT-REM-NAV-004` local loading／offline／401 simulation與無假資料、`AT-REM-NAV-006` local formal-nav path均有證據；`AT-REM-NAV-002`為unit＋pre-keyboard E2E partial，加入Enter／Tab斷言後的targeted runner兩次在Wrangler啟動階段中斷；`AT-REM-NAV-005`僅完成local 401 simulation，real Access/server unauthorized route仍`NOT_RUN`。
+- Fixed-answer／unit：`npm test -- --run tests/unit/app-shell-navigation.test.tsx`通過2 tests；核對九desktop links、四mobile primary、五secondary、sync／PWA status、`aria-expanded`、Enter／Tab／Escape、focus return與route click close。
+- Browser／visual：加入Enter／Tab斷言前，`npm run test:e2e -- --grep=REM-NAV-001 --project=mobile-390 --project=mobile-320`通過2 tests（19.8s），`npm run test:e2e -- --grep=REM-NAV-001 --project=desktop --project=tablet-768`通過2 tests（12.1s）；包含1366／1280 screenshots、768、390、320，desktop九route、手機期限／指標／外部連線／資料正式path、deep reload、browser back、offline navigation、401 simulation、`scrollWidth <= viewport`、44px targets與fixed surface geometry。加入Enter／Tab斷言後的mobile-390＋mobile-320 targeted command及單一mobile-390重跑均在Wrangler啟動階段耗盡既有runtime retries，未進入Playwright assertion；不把該次記為PASS。
+- Verification（本線已執行）：`npm run lint` PASS；`npm test -- --run tests/unit/app-shell-navigation.test.tsx` PASS（2 tests）；pre-keyboard affected Playwright PASS；post-keyboard runner為environment-blocked；未新增migration。依上位規則本次不再啟動full lint/typecheck/unit/Worker-D1/API/client build/scan/requirements verifier/full Playwright或其他新scope，交由唯一 integrator在穩定runtime checkpoint接續；`verify:requirements`既有`NFR-001`／`OPS-002`非零時須保留原始阻擋，不改寫為PASS。
+- 未完成／next owner：Access未授權route、staging deep-link、真人手機與production visual／scenario未執行；後續由唯一 integrator安排，且不得為此回退或重做未受影響的`VERIFIED`需求。Migration：不新增、不修改、不套用既有migration。
 
 ### RETROFIT-W1B-E2E-DIAG 起始紀錄（2026-08-14；Execution Plane）
 

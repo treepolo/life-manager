@@ -114,12 +114,14 @@ Migration evidence qualification：E2E fresh chain已在隔離D1依序套用`000
 
 | Acceptance ID | 維度 | 固定輸入／操作 | 預期輸出 | 狀態 |
 |---|---|---|---|---|
-| `AT-REM-NAV-001` | semantic | 建立正式 capability-to-route map | 每個第一批 capability有desktop、mobile、narrow可達路徑；延後模組不放空殼 | `NOT_RUN` |
-| `AT-REM-NAV-002` | interaction | 在desktop導覽、mobile「更多／系統」第二層、narrow keyboard操作 | 所有正式 action可到達、focus／back／deep link一致；mobile不刪功能 | `NOT_RUN` |
-| `AT-REM-NAV-003` | visual/mobile | viewport 1280、390、320執行route screenshot／可讀性檢查 | 沒有水平溢出、遮住主要action或不可觸達row action；資訊優先順序按mobile重排 | `NOT_RUN` |
-| `AT-REM-NAV-004` | recovery | 從深層路由reload、離線開啟、Access session失效 | 回到可理解的loading／offline／reauth狀態，不丟失 capability或顯示假資料 | `NOT_RUN` |
-| `AT-REM-NAV-005` | security | 直接請求未授權route與隱藏second-level入口 | Access與server authorization一致；隱藏導覽不是安全邊界 | `NOT_RUN` |
-| `AT-REM-NAV-006` | real scenario | 手機使用者要從首頁完成期限、任務、integration status與匯出操作 | 每項都能在不切桌面的情況下找到；沒有只在桌面存在的正式功能 | `NOT_RUN` |
+| `AT-REM-NAV-001` | semantic | 建立正式 capability-to-route map | 每個第一批 capability有desktop、mobile、narrow可達路徑；延後模組不放空殼 | `PASS (local synthetic)` |
+| `AT-REM-NAV-002` | interaction | 在desktop導覽、mobile「更多／系統」第二層、narrow keyboard操作 | 所有正式 action可到達、focus／back／deep link一致；mobile不刪功能 | `PARTIAL (unit + pre-keyboard local E2E; post-keyboard runner blocked)` |
+| `AT-REM-NAV-003` | visual/mobile | viewport 1280、390、320執行route screenshot／可讀性檢查 | 沒有水平溢出、遮住主要action或不可觸達row action；資訊優先順序按mobile重排 | `PASS (local synthetic)` |
+| `AT-REM-NAV-004` | recovery | 從深層路由reload、離線開啟、Access session失效 | 回到可理解的loading／offline／reauth狀態，不丟失 capability或顯示假資料 | `PASS (local synthetic; Access reauth not run)` |
+| `AT-REM-NAV-005` | security | 直接請求未授權route與隱藏second-level入口 | Access與server authorization一致；隱藏導覽不是安全邊界 | `PARTIAL (local 401 simulation; real Access not run)` |
+| `AT-REM-NAV-006` | real scenario | 手機使用者要從首頁完成期限、任務、integration status與匯出操作 | 每項都能在不切桌面的情況下找到；沒有只在桌面存在的正式功能 | `PASS (local formal-nav path; real phone not run)` |
+
+REM-NAV-001 execution evidence（`RETROFIT-W2A-MOBILE-NAV`，2026-08-14）：`tests/unit/app-shell-navigation.test.tsx`固定答案核對桌面九個正式入口、目前 route、手機四個主要入口、五個 secondary route、同步操作、既有PWA提示狀態、`aria-expanded`、Enter／Tab／Escape與focus return。加入Enter／Tab斷言前，`tests/e2e/app.spec.ts`的`REM-NAV-001`在隔離local D1的1366／1280、768、390、320 viewport通過：desktop九route inventory；手機由首頁正式導覽到社群／重要期限／指標／事件／外部連線／資料管理，另核對總覽／任務／財務；mouse／Escape、active state、browser back、deep-route reload、offline SPA navigation、401 session失效simulation、無示範資料、`scrollWidth <= viewport`、44px touch target、sync列與底部導覽幾何及screenshots均有證據。加入Enter／Tab斷言後的同一targeted command已執行兩次隔離runtime retry，均在Wrangler啟動階段中斷，未進入Playwright assertion；keyboard部分目前只有unit／source evidence，等待穩定runtime重跑。實作未新增route、router、migration或資料／API／sync／worker能力；正式Access未授權route、staging與真人手機仍未執行，因此本 requirement最多為`IMPLEMENTED_UNVERIFIED`，不能以local synthetic evidence標`VERIFIED`。
 
 ### REM-FORM-001　Field necessity／safe defaults／progressive disclosure（Wave 2）
 

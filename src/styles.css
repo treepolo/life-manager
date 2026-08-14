@@ -27,6 +27,7 @@ a { color: inherit; }
 .nav-item { display: grid; grid-template-columns: 34px 1fr; gap: 8px; align-items: center; min-height: 43px; padding: 0 8px; border-left: 2px solid transparent; color: #bbc5bc; text-decoration: none; font-size: 14px; }
 .nav-item span { color: #6f7e71; font: 10px ui-monospace, monospace; }
 .nav-item:hover, .nav-item.is-active { color: #fff; background: #243027; border-left-color: #87b493; }
+.nav-item:focus-visible, .mobile-nav a:focus-visible, .mobile-nav button:focus-visible, .mobile-more-menu a:focus-visible, .mobile-more-menu button:focus-visible { outline: 2px solid #b7d0bc; outline-offset: -2px; }
 .rail-status { margin-top: auto; display: grid; gap: 10px; padding: 16px 8px 0; border-top: 1px solid #465047; }
 .rail-status > span { font: 10px ui-monospace, monospace; letter-spacing: .16em; color: #839486; }
 .main-stage { min-width: 0; }
@@ -182,6 +183,7 @@ dd { margin: 4px 0 0; line-height: 1.5; }
 .instruction-list code { padding: 2px 5px; background: #e4e0d4; }
 .mobile-nav { display: none; }
 .mobile-sync-status { display: none; }
+.mobile-more-menu { display: none; }
 .update-banner {
   position: fixed;
   z-index: 30;
@@ -211,7 +213,7 @@ dd { margin: 4px 0 0; line-height: 1.5; }
 }
 
 @media (max-width: 760px) {
-  .app-shell { display: block; padding-bottom: 104px; }
+  .app-shell { display: block; min-width: 0; padding-bottom: calc(104px + env(safe-area-inset-bottom)); }
   .side-rail { position: static; height: auto; padding: 13px 16px; display: flex; flex-direction: row; align-items: center; }
   .brand { border: 0; padding: 0; }
   .brand > span, .brand small { display: none; }
@@ -232,19 +234,34 @@ dd { margin: 4px 0 0; line-height: 1.5; }
   .business-lines li { grid-template-columns: 1fr; }
   .critical-interrupt, .deadline-list article, .integration-card, .conflict-list article, .channel-list article { align-items: stretch; flex-direction: column; }
   .pending-command-list article, .async-job-status__header { align-items: stretch; flex-direction: column; }
-  .mobile-sync-status { position: fixed; z-index: 19; left: 0; right: 0; bottom: 62px; min-height: 42px; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 5px 10px; background: #e8e5dc; border-top: 1px solid var(--line); }
+  .mobile-sync-status { position: fixed; z-index: 19; left: 0; right: 0; bottom: calc(62px + env(safe-area-inset-bottom)); min-height: 42px; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 5px 10px; background: #e8e5dc; border-top: 1px solid var(--line); }
   .mobile-sync-status small { max-width: 45vw; overflow: hidden; color: var(--danger); text-overflow: ellipsis; white-space: nowrap; }
-  .mobile-sync-status .button { padding: 7px 10px; }
-  .mobile-nav { position: fixed; z-index: 20; left: 0; right: 0; bottom: 0; height: 62px; display: grid; grid-template-columns: repeat(5, 1fr); background: #172019; border-top: 1px solid #586359; }
-  .mobile-nav a { display: grid; place-content: center; gap: 2px; color: #bbc5bc; text-align: center; text-decoration: none; font-size: 11px; }
+  .mobile-sync-status .button { min-height: 44px; padding: 7px 10px; }
+  .mobile-more-menu { position: fixed; z-index: 21; left: 12px; right: 12px; bottom: calc(62px + 42px + 8px + env(safe-area-inset-bottom)); max-height: min(70vh, calc(100vh - 140px - env(safe-area-inset-bottom))); display: block; overflow-y: auto; color: var(--ink); background: var(--paper); border: 1px solid var(--ink); box-shadow: 4px 4px 0 rgba(24, 32, 25, .24); }
+  .mobile-more-menu__header { min-height: 50px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 12px; border-bottom: 2px solid var(--ink); background: #e7e3d7; }
+  .mobile-more-menu__header h2, .mobile-more-menu__system h2 { margin: 0; font: 700 16px Georgia, "Noto Serif TC", serif; }
+  .mobile-more-menu__close { min-height: 44px; padding: 7px 10px; }
+  .mobile-more-menu__link { min-height: 48px; display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 8px; align-items: center; padding: 7px 12px; border-bottom: 1px solid var(--line); color: var(--ink); text-decoration: none; }
+  .mobile-more-menu__link > span { color: #687268; font: 10px ui-monospace, monospace; }
+  .mobile-more-menu__link:hover, .mobile-more-menu__link.is-active { color: #174d32; background: #e0ede5; }
+  .mobile-more-menu__system { display: grid; gap: 10px; padding: 13px 12px 12px; background: #f0eee6; }
+  .mobile-system-status { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: center; padding-top: 10px; border-top: 1px solid var(--line); }
+  .mobile-system-status > div { min-width: 0; display: grid; gap: 4px; }
+  .mobile-system-status strong, .mobile-system-status span { overflow-wrap: anywhere; }
+  .mobile-system-status span { color: #596158; font-size: 12px; line-height: 1.45; }
+  .mobile-system-status small { color: var(--danger); line-height: 1.45; }
+  .mobile-system-status .button { min-height: 44px; padding: 7px 10px; }
+  .mobile-nav { position: fixed; z-index: 20; left: 0; right: 0; bottom: 0; height: calc(62px + env(safe-area-inset-bottom)); display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); padding-bottom: env(safe-area-inset-bottom); background: #172019; border-top: 1px solid #586359; }
+  .mobile-nav a, .mobile-nav button { min-width: 0; min-height: 44px; display: grid; place-content: center; gap: 2px; padding: 4px 2px; color: #bbc5bc; text-align: center; text-decoration: none; font-size: 11px; }
+  .mobile-nav button { border: 0; color: #bbc5bc; background: transparent; cursor: pointer; }
   .mobile-nav a span { color: #758177; font: 8px ui-monospace, monospace; }
-  .mobile-nav a.is-active { color: white; background: #2a382d; box-shadow: inset 0 3px 0 #87b493; }
+  .mobile-nav a.is-active, .mobile-nav button.is-active, .mobile-nav button.is-open { color: white; background: #2a382d; box-shadow: inset 0 3px 0 #87b493; }
   .update-banner {
     left: 12px;
     right: 12px;
-    bottom: 116px;
+    bottom: calc(116px + env(safe-area-inset-bottom));
     width: auto;
-    max-height: calc(100vh - 140px);
+    max-height: calc(100vh - 140px - env(safe-area-inset-bottom));
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .update-banner > strong, .update-banner > span { grid-column: 1 / -1; }
