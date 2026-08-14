@@ -196,6 +196,7 @@ A/N2整合commit `007768fae8f56893072cc056a007766cac462595` 的 staging version 
 - Transaction：task、optional schedule、兩筆必要稽核（含`actor_id`／`request_id`）、actor-bound idempotency與兩個sync snapshots在同一D1 batch；reference、schedule relation、date range在寫入前驗證；D1 statement failure以batch rollback，不使用UI compensating delete。
 - Fixed-answer evidence：`tests/worker/retrofit-w1a.test.ts`涵蓋 task only、task+schedule linked、invalid schedule zero/zero、injected second-write rollback、same-key/same-payload replay、same-key/different-payload conflict、cross-actor conflict/no leak。既有`tasks`與`task-schedules` CRUD／offline sync未刪除；TasksPage未修改。
 - W1B actual：AT-REM-REL-003在desktop、mobile-390、narrow-320的local TasksPage recovery UI通過；AT-REM-REL-006以隔離browser route abort／reload／同operation recovery核對最終一個task與一個WEEKLY schedule通過。offline fallback以unit固定答案核對同一IndexedDB transaction寫入task與schedule resource outbox；這仍是既有resource-level sync，不冒充server atomic offline protocol。真實使用者／staging scenario維持`NOT_RUN`。
+- Full-suite runtime evidence（`RETROFIT-W1B-E2E-DIAG`）：Wrangler `4.118.0`的正式`npm run test:e2e`最終exit 0，13個runner case（9 desktop＋tablet-768＋large-desktop＋mobile-390＋mobile-320）在既有runtime-crash retry後均PASS；一次重現中Wrangler/workerd已退出且4173 listener不存在，Playwright後續才在`tests/e2e/app.spec.ts:9`等待`/api/v1/sync/devices`達120秒，故該timeout記為server-death downstream symptom，不是已觀察到的120秒API handler。此local evidence不升級requirement為`VERIFIED`。
 
 ### REM-ASYNC-001
 
@@ -203,6 +204,7 @@ A/N2整合commit `007768fae8f56893072cc056a007766cac462595` 的 staging version 
 - Capability matrix：provider manual/scheduled sync＝persisted job＋run、phase為來源status映射、source counters／retry/dead-letter/stale recovery／history可讀、background continuation=true、retry/cancel action=false；CSV import＝persisted`import_batches`＋真實row counters、reload read=true、history/retry/cancel=false；export＝`export_history`只記短同步完成紀錄，restore＝request內同步且有idempotency/audit，兩者不分類為async job，未造假progress。
 - Fixed-answer evidence：同一Worker-D1測試涵蓋合法／非法status transition、provider `RETRY_WAIT`／`PARTIAL` counters與history、reload後讀到D1新狀態、dead-letter、無total不產生percentage、stable cursor與stale cursor、import `2+1+1=4` row partition、not-found/no-leak與unsupported cancel/retry flags。既有provider cost admission／external adapter／scheduler transition code未改。
 - W1B actual：AT-REM-ASYNC-003在desktop、mobile-390、narrow-320的local provider fixture通過，包含persisted phase、last update、attempt、source counters、history、provenance、reload與無percentage／ETA；`retrySupported=false`／`cancelSupported=false`時沒有retry/cancel按鈕。AT-REM-ASYNC-005的staging非owner Access與AT-REM-ASYNC-006真實YouTube／Instagram／cost sync仍`NOT_RUN`。
+- Full-suite runtime evidence（`RETROFIT-W1B-E2E-DIAG`）：同一fresh-local-D1 runner的最終結果為exit 0；首次runtime death與下游`/api/v1/sync/devices`等待已由process／port evidence分離，沒有修改產品、async contract、runner timeout或migration。staging Access、真實provider與cost sync仍`NOT_RUN`，不把full-suite local PASS當作外部驗收。
 
 ## RETROFIT-W1B-SHARED-UI execution evidence（2026-08-14）
 

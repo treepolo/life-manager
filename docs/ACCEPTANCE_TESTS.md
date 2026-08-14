@@ -106,7 +106,7 @@
 | `AT-REM-REL-006` | local route abort第一個atomic POST，reload後同operation recovery；server GET核對單一task與單一WEEKLY schedule | desktop、390px、320px PASS | 真正使用者通知與外部 provider NOT_RUN |
 | `AT-REM-ASYNC-003` | provider fixture `RETRY_WAIT`＋source counters/history/provenance；reload與manual reload讀同一persisted response，無percentage／ETA，unsupported actions不造按鈕 | desktop、390px、320px PASS；窄版無水平溢出 | staging Access、YouTube／Instagram／cost sync NOT_RUN |
 
-補充：受影響案例均使用本機隔離D1與synthetic route；repo預設`npm run test:e2e`本輪未完成，Windows Wrangler isolated runtime先出現`std::terminate()`，重試後既有正式UI案例等待`/api/v1/sync/devices`超過120秒。此環境失敗不覆寫上述 targeted acceptance PASS，也不被記錄為full-suite PASS；需後續環境 owner 重跑完整runner。
+補充（`RETROFIT-W1B-E2E-DIAG`，2026-08-14）：受影響案例均使用本機隔離D1與synthetic route；repo安裝Wrangler `4.118.0`、Playwright `1.62.1`。一次正式full runner先觀察到Wrangler/workerd generic fatal，retry時出現`ECONNRESET`，且chart獨跑PASS；另一個正式`npm run test:e2e`在第二個desktop案例時已無Wrangler/workerd程序與4173 listener，Playwright於`tests/e2e/app.spec.ts:9`等待`/api/v1/sync/devices`達120秒後失敗，既有runner以全新local D1 retry後30.9秒PASS，後續案例全部PASS，命令exit 0。獨立process／port monitor的full run亦exit 0，所有`/api/v1/sync/devices`為200且最大觀察約974ms。這把runtime death與下游timeout分開：未觀察到API handler持續120秒；不修改產品、runner、dependency或migration，也不以提高timeout／skip測試掩蓋。此證據解除本輪full-suite blocker，但不把`AT-REM-REL-003`、`AT-REM-REL-006`或`AT-REM-ASYNC-003`升級為`VERIFIED`；staging／真人／OAuth／remote D1／provider evidence仍`NOT_RUN`，Windows isolated runtime偶發程序死亡風險保留供後續環境 owner追蹤。
 
 Migration evidence qualification：E2E fresh chain已在隔離D1依序套用`0001`～`0013`；Worker-D1已核對schema version 13、sentinel preservation與migration ledger reapply／record preservation。pre-0013既有資料快照的獨立upgrade案例尚未執行，remote／staging／production apply維持`NOT_RUN`；不得以本地fresh evidence取代upgrade或remote evidence。
 
