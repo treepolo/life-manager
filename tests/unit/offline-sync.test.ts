@@ -2,13 +2,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { apiPostLongRunning } from "@/app/api/client";
 import { acquireRequestSlot } from "@/core/network/request-gate";
-import { applyServerChanges, cacheServerEntities, cachedEntities, commitOfflineMutation, getOrCreateSyncMeta, listOutbox, localDatabase } from "@/core/sync/client-db";
+import { applyServerChanges, cacheServerEntities, cachedEntities, commitOfflineMutation, commitOfflineMutations, getOrCreateSyncMeta, listOutbox, localDatabase } from "@/core/sync/client-db";
 import { createSyncPassSignal, syncNow } from "@/core/sync/sync-manager";
 
 describe("IndexedDB離線輸入", () => {
   beforeEach(async () => {
     const db = await localDatabase();
-    await Promise.all([db.clear("entities"), db.clear("outbox"), db.clear("syncMeta"), db.clear("conflicts"), db.clear("cachedQueries")]);
+    await Promise.all([db.clear("entities"), db.clear("outbox"), db.clear("syncMeta"), db.clear("conflicts"), db.clear("cachedQueries"), db.clear("appSettings")]);
   });
 
   afterEach(() => {
@@ -23,6 +23,22 @@ describe("IndexedDB離線輸入", () => {
     expect(operation.deviceId).toBe(meta.deviceId);
     expect(await listOutbox()).toEqual([expect.objectContaining({ entityType: "areas", entityId, kind: "UPSERT" })]);
     expect(await cachedEntities("areas")).toEqual([expect.objectContaining({ entityId, pending: true, data: expect.objectContaining({ name: "離線領域" }) })]);
+  });
+
+  it("task與optional schedule離線fallback在同一IndexedDB transaction建立resource outbox", async () => {
+    const taskId = "019fc1d9-d4e7-7c11-94e2-198d9fcd7210";
+    const scheduleId = "019fc1d9-d4e7-7c11-94e2-198d9fcd7211";
+    const operations = await commitOfflineMutations([
+      { entityType: "tasks", entityId: taskId, kind: "UPSERT", baseVersion: null, payload: { id: taskId, title: "離線原子任務" } },
+      { entityType: "task-schedules", entityId: scheduleId, kind: "UPSERT", baseVersion: null, payload: { id: scheduleId, taskDefinitionId: taskId, recurrenceKind: "WEEKLY" } },
+    ]);
+    expect(operations).toHaveLength(2);
+    expect(await listOutbox()).toEqual(expect.arrayContaining([
+      expect.objectContaining({ entityType: "tasks", entityId: taskId, kind: "UPSERT" }),
+      expect.objectContaining({ entityType: "task-schedules", entityId: scheduleId, kind: "UPSERT" }),
+    ]));
+    expect(await cachedEntities("tasks")).toEqual([expect.objectContaining({ entityId: taskId, pending: true })]);
+    expect(await cachedEntities("task-schedules")).toEqual([expect.objectContaining({ entityId: scheduleId, pending: true })]);
   });
 
   it("併發初始化只建立一個穩定裝置身分", async () => {

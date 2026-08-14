@@ -156,6 +156,24 @@ dd { margin: 4px 0 0; line-height: 1.5; }
 .deadline-list article, .integration-card, .conflict-list article { display: flex; justify-content: space-between; gap: 18px; padding: 15px; border: 1px solid #b9b5a9; }
 .deadline-list h3, .integration-card h3 { margin: 7px 0; font: 20px Georgia, serif; }
 .deadline-list p, .integration-card p { margin: 5px 0; color: #555d55; }
+.pending-command-list { display: grid; gap: 10px; }
+.pending-command-list article { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 0; border-top: 1px solid var(--line); }
+.pending-command-list article > div { min-width: 0; }
+.pending-command-list strong, .pending-command-list small { display: block; overflow-wrap: anywhere; }
+.pending-command-list small { margin-top: 4px; color: #60675f; }
+.async-job-status { display: grid; gap: 12px; margin-top: 14px; padding-top: 14px; border-top: 1px dashed var(--line); }
+.async-job-status__header { display: flex; align-items: start; justify-content: space-between; gap: 12px; }
+.async-job-status__header strong, .async-job-status__header small { display: block; }
+.async-job-status__header small { margin-top: 4px; color: #626a61; overflow-wrap: anywhere; font: 10px ui-monospace, monospace; }
+.async-job-status__summary, .async-job-status__capabilities { grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); }
+.async-job-status__section { display: grid; gap: 8px; }
+.async-job-status__section h4 { margin: 0; font: 700 13px Georgia, serif; }
+.async-job-status__section .support-copy { margin: 0; overflow-wrap: anywhere; }
+.async-job-status__details { border-top: 1px solid var(--line); padding-top: 8px; font-size: 12px; }
+.async-job-status__details summary { cursor: pointer; font-weight: 700; }
+.async-job-status__details p { margin: 8px 0 0; overflow-wrap: anywhere; line-height: 1.55; }
+.async-job-status__details ol { margin: 8px 0 0; padding-left: 20px; }
+.async-job-status__details li { margin: 5px 0; overflow-wrap: anywhere; line-height: 1.5; }
 .channel-list { display: grid; gap: 8px; margin-top: 16px; }
 .channel-list article { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-top: 1px solid var(--line); }
 .channel-list article > div { display: grid; grid-template-columns: auto auto; align-items: center; gap: 5px 10px; }
@@ -213,6 +231,7 @@ dd { margin: 4px 0 0; line-height: 1.5; }
   .area-sheet__guides { grid-template-columns: 1fr; }
   .business-lines li { grid-template-columns: 1fr; }
   .critical-interrupt, .deadline-list article, .integration-card, .conflict-list article, .channel-list article { align-items: stretch; flex-direction: column; }
+  .pending-command-list article, .async-job-status__header { align-items: stretch; flex-direction: column; }
   .mobile-sync-status { position: fixed; z-index: 19; left: 0; right: 0; bottom: 62px; min-height: 42px; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 5px 10px; background: #e8e5dc; border-top: 1px solid var(--line); }
   .mobile-sync-status small { max-width: 45vw; overflow: hidden; color: var(--danger); text-overflow: ellipsis; white-space: nowrap; }
   .mobile-sync-status .button { padding: 7px 10px; }

@@ -280,3 +280,9 @@ Wave 0 只新增治理與文件索引，不改模組化單體、路由、狀態�
 `migrations/0013_retrofit_operation_actor.sql`只為新command的cross-actor idempotency isolation新增nullable `api_idempotency.actor_id`與index；舊migration `0001`～`0012`不修改。舊idempotency列沒有actor時不被新command重播，避免在無法證明owner時洩漏response。
 
 共用`async-job.v1` read contract由`src/modules/async-jobs/schema.ts`／`service.ts`提供。`GET /api/v1/async-jobs`以`kind=PROVIDER_SYNC|CSV_IMPORT`、`updated_at DESC,id DESC` opaque cursor列出，`GET /api/v1/async-jobs/:id`取單筆；兩者均在Worker Access boundary內。provider sync重用`provider_sync_jobs`／`provider_sync_runs`，import重用`import_batches`；source counter若不同量綱則只放`sourceCounters`、`progress=null`與provenance，不計假percentage。`cancelSupported=false`／`retrySupported=false`代表本Wave沒有安全transition endpoint，不能由UI補造按鈕；既有scheduler retry/dead-letter/stale recovery與cost admission不在此contract內重寫。export/restore仍是短同步request，不冒充async persistence。
+
+### 10.2 Wave 1B shared UI與client boundary（2026-08-14）
+
+`src/app/components/AsyncJobStatus.tsx`是共用的server-truth read surface。它不自行計算百分比、ETA或phase；只呈現`async-job.v1`的persisted status、phase、timestamps、counters、sourceCounters、history、error、capabilities與provenance。`IntegrationsPage`的provider manual sync保留既有long-running request與busy lock，同時poll並reload同一async-job read contract；當server capability為false時不顯示retry／cancel action。
+
+`TasksPage`的建立流程只呼叫一次`POST /api/v1/tasks/with-initial-schedule`，以同一operationId處理重複點擊、網路錯誤與reload recovery。線上成功才顯示server acknowledgement；離線時使用既有IndexedDB resource outbox，以單一本地transaction建立task與optional schedule的local snapshots／operations，並保留既有edit/offline resource sync。這個offline fallback不宣稱是新的server atomic protocol，也不修改W1A backend或資料表。

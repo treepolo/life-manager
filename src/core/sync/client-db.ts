@@ -25,6 +25,14 @@ export interface OutboxOperation {
   lastError: string | null;
 }
 
+export interface OfflineMutationInput {
+  entityType: string;
+  entityId: string;
+  kind: OutboxOperation["kind"];
+  baseVersion: number | null;
+  payload: Record<string, unknown>;
+}
+
 export interface LocalConflict {
   id: string;
   operationId: string;
@@ -90,49 +98,52 @@ export async function getOrCreateSyncMeta(): Promise<SyncMeta> {
   return created;
 }
 
-export async function commitOfflineMutation(input: {
-  entityType: string;
-  entityId: string;
-  kind: OutboxOperation["kind"];
-  baseVersion: number | null;
-  payload: Record<string, unknown>;
-}): Promise<OutboxOperation> {
+export async function commitOfflineMutations(inputs: OfflineMutationInput[]): Promise<OutboxOperation[]> {
+  if (inputs.length === 0) return [];
   const db = await localDatabase();
   const meta = await getOrCreateSyncMeta();
-  const operation: OutboxOperation = {
-    operationId: uuidv7(),
-    deviceId: meta.deviceId,
-    entityType: input.entityType,
-    entityId: input.entityId,
-    kind: input.kind,
-    baseVersion: input.baseVersion,
-    payload: input.payload,
-    clientOccurredAt: new Date().toISOString(),
-    schemaVersion: 1,
-    attempts: 0,
-    lastError: null,
-  };
   const transaction = db.transaction(["entities", "outbox"], "readwrite");
-  const key = `${input.entityType}:${input.entityId}`;
-  const current = await transaction.objectStore("entities").get(key);
-  const nextData = input.kind === "UPSERT" || input.kind === "APPEND"
-    ? { ...(current?.data ?? {}), ...input.payload, id: input.entityId }
-    : input.kind === "RESTORE"
-      ? { ...(current?.data ?? {}), archivedAt: null, deletedAt: null }
-      : { ...(current?.data ?? {}), archivedAt: operation.clientOccurredAt };
-  await transaction.objectStore("entities").put({
-    key,
-    entityType: input.entityType,
-    entityId: input.entityId,
-    version: current?.version ?? input.baseVersion ?? 0,
-    data: nextData,
-    pending: true,
-    updatedAt: operation.clientOccurredAt,
-  });
-  await transaction.objectStore("outbox").put(operation);
+  const operations: OutboxOperation[] = [];
+  for (const input of inputs) {
+    const operation: OutboxOperation = {
+      operationId: uuidv7(),
+      deviceId: meta.deviceId,
+      entityType: input.entityType,
+      entityId: input.entityId,
+      kind: input.kind,
+      baseVersion: input.baseVersion,
+      payload: input.payload,
+      clientOccurredAt: new Date().toISOString(),
+      schemaVersion: 1,
+      attempts: 0,
+      lastError: null,
+    };
+    const key = `${input.entityType}:${input.entityId}`;
+    const current = await transaction.objectStore("entities").get(key);
+    const nextData = input.kind === "UPSERT" || input.kind === "APPEND"
+      ? { ...(current?.data ?? {}), ...input.payload, id: input.entityId }
+      : input.kind === "RESTORE"
+        ? { ...(current?.data ?? {}), archivedAt: null, deletedAt: null }
+        : { ...(current?.data ?? {}), archivedAt: operation.clientOccurredAt };
+    await transaction.objectStore("entities").put({
+      key,
+      entityType: input.entityType,
+      entityId: input.entityId,
+      version: current?.version ?? input.baseVersion ?? 0,
+      data: nextData,
+      pending: true,
+      updatedAt: operation.clientOccurredAt,
+    });
+    await transaction.objectStore("outbox").put(operation);
+    operations.push(operation);
+  }
   await transaction.done;
   notifyOutboxChanged();
-  return operation;
+  return operations;
+}
+
+export async function commitOfflineMutation(input: OfflineMutationInput): Promise<OutboxOperation> {
+  return (await commitOfflineMutations([input]))[0];
 }
 
 export async function outboxCount(): Promise<number> {

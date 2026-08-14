@@ -12,6 +12,10 @@ Codex必須在需要使用者介入前填入實際網址、欄位名稱與命令
 
 `REM-REL-001`／`REM-ASYNC-001`本線不需要使用者登入、提供CSV、授權OAuth、設定secret、執行migration或操作staging。local固定答案與契約測試已完成；Wave 1B只需依`docs/DATA_AND_SYNC.md`接入API，真人／staging／外部provider setup仍保持`NOT_RUN`，不得把本節當成外部驗收證據。
 
+### RETROFIT-W1B setup boundary（2026-08-14）
+
+本線的Tasks／async UI與browser evidence使用本機隔離D1及synthetic provider response，不需要使用者新增設定、登入、OAuth、CSV、secret、remote D1或deployment。若要把`AT-REM-REL-006`或`AT-REM-ASYNC-006`升級為real／staging evidence，下一 owner必須先依既有Access、provider與cost gate setup完成明確human checkpoint；本線不把local pending outbox或fixture視為外部同步成功。
+
 ## SETUP-001　開始開發前
 
 使用者目前不需要先設定所有雲端服務。Codex先完成本機正式架構、D1、核心功能、離線、adapter及自動測試。

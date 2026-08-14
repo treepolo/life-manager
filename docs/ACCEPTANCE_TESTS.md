@@ -52,10 +52,10 @@
 |---|---|---|---|---|
 | `AT-REM-REL-001` | semantic | 同一 `idempotency_key` 同時建立task與schedule，注入任一寫入失敗 | transaction完整回滾；不可留下只建task或只建schedule的假成功 | `NOT_RUN` |
 | `AT-REM-REL-002` | interaction | 對同一request安全重試、timeout後查詢operation | 回傳同一 operation/result或明確可恢復狀態，不重複建立occurrence／schedule | `NOT_RUN` |
-| `AT-REM-REL-003` | visual/mobile | desktop、mobile-390、narrow-320重試表單 | 顯示真實保存／待重試／失敗狀態，不重複列出 task；mobile可觸達 recovery action | `NOT_RUN` |
+| `AT-REM-REL-003` | visual/mobile | desktop、mobile-390、narrow-320重試表單 | 顯示真實保存／待重試／失敗狀態，不重複列出 task；mobile可觸達 recovery action | `PASS (local synthetic)` |
 | `AT-REM-REL-004` | recovery | server在task寫入後schedule寫入前中斷，重新載入並執行recovery | persisted operation可重建或補償；歷史與audit完整，沒有部分建立假失敗 | `NOT_RUN` |
 | `AT-REM-REL-005` | security | 未授權或跨user idempotency key重放 | server拒絕且不洩漏另一 operation/result；寫入有actor、audit與transaction boundary | `NOT_RUN` |
-| `AT-REM-REL-006` | real scenario | 使用者建立每週任務與通知排程，瀏覽器於submit後斷線再恢復 | 最終只有一個task、一個schedule與可追溯狀態；不因 retry 產生重複提醒 | `NOT_RUN` |
+| `AT-REM-REL-006` | real scenario | 使用者建立每週任務與通知排程，瀏覽器於submit後斷線再恢復 | 最終只有一個task、一個schedule與可追溯狀態；不因 retry 產生重複提醒 | `PASS (isolated local)／NOT_RUN (real user)` |
 
 ### REM-REL-002　Cost gate／migration安全整合（Wave 0定義，Wave 4執行）
 
@@ -74,7 +74,7 @@
 |---|---|---|---|---|
 | `AT-REM-ASYNC-001` | semantic | job依序進入queued、claimed、running、retry_wait、succeeded／failed／cancelled | 每一狀態有server persisted phase、counter、timestamps、error code與history；不計算假百分比 | `NOT_RUN` |
 | `AT-REM-ASYNC-002` | interaction | reload、離開頁面、重新進入後按retry／cancel | API讀回同一job truth；action遵守狀態機與idempotency，不重複執行 | `NOT_RUN` |
-| `AT-REM-ASYNC-003` | visual/mobile | desktop、mobile-390、narrow-320查看長工作進度 | 顯示真實phase／completed／total／retry count／last update與可用action；沒有假百分比 | `NOT_RUN` |
+| `AT-REM-ASYNC-003` | visual/mobile | desktop、mobile-390、narrow-320查看長工作進度 | 顯示真實phase／completed／total／retry count／last update與可用action；沒有假百分比 | `PASS (local synthetic)` |
 | `AT-REM-ASYNC-004` | recovery | worker crash、stale lease、網路中斷後reload | stale recovery與retry policy可重入；history保留原錯誤與新attempt，不遺失job | `NOT_RUN` |
 | `AT-REM-ASYNC-005` | security | 非owner查詢、cancel、retry job | server以Access／actor／resource scope拒絕，錯誤不洩漏provider payload或secret | `NOT_RUN` |
 | `AT-REM-ASYNC-006` | real scenario | YouTube／Instagram／cost sync在資料量未知時執行 | 使用真實counter與provider／cost gate phase；外部阻擋顯示具體原因，不顯示示範進度 | `NOT_RUN` |
@@ -87,16 +87,26 @@
 |---|---|---|---|---|
 | `AT-REM-REL-001` | `tests/worker/retrofit-w1a.test.ts` valid task+schedule；D1 trigger在schedule第二筆write故意abort | 全成或全回滾，不留partial task/schedule | valid path各一筆；trigger path task與schedule均0；同一D1 batch rollback | `PASS (backend)` |
 | `AT-REM-REL-002` | 同`operationId`／同payload重送；再查同key結果 | 同一result、row count不增加 | `meta.idempotentReplay=true`，task/schedule count unchanged；operation response持久於`api_idempotency` | `PASS (backend)` |
-| `AT-REM-REL-003` | desktop/mobile-390/narrow-320 TasksPage recovery UI | UI顯示server truth且可觸達 | 本線明確未修改TasksPage或shared UI | `NOT_RUN` |
+| `AT-REM-REL-003` | desktop/mobile-390/narrow-320 TasksPage recovery UI | UI顯示server truth且可觸達 | `tests/e2e/app.spec.ts` atomic recovery；desktop、mobile-390、mobile-320均通過；UI顯示pending、busy、success/error與同operation recovery | `PASS (local synthetic)` |
 | `AT-REM-REL-004` | D1 batch中第二筆write失敗後重新GET | reload可辨識完整回滾或可恢復operation | backend rollback固定答案通過；process crash／browser reload全流程留給Wave 1B | `PASS (backend subcase)` |
 | `AT-REM-REL-005` | same key/different payload與`x-local-access-user` actor-a→actor-b replay | 409 conflict，不洩漏原result | 兩者均`IDEMPOTENCY_CONFLICT`，cross-actor response無`data`；audit含actor | `PASS (backend)` |
-| `AT-REM-REL-006` | submit後斷線、恢復、每週任務與提醒的真人scenario | 最終一task、一schedule、無重複提醒 | 未執行外部／瀏覽器真人scenario；既有resource-level outbox contract保留，需Wave 1B接入 | `NOT_RUN` |
+| `AT-REM-REL-006` | submit後斷線、恢復、每週任務與提醒的真人scenario | 最終一task、一schedule、無重複提醒 | local isolated route abort／reload／同operation recovery通過，核對request count=2與一個task＋一個WEEKLY schedule；real user／staging scenario未執行 | `PASS (isolated local)／NOT_RUN (real user)` |
 | `AT-REM-ASYNC-001` | status transition helper測試`QUEUED→RUNNING`、`RUNNING→SUCCEEDED`、terminal逆轉與非法`READY` | 合法轉移接受、非法拒絕；狀態與phase有明確語意 | `isAsyncJobTransitionAllowed`與Zod enum固定答案通過；provider source仍保留既有狀態映射 | `PASS (contract)` |
 | `AT-REM-ASYNC-002` | provider job GET/list→更新D1 status→reload GET；retry/cancel capability read | reload讀server truth；unsupported action不可造假 | `DEAD_LETTER`與`RETRY_WAIT`從D1重建；`retrySupported=false`／`cancelSupported=false` | `PASS (backend read)` |
-| `AT-REM-ASYNC-003` | desktop/mobile-390/narrow-320 async status UI | 顯示真phase、counter、last update與可用action | shared UI未修改，Wave 1B接手 | `NOT_RUN` |
+| `AT-REM-ASYNC-003` | desktop/mobile-390/narrow-320 async status UI | 顯示真phase、counter、last update與可用action | `AsyncJobStatus`與provider fixture E2E在desktop、mobile-390、mobile-320通過；phase、source counters、history、provenance、reload與無percentage／ETA均核對；unsupported retry/cancel不渲染按鈕 | `PASS (local synthetic)` |
 | `AT-REM-ASYNC-004` | provider `RUNNING` stale recovery既有測試＋provider job history/reload | stale run不永久卡住，原錯誤與新attempt保留 | `api-d1.test.ts`既有`recoverStaleProviderSyncs`固定答案＋本線history讀回；未執行process crash live drill | `PASS (local backend)` |
 | `AT-REM-ASYNC-005` | protected Worker route；invalid cursor／not-found；不同local actor讀同一單租戶資料 | unauthorized／not-found/stale不洩漏；cancel/retry遵守owner transition | Access gate在`src/worker/index.ts`；`NOT_FOUND`／`ASYNC_CURSOR_STALE`／無action flags通過；非owner staging scenario未跑 | `PASS (local boundary)／NOT_RUN (staging)` |
 | `AT-REM-ASYNC-006` | provider job source counters無total；CSV import `total=4, imported=2, duplicate=1, error=1` | 無total不生成百分比；row partition `2+1+1=4`；真實provider受cost gate | provider `progress=null`且無`percentage`；CSV progress `4/4`；YouTube／Instagram／cost real sync未執行 | `PASS (local contract)／NOT_RUN (real)` |
+
+### Wave 1B UI／interaction execution addendum（2026-08-14）
+
+| Acceptance ID | local evidence | viewport／狀態 | 外部邊界 |
+|---|---|---|---|
+| `AT-REM-REL-003` | `tests/unit/tasks-page.test.tsx`、`tests/e2e/app.spec.ts`；duplicate click只送一次，失敗後顯示待恢復command，reload後可觸達recovery | desktop、390px、320px PASS；320px in-app browser `scrollWidth=320` | 不宣稱staging／真人 |
+| `AT-REM-REL-006` | local route abort第一個atomic POST，reload後同operation recovery；server GET核對單一task與單一WEEKLY schedule | desktop、390px、320px PASS | 真正使用者通知與外部 provider NOT_RUN |
+| `AT-REM-ASYNC-003` | provider fixture `RETRY_WAIT`＋source counters/history/provenance；reload與manual reload讀同一persisted response，無percentage／ETA，unsupported actions不造按鈕 | desktop、390px、320px PASS；窄版無水平溢出 | staging Access、YouTube／Instagram／cost sync NOT_RUN |
+
+補充：受影響案例均使用本機隔離D1與synthetic route；repo預設`npm run test:e2e`本輪未完成，Windows Wrangler isolated runtime先出現`std::terminate()`，重試後既有正式UI案例等待`/api/v1/sync/devices`超過120秒。此環境失敗不覆寫上述 targeted acceptance PASS，也不被記錄為full-suite PASS；需後續環境 owner 重跑完整runner。
 
 Migration evidence qualification：E2E fresh chain已在隔離D1依序套用`0001`～`0013`；Worker-D1已核對schema version 13、sentinel preservation與migration ledger reapply／record preservation。pre-0013既有資料快照的獨立upgrade案例尚未執行，remote／staging／production apply維持`NOT_RUN`；不得以本地fresh evidence取代upgrade或remote evidence。
 

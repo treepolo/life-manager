@@ -1,7 +1,13 @@
 import { v7 as uuidv7 } from "uuid";
 
 import { gatedFetch } from "@/core/network/request-gate";
-import { cacheServerEntities, cachedEntities, commitOfflineMutation } from "@/core/sync/client-db";
+import {
+  cacheServerEntities,
+  cachedEntities,
+  commitOfflineMutation,
+  commitOfflineMutations,
+  localDatabase,
+} from "@/core/sync/client-db";
 
 export interface ApiErrorBody {
   error: { code: string; message: string; details: Record<string, unknown>; requestId: string };
@@ -10,6 +16,115 @@ export interface ApiErrorBody {
 export class ClientApiError extends Error {
   constructor(public readonly status: number, public readonly body: ApiErrorBody) {
     super(body.error.message);
+  }
+}
+
+export interface TaskWithInitialScheduleCommand {
+  operationId: string;
+  task: Record<string, unknown> & { id: string };
+  schedule: (Record<string, unknown> & { id: string }) | null;
+}
+
+export interface TaskWithInitialScheduleResult {
+  data: {
+    task: Record<string, unknown> & { id: string };
+    schedule: (Record<string, unknown> & { id: string }) | null;
+  };
+  meta: { requestId?: string; idempotentReplay?: boolean; offline?: boolean };
+  operationId: string;
+  pending: boolean;
+}
+
+export class PendingTaskCommandError extends Error {
+  constructor(public readonly operationId: string) {
+    super("網路中斷：此次保存已保留，可於恢復後從本頁重新提交同一操作。");
+    this.name = "PendingTaskCommandError";
+  }
+}
+
+const PENDING_TASK_COMMAND_PREFIX = "pending-task-with-initial-schedule:";
+
+function pendingTaskCommandKey(operationId: string): string {
+  return `${PENDING_TASK_COMMAND_PREFIX}${operationId}`;
+}
+
+async function savePendingTaskCommand(command: TaskWithInitialScheduleCommand): Promise<void> {
+  await (await localDatabase()).put("appSettings", { key: pendingTaskCommandKey(command.operationId), value: command });
+}
+
+export async function listPendingTaskCommands(): Promise<TaskWithInitialScheduleCommand[]> {
+  const settings = await (await localDatabase()).getAll("appSettings");
+  return settings
+    .filter((setting) => setting.key.startsWith(PENDING_TASK_COMMAND_PREFIX))
+    .flatMap((setting) => {
+      const value = setting.value;
+      if (!value || typeof value !== "object") return [];
+      const command = value as Partial<TaskWithInitialScheduleCommand>;
+      if (typeof command.operationId !== "string" || !command.task || typeof command.task.id !== "string") return [];
+      if (command.schedule !== null && (!command.schedule || typeof command.schedule.id !== "string")) return [];
+      return [{ operationId: command.operationId, task: command.task as TaskWithInitialScheduleCommand["task"], schedule: command.schedule as TaskWithInitialScheduleCommand["schedule"] }];
+    });
+}
+
+export async function removePendingTaskCommand(operationId: string): Promise<void> {
+  await (await localDatabase()).delete("appSettings", pendingTaskCommandKey(operationId));
+}
+
+async function queueTaskCommandOffline(command: TaskWithInitialScheduleCommand): Promise<TaskWithInitialScheduleResult> {
+  const mutations = [
+    {
+      entityType: "tasks",
+      entityId: command.task.id,
+      kind: "UPSERT" as const,
+      baseVersion: null,
+      payload: command.task,
+    },
+    ...(command.schedule ? [{
+      entityType: "task-schedules",
+      entityId: command.schedule.id,
+      kind: "UPSERT" as const,
+      baseVersion: null,
+      payload: command.schedule,
+    }] : []),
+  ];
+  await commitOfflineMutations(mutations);
+  return {
+    data: {
+      task: { ...command.task, version: 0, pending: true },
+      schedule: command.schedule ? { ...command.schedule, version: 0, pending: true } : null,
+    },
+    meta: { offline: true },
+    operationId: command.operationId,
+    pending: true,
+  };
+}
+
+export async function createTaskWithInitialSchedule(input: {
+  task: Record<string, unknown> & { id: string };
+  schedule: (Record<string, unknown> & { id: string }) | null;
+  operationId?: string;
+}): Promise<TaskWithInitialScheduleResult> {
+  const command: TaskWithInitialScheduleCommand = {
+    operationId: input.operationId ?? uuidv7(),
+    task: input.task,
+    schedule: input.schedule,
+  };
+  if (!navigator.onLine) return queueTaskCommandOffline(command);
+  try {
+    const response = await apiPost<{
+      data: TaskWithInitialScheduleResult["data"];
+      meta: { requestId: string; idempotentReplay?: boolean };
+    }>("/api/v1/tasks/with-initial-schedule", { operationId: command.operationId, data: { task: command.task, schedule: command.schedule } });
+    await cacheServerEntities("tasks", [response.data.task]);
+    if (response.data.schedule) await cacheServerEntities("task-schedules", [response.data.schedule]);
+    await removePendingTaskCommand(command.operationId);
+    return { ...response, operationId: command.operationId, pending: false };
+  } catch (error) {
+    if (error instanceof TypeError) {
+      await savePendingTaskCommand(command);
+      throw new PendingTaskCommandError(command.operationId);
+    }
+    throw error;
   }
 }
 

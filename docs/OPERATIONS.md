@@ -304,6 +304,13 @@ App內：
 | 離線outbox卡住 | 待同步數不下降、同operation持續錯誤或OPEN conflict | 保留local payload，不清queue、不盲目重送衝突操作 | 先查錯誤碼；schema問題升級client，衝突在資料頁選LOCAL/SERVER/MERGED，網路錯誤保留退避重試 | outbox歸零、operation只套用一次、server版本與另一裝置一致 |
 | Cloudflare Access錯誤 | 本人403或未登入者可進API | 若有繞過風險，立即停用Worker route／部署；不要放寬成Everyone | 修正Access application audience與只允許本人email的policy，再核對Worker `ACCESS_TEAM_DOMAIN/AUD/ALLOWED_EMAIL` | 無session瀏覽器拒絕、本人通過、錯誤aud/過期JWT/API直接請求皆拒絕 |
 
+## OPS-012　Wave 1B task／async UI recovery
+
+- Task建立的正式線上入口是單一`POST /api/v1/tasks/with-initial-schedule`；不要在UI補送第二個task或schedule POST，也不要用compensating delete掩蓋partial write。client收到server response前維持busy lock，網路TypeError則保留同一operationId於IndexedDB `appSettings`，reload後由使用者重新提交。
+- 送出前已離線時，`TasksPage`以同一IndexedDB transaction寫入task與optional schedule的既有resource outbox。這只提供local pending truth；恢復同步仍依既有resource-level sync manager與audit／conflict處理，不得標示為已完成server atomic command。
+- provider manual sync是長請求；頁面可在等待中讀`GET /api/v1/async-jobs?kind=PROVIDER_SYNC`，每4秒重新讀取或由使用者按reload。reload／離開／重新進入後一律以persisted `updatedAt`、phase、counters、history與provenance為準，不以React state保存進度。
+- `retrySupported=false`或`cancelSupported=false`時，UI只能顯示server明示不支援，不可產生猜測的POST、retry或cancel按鈕；若API讀取失敗，顯示error與reload action，不顯示假資料、百分比或ETA。此線未執行Access/staging／provider真人操作，相關runbook仍由後續integrator與human checkpoint負責。
+
 ## 相依套件安全查核
 
 2026-08-02執行`npm audit --omit=dev`：`react-router`與`react-router-dom`各計1項high（共2項），來自同一個React Server Components Server Action CSRF advisory。本產品是Vite瀏覽器SPA與Cloudflare Worker JSON API，不使用`react-server-dom-*`、`unstable_createCallServer`或RSC Static Router；正式程式掃描會禁止這些入口。7.18.2是查核當日npm registry最新版，因此目前記為「不適用路徑的殘餘供應鏈警告」，不能宣稱零漏洞。每次React Router升級或audit advisory有修正版時，必須重跑完整verify與scan並移除此例外；若未來導入RSC，部署立即阻擋直到修補。

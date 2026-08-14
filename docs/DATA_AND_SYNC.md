@@ -343,3 +343,15 @@ Wave 0 不新增資料表、不修改既有migration、不執行D1寫入。`REM-
 | `retryable`／capabilities | 讀既有job retry/dead-letter語意；本API目前retry/cancel action均false | 不安全 transition不提供endpoint或UI button，保留既有scheduler semantics |
 
 Routes為`GET /api/v1/async-jobs?kind=PROVIDER_SYNC|CSV_IMPORT&cursor=&limit=`及`GET /api/v1/async-jobs/:id?kind=...`，均先通過Cloudflare Access。provider manual/scheduled sync已有`provider_sync_jobs`／`provider_sync_runs` persisted state、stale recovery與run history；CSV/import已有`import_batches` row counters；export用`export_history`記短同步完成結果；restore在request內同步且以operation idempotency/audit保護。Wave 1A不新增通用async job table，不改provider external call、cost admission、scheduler retry或OAuth。
+
+## 14. Wave 1B client consumption與離線fallback（2026-08-14）
+
+### 14.1 Task＋optional schedule UI
+
+`TasksPage`透過`createTaskWithInitialSchedule`把task與optional initial schedule放進同一個`POST /api/v1/tasks/with-initial-schedule` command。成功回應前不清空表單或宣稱保存；同一個submit lock阻擋duplicate click。若request因網路TypeError而無法判斷結果，client把完整command與operationId放入既有IndexedDB `appSettings`，reload後重新提交同一operationId，交由server idempotency決定原結果或明確錯誤。
+
+若送出前已知離線，client以`commitOfflineMutations`在一個IndexedDB transaction同時建立既有`tasks`／`task-schedules` local entities與resource-level outbox operations，UI標示為「等待同步」而不是server success。這是保留既有離線resource sync的明確fallback，不改變W1A server atomic command，也不新增migration；edit、archive、restore與既有sync manager仍走原有resource contract。
+
+### 14.2 Async status UI
+
+`AsyncJobStatus`只讀`async-job.v1` response，使用`lastUpdatedAt`／persisted version作為更新依據，顯示server提供的status／phase、attempt、nextRunAt、job counters、source counters、counter invariant、history、error／warnings、capabilities與provenance。當`progress`為null或source counters不是同一單位時，UI不補出percentage或ETA；當retry／cancel capability為false時不渲染相應action。Integrations manual sync可在等待中poll、手動reload或重新進頁面讀回同一persisted job，不依賴頁面記憶的假進度。

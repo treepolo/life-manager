@@ -41,7 +41,9 @@ function wrapper({ children }: { children: ReactNode }) {
 describe("外部連線手動同步pending狀態", () => {
   it("長請求完成前顯示同步中並停用同步與撤銷", async () => {
     let finishSync: ((value: unknown) => void) | undefined;
-    api.get.mockResolvedValue({ data: [youtubeConnection] });
+    api.get.mockImplementation((path: string) => path.startsWith("/api/v1/async-jobs")
+      ? Promise.resolve({ data: [], meta: { requestId: "test", contractVersion: "async-job.v1", nextCursor: null } })
+      : Promise.resolve({ data: [youtubeConnection] }));
     api.postLongRunning.mockImplementation(() => new Promise((resolve) => { finishSync = resolve; }));
 
     render(<IntegrationsPage />, { wrapper });

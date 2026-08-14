@@ -242,6 +242,45 @@ test("離線任務排程、財務交易與資產快照可同步", async ({ page,
   expect(financeSync.pulled).toContain(`離線交易-${suffix}`);
 });
 
+test("任務建立單一atomic請求、重複點擊與回應遺失可用同operation recovery", async ({ page, context }, testInfo) => {
+  test.setTimeout(120_000);
+  const title = `atomic任務-${testInfo.project.name}-${Date.now()}`;
+  let requestCount = 0;
+  let abortNext = true;
+  await page.route("**/api/v1/tasks/with-initial-schedule", async (route) => {
+    requestCount += 1;
+    if (abortNext) {
+      abortNext = false;
+      await route.abort("internetdisconnected");
+      return;
+    }
+    await route.continue();
+  });
+
+  await openAndRegister(page, "/tasks");
+  const taskForm = page.locator("form").filter({ has: page.getByRole("button", { name: "建立任務" }) });
+  await taskForm.getByLabel("任務名稱").fill(title);
+  await taskForm.getByLabel("週期").selectOption("WEEKLY");
+  await taskForm.getByLabel("開始日期").fill("2026-08-14");
+  await taskForm.getByRole("checkbox", { name: "一", exact: true }).check();
+  await taskForm.getByRole("button", { name: "建立任務" }).click();
+  await expect(page.getByRole("alert")).toContainText("網路中斷");
+  expect(requestCount).toBe(1);
+
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await setConnectivity(page, context, false);
+  const pending = page.getByTestId("pending-task-commands");
+  await expect(pending).toContainText(title);
+  await pending.getByRole("button", { name: "重新提交保存" }).click();
+  await expect(page.getByText("待恢復的任務與初始排程已保存。", { exact: true })).toBeVisible({ timeout: 15_000 });
+  expect(requestCount).toBe(2);
+  const tasks = await getApiJson<{ data: Array<{ id: string; title: string }> }>(page, "/api/v1/tasks?includeArchived=true");
+  const created = tasks.data.find((task) => task.title === title);
+  expect(created).toBeTruthy();
+  const schedules = await getApiJson<{ data: Array<{ taskDefinitionId: string; recurrenceKind: string }> }>(page, "/api/v1/task-schedules?limit=100");
+  expect(schedules.data.filter((schedule) => schedule.taskDefinitionId === created?.id && schedule.recurrenceKind === "WEEKLY")).toHaveLength(1);
+});
+
 test("離線指標觀測與事件可同步", async ({ page, context }, testInfo) => {
   test.setTimeout(90_000);
   const suffix = `${testInfo.project.name}-${Date.now()}`;
@@ -365,6 +404,98 @@ test("外部同步長請求期間顯示同步中並鎖定重複動作", async ({
   releaseSync?.();
   await expect(youtubePanel.getByRole("button", { name: "立即同步" })).toBeEnabled();
   await expect(disconnectButton).toBeEnabled();
+});
+
+test("provider同步畫面讀取async-job persisted truth並支援reload recovery", async ({ page }, testInfo) => {
+  test.setTimeout(90_000);
+  const connectionId = "019fc5a1-df33-7c00-8bc0-000000000012";
+  const job = {
+    contractVersion: "async-job.v1",
+    id: "019fc5a1-df33-7c00-8bc0-000000000010",
+    kind: "PROVIDER_SYNC",
+    status: "RETRY_WAIT",
+    phase: "RETRY_WAIT",
+    version: "2026-08-14T10:01:00.000Z",
+    createdAt: "2026-08-14T09:00:00.000Z",
+    updatedAt: "2026-08-14T10:01:00.000Z",
+    lastUpdatedAt: "2026-08-14T10:01:00.000Z",
+    expiresAt: null,
+    nextRunAt: "2026-08-14T10:02:00.000Z",
+    attempt: 2,
+    maxAttempts: 5,
+    currentRunId: "019fc5a1-df33-7c00-8bc0-000000000011",
+    progress: null,
+    counters: { processed: null, total: null, succeeded: null, skipped: null, failed: null },
+    sourceCounters: { fetched: 8, created: 3, updated: 2, ignored: 1, errors: 1 },
+    counterInvariant: "SOURCE_REPORTED_DIFFERENT_UNITS",
+    result: null,
+    warnings: ["來源限制，部分資料未取得。"],
+    error: { code: "RATE_LIMIT", message: "等待 provider 重試。" },
+    retryable: true,
+    cancelSupported: false,
+    capabilities: { retrySupported: false, cancelSupported: false, reloadRecovery: true, historyPersisted: true, backgroundContinuation: true },
+    source: { providerKey: "youtube", connectionId, moduleKey: null, provider: "youtube" },
+    history: [{
+      id: "019fc5a1-df33-7c00-8bc0-000000000011",
+      status: "FAILED",
+      phase: "FAILED",
+      startedAt: "2026-08-14T09:00:00.000Z",
+      completedAt: "2026-08-14T09:01:00.000Z",
+      counters: { processed: null, total: null, succeeded: null, skipped: null, failed: null },
+      sourceCounters: { fetched: 8, created: 3, updated: 2, ignored: 1, errors: 1 },
+      error: { code: "RATE_LIMIT", message: "來源限制" },
+    }],
+    provenance: {
+      sourceTable: "provider_sync_runs",
+      sourceId: "019fc5a1-df33-7c00-8bc0-000000000011",
+      sourceUpdatedAt: "2026-08-14T10:01:00.000Z",
+      counterSemantics: "provider counters are source-reported and do not share a processed/total unit.",
+    },
+  };
+  const connection = {
+    id: connectionId,
+    provider_key: "youtube",
+    display_name: "本機隔離頻道",
+    status: "CONNECTED",
+    last_attempt_at: null,
+    last_success_at: null,
+    last_error_code: null,
+    last_error_message_redacted: null,
+    token_expires_at: null,
+    provider_definition_version: "test-v1",
+    next_run_at: null,
+    sync_job_status: "RETRY",
+    sync_attempt: 2,
+    latest_sync_status: "FAILED",
+    latest_sync_error_code: "RATE_LIMIT",
+    latest_sync_error_message_redacted: "來源限制",
+  };
+  let statusReads = 0;
+  await page.route("**/api/v1/integrations", async (route) => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ data: [connection] }) });
+  });
+  await page.route("**/api/v1/async-jobs*", async (route) => {
+    statusReads += 1;
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ data: [job], meta: { requestId: "local-test", contractVersion: "async-job.v1", nextCursor: null } }) });
+  });
+
+  await openAndRegister(page, "/integrations");
+  const youtubePanel = page.locator("section.panel").filter({ has: page.getByRole("heading", { name: /YouTube/ }) });
+  await expect(youtubePanel.getByText("RETRY_WAIT／等待重試", { exact: true }).first()).toBeVisible();
+  await expect(youtubePanel).toContainText("目前 phase");
+  await expect(youtubePanel).toContainText("fetched=8 · created=3 · updated=2 · ignored=1 · errors=1");
+  await expect(youtubePanel).toContainText("SOURCE_REPORTED_DIFFERENT_UNITS");
+  await expect(youtubePanel).toContainText("伺服器明示不支援");
+  await expect(youtubePanel).not.toContainText("%");
+  await expect(youtubePanel.getByRole("button", { name: "重試" })).toHaveCount(0);
+  const beforeReload = statusReads;
+  await youtubePanel.getByRole("button", { name: "重新載入工作狀態" }).click();
+  await expect.poll(() => statusReads).toBeGreaterThan(beforeReload);
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await expect(page.locator("section.panel").filter({ has: page.getByRole("heading", { name: /YouTube/ }) }).getByText("RETRY_WAIT／等待重試", { exact: true }).first()).toBeVisible();
+  const dimensions = await page.evaluate(() => ({ width: window.innerWidth, scrollWidth: document.documentElement.scrollWidth }));
+  expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.width);
+  await testInfo.attach(`async-job-${testInfo.project.name}`, { body: await page.screenshot({ fullPage: true }), contentType: "image/png" });
 });
 
 test("正式圖表具完整語意、事件互動且D1資料更新會改變曲線", async ({ page }, testInfo) => {
