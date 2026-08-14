@@ -28,12 +28,12 @@
 | `REM-INT-001` | `NOT_STARTED` | `docs/GOVERNANCE_RETROFIT_PLAN.md`、後續 integration lifecycle contract | 後續評估 | 未執行；不新增多帳號 scope | Wave 3 integration/cost integrator |
 | `REM-TABLE-001` | `NOT_STARTED` | `docs/GOVERNANCE_RETROFIT_PLAN.md`、後續 server query/UI work | 後續評估 | 未執行；archive／cursor／mobile row acceptance待後續 | Wave 3 API＋frontend owner |
 
-### Wave 0 working constraints and source gaps
+### Wave 0 working constraints and source boundary
 
 - 允許修改只限中央 governance／requirements／traceability／acceptance／status／operations／setup 文件與 `docs/GOVERNANCE_RETROFIT_PLAN.md`、`docs/ORCHESTRATOR_PROTOCOL.md`、`docs/FILESYSTEM_POLICY.md`；不修改 `src`、`public`、`migrations`、`tests`、implementation scripts、`wrangler`、package artifacts 或外部平台。
 - current truth：`d7bc306030bd7a1e29182fdbd921eb077249f9b0` 已 push；`0011`／`0012` 尚未 remote apply；成本防線尚未 deploy；`SOC-009`／`SOC-010`／`DDL-009`、`SETUP-003`～`SETUP-005` current `EXTERNAL_BLOCKED`；`NFR-001`／`OPS-002` `IN_PROGRESS`；X frozen；external quota／billing truth unknown。
 - 舊 `SETUP-005`、`AT-GATE-08` 與 2026-08-13 或更早 dated release／provider evidence 只保留作 `Historical`／`Superseded by 2026-08-14 cost gate`，不撤銷未受影響的 `VERIFIED`（CORE／TASK／FIN／INV、`SOC-001`～`SOC-008`／`SOC-011`、`DDL-001`～`DDL-008`、OFF／DATA／UI/chart、Firstrade CSV、Web Push）。
-- 預期的 Layer 1／Layer 2 外部檔案在本機路徑不存在；已記錄 dependency gap，使用者提供的核准 audit baseline 作為本輪 read-only input，不複製外部 source。需要逐條外部核對時由主控取得 source並設 human checkpoint。
+- 本次生效的上位治理來源為外部 read-only `Layer 1｜AI 軟體開發與產品治理原則.md` 與 `Layer 2｜新專案規劃與 Codex 規格生成 Chat 指令.md`；Orchestrator 已於 2026-08-14 以 UTF-8 完整讀取至 EOF，確認兩檔存在並納入本輪治理依據。本 repo 只落地治理 delta，不複製外部全文。Worker 無法獨立存取該外部路徑屬執行環境 visibility limitation；Orchestrator evidence仍是本輪權威依據，該執行環境限制不產生專案阻擋；後續僅需在 source revision／版本漂移時做 read-only核對。
 
 > **Historical boundary**：除本檔上方 current ledger、2026-08-14 SETUP-010／staging safety／cost addendum 外，以下 2026-08-13 或更早的 workstream、deployment、provider、真人驗收與「目前」句子均為歷史 evidence；與 current ledger 衝突時以本節為準，不刪除歷史紀錄。
 

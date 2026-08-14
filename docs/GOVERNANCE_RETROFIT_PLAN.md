@@ -6,7 +6,7 @@
 
 目前 canonical release truth 是：`d7bc306030bd7a1e29182fdbd921eb077249f9b0` 已 push；`migrations/0011_cost_guardrails.sql` 與 `migrations/0012_cost_guardrail_atomic_transitions.sql` 尚未套用 staging；成本防線尚未 deploy；`SOC-009`／`SOC-010`／`DDL-009`、`SETUP-003`～`SETUP-005` 的 current status 是 `EXTERNAL_BLOCKED`；`NFR-001`／`OPS-002` 是 `IN_PROGRESS`；X frozen；external provider quota／billing truth unknown。舊 `SETUP-005`、舊 `AT-GATE-08` 與 dated deployment／provider evidence 仍保留，但必須標示 `Historical`／`Superseded by 2026-08-14 cost gate`，不能當 current release evidence。
 
-本次外部 Layer 1／Layer 2 檔案在預期路徑不存在；本 plan 只落地使用者已核准的治理 delta 與 audit baseline，不複製外部文件。若未來需要逐條核對外部原文，必須先由主控取得 read-only source，再由唯一 integrator 更新衝突紀錄。
+本次生效的上位治理來源為外部 read-only `Layer 1｜AI 軟體開發與產品治理原則.md` 與 `Layer 2｜新專案規劃與 Codex 規格生成 Chat 指令.md`；Orchestrator 已於 2026-08-14 以 UTF-8 完整讀取至 EOF，確認兩檔存在並納入本輪治理依據。本 plan 只落地核准的治理 delta，不複製外部全文。Worker 無法獨立存取該外部路徑屬執行環境 visibility limitation；Orchestrator evidence仍是本輪權威依據，該執行環境限制不產生專案阻擋。後續只需在來源 revision／版本漂移時重新做 read-only核對並由唯一 integrator更新衝突紀錄。
 
 ## 2. Requirement index
 
@@ -40,11 +40,12 @@
 
 | Checkpoint | 觸發條件 | 必須由誰確認 | Wave 0 結果 |
 |---|---|---|---|
-| H-01 source validation | 外部 Layer 1／2 原文要納入逐條核對 | 主控／使用者提供 read-only source | 預期路徑不存在；以 delegated baseline 繼續，未複製。 |
 | H-02 migration safety | staging／production 套用 0011／0012 | integration/cost integrator＋人類 | 未執行；remote apply 仍是下游 work。 |
 | H-03 provider／billing truth | OAuth、quota、invoice、checkout、hard cap | 帳戶／平台管理者 | unknown；不得標 cost release。 |
 | H-04 deploy／release | staging deploy 或 production go-live | 唯一 integrator＋人類 | 未執行；X frozen。 |
 | H-05 cleanup／restore | 刪除 artifact、worktree、backup 或 restore | ops owner＋人類 | 未執行；依 `FILESYSTEM_POLICY.md`。 |
+
+外部治理 source revision／版本漂移是持續的 read-only review risk，不是 Wave 0 blocker；不要求使用者重新提供已由 Orchestrator 確認的兩份來源。
 
 ## 5. Single-writer conflict map
 
