@@ -272,3 +272,11 @@ Wave 0 只新增治理與文件索引，不改模組化單體、路由、狀態�
 `ARCHITECTURE.md`目前正式定義的架構需求只有 `ARCH-001`～`ARCH-003`。矩陣或歷史段落出現 `ARCH-001~008`時，僅作既有規格衝突紀錄，不虛構 `ARCH-004`～`ARCH-008`，也不在本輪擴充產品架構。
 
 下游 `REM-REL-001`／`REM-ASYNC-001`需先由單一 backend/API-data owner固定 persisted contract與transaction boundary；`REM-NAV-001`／`REM-FORM-001`的 frontend owner必須等待正式API schema，不能由UI猜測。`REM-INT-001`／`REM-REL-002`由單一 integration/cost integrator處理，保留既定provider cardinality與migration安全邊界。
+
+### 10.1 Wave 1A persisted integrity與async read contract（2026-08-14）
+
+`POST /api/v1/tasks/with-initial-schedule`是task與optional initial schedule的server command。input/output由`src/modules/tasks/schema.ts`正式Zod schema定義；server先驗證task references、schedule relation與日期，再以`src/modules/tasks/atomic-command.ts`建立單一D1 batch。batch包含task、optional schedule、audit、`api_idempotency`與sync snapshots，D1 transaction failure必須全回滾。既有resource CRUD仍保留給離線同步與合法單資源用途；Wave 1B UI不得用兩個POST加compensating delete代替。
+
+`migrations/0013_retrofit_operation_actor.sql`只為新command的cross-actor idempotency isolation新增nullable `api_idempotency.actor_id`與index；舊migration `0001`～`0012`不修改。舊idempotency列沒有actor時不被新command重播，避免在無法證明owner時洩漏response。
+
+共用`async-job.v1` read contract由`src/modules/async-jobs/schema.ts`／`service.ts`提供。`GET /api/v1/async-jobs`以`kind=PROVIDER_SYNC|CSV_IMPORT`、`updated_at DESC,id DESC` opaque cursor列出，`GET /api/v1/async-jobs/:id`取單筆；兩者均在Worker Access boundary內。provider sync重用`provider_sync_jobs`／`provider_sync_runs`，import重用`import_batches`；source counter若不同量綱則只放`sourceCounters`、`progress=null`與provenance，不計假percentage。`cancelSupported=false`／`retrySupported=false`代表本Wave沒有安全transition endpoint，不能由UI補造按鈕；既有scheduler retry/dead-letter/stale recovery與cost admission不在此contract內重寫。export/restore仍是短同步request，不冒充async persistence。

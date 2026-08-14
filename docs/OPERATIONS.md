@@ -6,6 +6,13 @@
 
 下方 2026-08-13 或更早的 deployment、provider、真人驗收與「目前版本」句子均是 `Historical / Superseded by 2026-08-14 cost gate`，只保存 evidence，不得當作 current release gate。未受影響的 `VERIFIED` 保留，不因本次 current/history reconciliation 重做。
 
+### RETROFIT-W1A local backend/API operations boundary（2026-08-14）
+
+- 本線只在`D:\人生管理器` canonical worktree完成`REM-REL-001`／`REM-ASYNC-001` backend contract。新增`migrations/0013_retrofit_operation_actor.sql`為local forward-only append-only migration；不修改／不套用`0011`／`0012`，不執行remote migration、staging／production deploy、OAuth、provider sync、import/export/restore外部操作、backup cleanup或secret讀取。
+- local schema version由12升至13，`api_idempotency.actor_id`只供新atomic task command綁定actor；remote current仍需由唯一integrator在human checkpoint依migration list／backup／rollback procedure決定，不能把本地version 13當成remote evidence。0013採migration ledger的一次套用契約，禁止手動重跑同一DDL；重試應重新執行migration runner而不是直接執行SQL。
+- `GET /api/v1/async-jobs`與`GET /api/v1/async-jobs/:id`是Access-protected read/status route；polling使用`updated_at`與opaque cursor，`ASYNC_CURSOR_STALE`要求重新列舉，`NOT_FOUND`不回傳payload／secret。`retrySupported=false`／`cancelSupported=false`時，操作人不得由shared UI或手工POST猜測transition。
+- 若下游需要正式一次提交，Wave 1B只應呼叫`POST /api/v1/tasks/with-initial-schedule`，並以`meta.idempotentReplay`及HTTP error code處理斷線重試；不得恢復兩個POST加補償刪除。Wave 1B另負責offline outbox接合、TasksPage與async status UI，不得修改本線migration或provider execution semantics。
+
 ## OPS-001　環境
 
 至少有：

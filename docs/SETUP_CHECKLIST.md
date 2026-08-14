@@ -8,6 +8,10 @@ Codex必須在需要使用者介入前填入實際網址、欄位名稱與命令
 
 `SETUP-003`、`SETUP-004`、`SETUP-005` 中較早完成的 OAuth／真人 provider／寄信核對只作 `Historical / Superseded by 2026-08-14 cost gate` evidence；Wave 0 不登入、不授權、不同步、不寄信、不部署、不執行 migration。
 
+### RETROFIT-W1A setup boundary（2026-08-14）
+
+`REM-REL-001`／`REM-ASYNC-001`本線不需要使用者登入、提供CSV、授權OAuth、設定secret、執行migration或操作staging。local固定答案與契約測試已完成；Wave 1B只需依`docs/DATA_AND_SYNC.md`接入API，真人／staging／外部provider setup仍保持`NOT_RUN`，不得把本節當成外部驗收證據。
+
 ## SETUP-001　開始開發前
 
 使用者目前不需要先設定所有雲端服務。Codex先完成本機正式架構、D1、核心功能、離線、adapter及自動測試。

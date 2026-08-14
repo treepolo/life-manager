@@ -52,7 +52,7 @@ describe("cost guardrail D1 admission", () => {
     const schema = await env.LIFE_DB.prepare("SELECT value FROM schema_metadata WHERE key = 'application_schema_version'").first<{ value: string }>();
     const sentinel = await env.LIFE_DB.prepare("SELECT value FROM schema_metadata WHERE key = 'cost-guardrail-migration-sentinel'").first<{ value: string }>();
     const columns = await env.LIFE_DB.prepare("SELECT name FROM pragma_table_info('cost_guardrail_reservations') WHERE name IN ('settled_amount', 'succeeded') ORDER BY name").all<{ name: string }>();
-    expect(schema?.value).toBe("12");
+    expect(schema?.value).toBe("13");
     expect(sentinel?.value).toBe("preserve-me");
     expect(columns.results.map((row) => row.name)).toEqual(["settled_amount", "succeeded"]);
   });

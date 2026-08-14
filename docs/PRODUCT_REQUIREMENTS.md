@@ -451,8 +451,8 @@ Facebook、Threads及方格子API延後。方格子可在未來依官方CSV或�
 | `REM-GOV-001` | 所有 current status 只有一個來源；歷史 evidence 顯式 Historical／Superseded，不撤銷未受影響 `VERIFIED`。 | Wave 0 完成 canonical current/history 文件邊界與 consistency evidence。 | `AT-REM-GOV-*` |
 | `REM-GOV-002` | 正式治理 Control／Execution Plane、dispatch-and-yield、worker report、project liveness、single-writer／唯一 integrator。 | Wave 0 落地 protocol、AGENTS delta與owner map；跨 worker 行為在後續 task 驗證。 | `AT-REM-GOV-*` |
 | `REM-FS-001` | 限定 canonical roots、worktree containment、backup／generated artifact retention及 inventory→approval→verified delete。 | Wave 0 只做 targeted inventory與政策，不清理、不移動、不讀取真實資料。 | `AT-REM-FS-*` |
-| `REM-REL-001` | task＋schedule 建立／寫入具原子性與 idempotent recovery，禁止部分建立被報成失敗或成功。 | Wave 1 backend/API/data contract；Wave 0 只定義 acceptance與owner。 | `AT-REM-REL-*` |
-| `REM-ASYNC-001` | 共用 persisted async job contract 具真實 phase／counter／retry／cancel／reload／history semantics，禁止假百分比。 | Wave 1 backend/API-data與shared UI contract；Wave 0 不改 runtime。 | `AT-REM-ASYNC-*` |
+| `REM-REL-001` | task＋schedule 建立／寫入具原子性與 idempotent recovery，禁止部分建立被報成失敗或成功。 | Wave 1A 已交付 backend/API/data contract與D1 transaction boundary；Wave 1B仍需接入TasksPage、離線outbox與真人scenario。 | `AT-REM-REL-*` |
+| `REM-ASYNC-001` | 共用 persisted async job contract 具真實 phase／counter／retry／cancel／reload／history semantics，禁止假百分比。 | Wave 1A 已交付provider sync/import read contract與capability matrix；Wave 1B仍需shared UI，provider retry/cancel action未新增且export/restore維持同步短操作。 | `AT-REM-ASYNC-*` |
 | `REM-NAV-001` | Desktop／mobile／narrow 均可到達正式 capability，mobile 不刪功能。 | Wave 2 frontend route／responsive remediation；「更多／系統」可作第二層入口。 | `AT-REM-NAV-*` |
 | `REM-FORM-001` | 以 field necessity、safe defaults、progressive disclosure與dependency interaction降低 burden，但保留完整能力。 | Wave 2 frontend依正式 API contract施工，不先猜欄位。 | `AT-REM-FORM-*` |
 | `REM-INT-001` | 在既定 provider/account cardinality 內提供 integration list/status/reauth/retry/disable/disconnect/delete-or-retention/history。 | Wave 3 integration/cost integrator；不新增同 provider 多帳號，disconnect 預設保留 history。 | `AT-REM-INT-*` |
@@ -460,3 +460,10 @@ Facebook、Threads及方格子API延後。方格子可在未來依官方CSV或�
 | `REM-REL-002` | 安全整合 d7bc306＋0011/0012、backup／rollback、staging deployment與受影響 regression；local estimate 不得冒充 invoice truth。 | Wave 0 記錄 current gate與禁止操作；Wave 4 才可由單一 integration/cost integrator在 human checkpoint執行。 | `AT-REM-REL-*` |
 
 Wave 0 current truth：d7bc306 已 push；0011／0012 未 remote apply；成本防線未 deploy；受影響 provider／setup IDs 為 `EXTERNAL_BLOCKED`，`NFR-001`／`OPS-002` 為 `IN_PROGRESS`；X、OAuth、migration、deploy、sync與cleanup 凍結。這些是 release boundary，不是產品完成宣稱。
+
+### Wave 1A backend contract delta（2026-08-14）
+
+- `REM-REL-001`：`POST /api/v1/tasks/with-initial-schedule` 接受 `{ operationId, data: { task, schedule|null } }`。伺服器先以Zod驗證task、optional schedule、關聯ID與日期，再以同一個D1 batch寫入task、schedule（若有）、audit、actor-bound idempotency與sync change；任一statement失敗整批回滾。相同actor／相同payload重試回原結果，payload或actor不一致回`IDEMPOTENCY_CONFLICT`且不回傳原結果。既有`/api/v1/tasks`與`/api/v1/task-schedules`合法用途保留。
+- `REM-ASYNC-001`：`GET /api/v1/async-jobs?kind=PROVIDER_SYNC|CSV_IMPORT&limit=&cursor=`與`GET /api/v1/async-jobs/:id?kind=...`回`async-job.v1`。provider sync直接讀`provider_sync_jobs`／`provider_sync_runs`；import直接讀`import_batches`。provider source counter無共同分母時`progress=null`且不產生percentage；import只有真實row partition才提供`processed/total`。cursor以`updated_at DESC,id DESC`且含版本；錯誤cursor回`ASYNC_CURSOR_STALE`，找不到工作回`NOT_FOUND`。
+- 能力邊界：provider manual/scheduled sync的retry/dead-letter/stale recovery仍由既有server scheduler／provider service維持，本線未改外部呼叫、cost admission或retry policy；新的read contract明示`retrySupported=false`、`cancelSupported=false`，不得由UI造假action。CSV import可讀persisted batch但history/retry/cancel未宣稱支援；export與restore目前是有idempotency的同步短操作，不冒充persisted async job。
+- Wave 1A不修改TasksPage、IntegrationsPage、AppShell或任何shared UI；下游Wave 1B必須依上述schema接一次提交與server-truth status UX。Requirement current status、驗收逐案與未完成範圍以`docs/IMPLEMENTATION_STATUS.md`、`docs/TRACEABILITY_MATRIX.md`及`docs/ACCEPTANCE_TESTS.md`為準，兩項不得在本Wave標為`VERIFIED`。

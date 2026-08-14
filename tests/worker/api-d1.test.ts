@@ -49,10 +49,10 @@ describe("正式D1 migration與API契約", () => {
     expect(await env.LIFE_DB.prepare("SELECT id FROM audit_log WHERE id = ?").bind(recentAuditId).first()).not.toBeNull();
   });
 
-  it("完整套用schema 10且新環境沒有使用者示範資料", async () => {
+  it("完整套用current schema且新環境沒有使用者示範資料", async () => {
     const version = await env.LIFE_DB.prepare("SELECT value FROM schema_metadata WHERE key = 'application_schema_version'").first<{ value: string }>();
     const userCounts = await Promise.all(["areas", "task_definitions", "financial_transactions", "content_assets", "deadline_items"].map(async (table) => Number((await env.LIFE_DB.prepare(`SELECT COUNT(*) AS count FROM ${table}`).first<{ count: number }>())?.count)));
-    expect(version?.value).toBe("12");
+    expect(version?.value).toBe("13");
     expect(userCounts).toEqual([0, 0, 0, 0, 0]);
     expect(Number((await env.LIFE_DB.prepare("SELECT COUNT(*) AS count FROM social_platforms").first<{ count: number }>())?.count)).toBe(2);
   });

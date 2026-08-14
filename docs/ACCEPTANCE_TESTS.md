@@ -79,6 +79,27 @@
 | `AT-REM-ASYNC-005` | security | 非owner查詢、cancel、retry job | server以Access／actor／resource scope拒絕，錯誤不洩漏provider payload或secret | `NOT_RUN` |
 | `AT-REM-ASYNC-006` | real scenario | YouTube／Instagram／cost sync在資料量未知時執行 | 使用真實counter與provider／cost gate phase；外部阻擋顯示具體原因，不顯示示範進度 | `NOT_RUN` |
 
+### Wave 1A fixed-answer execution addendum（2026-08-14）
+
+以下是本線實際執行的backend／D1／API子案例；`PASS (backend)`不等於整項需求`VERIFIED`。未執行的UI、離線瀏覽器、非owner staging、真實provider與真人案例維持`NOT_RUN`。
+
+| Acceptance ID | 固定輸入／實際操作 | 預期 | Actual／evidence | 狀態 |
+|---|---|---|---|---|
+| `AT-REM-REL-001` | `tests/worker/retrofit-w1a.test.ts` valid task+schedule；D1 trigger在schedule第二筆write故意abort | 全成或全回滾，不留partial task/schedule | valid path各一筆；trigger path task與schedule均0；同一D1 batch rollback | `PASS (backend)` |
+| `AT-REM-REL-002` | 同`operationId`／同payload重送；再查同key結果 | 同一result、row count不增加 | `meta.idempotentReplay=true`，task/schedule count unchanged；operation response持久於`api_idempotency` | `PASS (backend)` |
+| `AT-REM-REL-003` | desktop/mobile-390/narrow-320 TasksPage recovery UI | UI顯示server truth且可觸達 | 本線明確未修改TasksPage或shared UI | `NOT_RUN` |
+| `AT-REM-REL-004` | D1 batch中第二筆write失敗後重新GET | reload可辨識完整回滾或可恢復operation | backend rollback固定答案通過；process crash／browser reload全流程留給Wave 1B | `PASS (backend subcase)` |
+| `AT-REM-REL-005` | same key/different payload與`x-local-access-user` actor-a→actor-b replay | 409 conflict，不洩漏原result | 兩者均`IDEMPOTENCY_CONFLICT`，cross-actor response無`data`；audit含actor | `PASS (backend)` |
+| `AT-REM-REL-006` | submit後斷線、恢復、每週任務與提醒的真人scenario | 最終一task、一schedule、無重複提醒 | 未執行外部／瀏覽器真人scenario；既有resource-level outbox contract保留，需Wave 1B接入 | `NOT_RUN` |
+| `AT-REM-ASYNC-001` | status transition helper測試`QUEUED→RUNNING`、`RUNNING→SUCCEEDED`、terminal逆轉與非法`READY` | 合法轉移接受、非法拒絕；狀態與phase有明確語意 | `isAsyncJobTransitionAllowed`與Zod enum固定答案通過；provider source仍保留既有狀態映射 | `PASS (contract)` |
+| `AT-REM-ASYNC-002` | provider job GET/list→更新D1 status→reload GET；retry/cancel capability read | reload讀server truth；unsupported action不可造假 | `DEAD_LETTER`與`RETRY_WAIT`從D1重建；`retrySupported=false`／`cancelSupported=false` | `PASS (backend read)` |
+| `AT-REM-ASYNC-003` | desktop/mobile-390/narrow-320 async status UI | 顯示真phase、counter、last update與可用action | shared UI未修改，Wave 1B接手 | `NOT_RUN` |
+| `AT-REM-ASYNC-004` | provider `RUNNING` stale recovery既有測試＋provider job history/reload | stale run不永久卡住，原錯誤與新attempt保留 | `api-d1.test.ts`既有`recoverStaleProviderSyncs`固定答案＋本線history讀回；未執行process crash live drill | `PASS (local backend)` |
+| `AT-REM-ASYNC-005` | protected Worker route；invalid cursor／not-found；不同local actor讀同一單租戶資料 | unauthorized／not-found/stale不洩漏；cancel/retry遵守owner transition | Access gate在`src/worker/index.ts`；`NOT_FOUND`／`ASYNC_CURSOR_STALE`／無action flags通過；非owner staging scenario未跑 | `PASS (local boundary)／NOT_RUN (staging)` |
+| `AT-REM-ASYNC-006` | provider job source counters無total；CSV import `total=4, imported=2, duplicate=1, error=1` | 無total不生成百分比；row partition `2+1+1=4`；真實provider受cost gate | provider `progress=null`且無`percentage`；CSV progress `4/4`；YouTube／Instagram／cost real sync未執行 | `PASS (local contract)／NOT_RUN (real)` |
+
+Migration evidence qualification：E2E fresh chain已在隔離D1依序套用`0001`～`0013`；Worker-D1已核對schema version 13、sentinel preservation與migration ledger reapply／record preservation。pre-0013既有資料快照的獨立upgrade案例尚未執行，remote／staging／production apply維持`NOT_RUN`；不得以本地fresh evidence取代upgrade或remote evidence。
+
 ### REM-NAV-001　Desktop／Mobile／narrow reachability（Wave 2）
 
 | Acceptance ID | 維度 | 固定輸入／操作 | 預期輸出 | 狀態 |

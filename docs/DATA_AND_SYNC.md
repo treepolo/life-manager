@@ -312,3 +312,34 @@ Wave 0 不新增資料表、不修改既有migration、不執行D1寫入。`REM-
 任何衍生數字仍須帶指標識別／版本、value／unit、來源、觀測筆數、時間窗、篩選／分組、聚合、分母、缺失／排除數、計算時間與精確／估算／手動／來源回報品質。成本 local ledger的 `ESTIMATED`／`NOT_INVOICE_TRUTH`不能升格為provider invoice truth；0011／0012在下游 apply前保持 append-only pending。
 
 離線輸入、編輯、刪除／封存、恢復同步的現有規則不因 retrofit 簡化。所有後續 async／task recovery需覆蓋離線、reload、重試、stale lease、權限失效與衝突；Wave 0只在 `docs/ACCEPTANCE_TESTS.md`定義案例，不宣稱 runtime evidence。
+
+## 13. Wave 1A task integrity與async data contract（2026-08-14）
+
+### 13.1 Task＋schedule atomic command
+
+`POST /api/v1/tasks/with-initial-schedule`使用既有寫入envelope：
+
+```json
+{
+  "operationId": "uuid",
+  "data": {
+    "task": { "id": "uuidv7", "title": "...", "areaId": null, "businessId": null, "...": "既有task欄位" },
+    "schedule": null
+  }
+}
+```
+
+`schedule`存在時必須帶同一`task.id`的`taskDefinitionId`。server先完整parse／reference-check，再在同一D1 transaction寫task、schedule、audit、actor-bound `api_idempotency`與sync snapshot；回傳`data.task`及`data.schedule`。同operation且同actor／同normalized payload回原結果，payload或actor不一致回`409 IDEMPOTENCY_CONFLICT`且不帶原data。`migrations/0013_retrofit_operation_actor.sql`新增`api_idempotency.actor_id`，舊列nullable但不被新command重播。既有資源API與offline sync仍存在；本線不修改client outbox或TasksPage，因此離線雙resource replay與此atomic online command的接合由Wave 1B明確處理。
+
+### 13.2 `async-job.v1` public read contract
+
+| field | server truth | falsehood prevention |
+|---|---|---|
+| `status`／`phase` | provider job source `READY/RUNNING/RETRY/PAUSED/DEAD_LETTER`映射；run/import terminal status直接映射 | 未提供來源phase時只回粗粒度`RUNNING`，不猜FETCHING百分比 |
+| `progress` | 只有`processed`與`total`同一row unit且真實存在時才回非null | provider payload/entity counters不同量綱時固定為`null`，schema不含percentage／ETA |
+| `counters`／`sourceCounters` | import使用`imported + duplicate + error = processed <= total`；provider保留`fetched/created/updated/ignored/errors` source counters | provider標`SOURCE_REPORTED_DIFFERENT_UNITS`，不把created／updated冒充processed |
+| `version`／`updatedAt` | job／batch的persisted`updated_at`；list cursor為`updated_at DESC,id DESC` | cursor版本錯誤回`ASYNC_CURSOR_STALE`；不存在回`NOT_FOUND` |
+| `history`／`provenance` | provider由`provider_sync_runs`及source table；import目前空history且capability=false；來源table/id/updatedAt必回 | 不把一次request內的export/restore紀錄偽裝成background history |
+| `retryable`／capabilities | 讀既有job retry/dead-letter語意；本API目前retry/cancel action均false | 不安全 transition不提供endpoint或UI button，保留既有scheduler semantics |
+
+Routes為`GET /api/v1/async-jobs?kind=PROVIDER_SYNC|CSV_IMPORT&cursor=&limit=`及`GET /api/v1/async-jobs/:id?kind=...`，均先通過Cloudflare Access。provider manual/scheduled sync已有`provider_sync_jobs`／`provider_sync_runs` persisted state、stale recovery與run history；CSV/import已有`import_batches` row counters；export用`export_history`記短同步完成結果；restore在request內同步且以operation idempotency/audit保護。Wave 1A不新增通用async job table，不改provider external call、cost admission、scheduler retry或OAuth。

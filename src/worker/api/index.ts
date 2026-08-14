@@ -19,6 +19,9 @@ import { evaluateFormula, formulaMetricKeys, parseFormula } from "@/modules/metr
 import { formulaDefinitionInputSchema } from "@/modules/metrics/schema";
 import { notificationChannelOutputSchema, pushSubscriptionStatusOutputSchema } from "@/modules/notifications/schema";
 import { socialComparisonQuery } from "@/modules/social/query";
+import { asyncJobOutputSchema, asyncJobPageOutputSchema } from "@/modules/async-jobs/schema";
+import { getAsyncJob, listAsyncJobs } from "@/modules/async-jobs/service";
+import { createTaskWithInitialSchedule } from "@/modules/tasks/atomic-command";
 import { completeTask, deferTask, listTodayActions } from "@/modules/tasks/service";
 import { COST_RESOURCE_KEYS } from "@/modules/cost-guardrail/contracts";
 import { createCostOverride, getCostGuardrailStatus, recordContractObservation, revokeCostOverride } from "@/modules/cost-guardrail/service";
@@ -276,6 +279,32 @@ export async function handleApi(input: {
     const schema = await input.env.LIFE_DB.prepare("SELECT value FROM schema_metadata WHERE key = 'application_schema_version'").first<{ value: string }>();
     return Response.json({ data: { status: "ok", environment: input.env.ENVIRONMENT, schemaVersion: Number(schema?.value ?? 0) }, meta: { requestId: input.requestId } });
   }
+  if (path === "/api/v1/async-jobs" && input.request.method === "GET") {
+    const page = await listAsyncJobs({
+      db: input.env.LIFE_DB,
+      query: {
+        kind: url.searchParams.get("kind") ?? undefined,
+        cursor: url.searchParams.get("cursor"),
+        limit: url.searchParams.get("limit") ?? undefined,
+      },
+    });
+    return Response.json(asyncJobPageOutputSchema.parse({
+      data: page.items,
+      meta: { requestId: input.requestId, contractVersion: "async-job.v1", nextCursor: page.nextCursor },
+    }));
+  }
+  const asyncJobMatch = path.match(/^\/api\/v1\/async-jobs\/([^/]+)$/);
+  if (asyncJobMatch && input.request.method === "GET") {
+    const job = await getAsyncJob({
+      db: input.env.LIFE_DB,
+      id: asyncJobMatch[1],
+      kind: url.searchParams.get("kind") ?? undefined,
+    });
+    return Response.json({
+      data: asyncJobOutputSchema.parse(job),
+      meta: { requestId: input.requestId, contractVersion: "async-job.v1" },
+    });
+  }
   if (path === "/api/v1/cost-guardrail/status" && input.request.method === "GET") {
     return Response.json({ data: await getCostGuardrailStatus({ env: input.env }), meta: { requestId: input.requestId } });
   }
@@ -323,6 +352,17 @@ export async function handleApi(input: {
   if (path === "/api/v1/task-completions" && input.request.method === "POST") {
     const envelope = parseEnvelope(await jsonBody(input.request));
     return Response.json(await completeTask({ db: input.env.LIFE_DB, operationId: envelope.operationId, actorId: input.actorId, requestId: input.requestId, data: envelope.data }), { status: 201 });
+  }
+  if (path === "/api/v1/tasks/with-initial-schedule" && input.request.method === "POST") {
+    const envelope = parseEnvelope(await jsonBody(input.request));
+    const result = await createTaskWithInitialSchedule({
+      db: input.env.LIFE_DB,
+      operationId: envelope.operationId,
+      actorId: input.actorId,
+      requestId: input.requestId,
+      data: envelope.data,
+    });
+    return Response.json(result.response, { status: result.status });
   }
   const taskDeferralMatch = path.match(/^\/api\/v1\/task-occurrences\/([0-9a-f-]+)\/defer$/);
   if (taskDeferralMatch && input.request.method === "POST") {

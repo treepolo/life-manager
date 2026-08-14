@@ -24,7 +24,7 @@ export const taskScheduleInputSchema = z
     recurrenceKind: z.enum(["ONCE", "DAILY", "WEEKLY", "MONTHLY", "CUSTOM_RRULE"]),
     startsOnLocalDate: localDateSchema,
     dueLocalTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).nullable().default(null),
-    timezone: z.string().default("Asia/Taipei"),
+    timezone: z.string().trim().min(1).max(80).default("Asia/Taipei"),
     weekdays: z.array(z.int().min(0).max(6)).max(7).nullable().default(null),
     monthDay: z.int().min(1).max(31).nullable().default(null),
     rruleText: z.string().max(1000).nullable().default(null),
@@ -41,7 +41,48 @@ export const taskScheduleInputSchema = z
     if (value.recurrenceKind === "CUSTOM_RRULE" && !value.rruleText) {
       context.addIssue({ code: "custom", path: ["rruleText"], message: "自訂週期需提供RRULE。" });
     }
+    if (value.endsOnLocalDate && value.endsOnLocalDate < value.startsOnLocalDate) {
+      context.addIssue({ code: "custom", path: ["endsOnLocalDate"], message: "排程結束日期不得早於開始日期。" });
+    }
   });
+
+export const taskWithInitialScheduleInputSchema = z
+  .object({
+    task: taskInputSchema,
+    schedule: taskScheduleInputSchema.nullable().default(null),
+  })
+  .superRefine((value, context) => {
+    if (value.schedule && value.schedule.taskDefinitionId !== value.task.id) {
+      context.addIssue({
+        code: "custom",
+        path: ["schedule", "taskDefinitionId"],
+        message: "初始排程必須關聯同一個task.id。",
+      });
+    }
+  });
+
+const taskCommandTaskOutputSchema = taskInputSchema.extend({
+  createdAt: isoInstantSchema,
+  updatedAt: isoInstantSchema,
+  version: z.int().positive(),
+});
+
+const taskCommandScheduleOutputSchema = taskScheduleInputSchema.extend({
+  createdAt: isoInstantSchema,
+  updatedAt: isoInstantSchema,
+  version: z.int().positive(),
+});
+
+export const taskWithInitialScheduleOutputSchema = z.object({
+  data: z.object({
+    task: taskCommandTaskOutputSchema,
+    schedule: taskCommandScheduleOutputSchema.nullable(),
+  }),
+  meta: z.object({
+    requestId: z.string().min(1),
+    idempotentReplay: z.boolean().optional(),
+  }),
+});
 
 export const taskCompletionInputSchema = z.object({
   id: identifierSchema,

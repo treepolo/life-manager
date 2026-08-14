@@ -15,8 +15,8 @@
 | `REM-GOV-001` | `AT-REM-GOV-001`～`006` | `AGENTS.md`、`docs/GOVERNANCE_RETROFIT_PLAN.md`、本檔、`docs/ACCEPTANCE_TESTS.md`、`docs/IMPLEMENTATION_STATUS.md` | 不需 migration | `VERIFIED` | static current/history verifier、唯一 current source與diff check通過；visual/mobile明載document-only N/A | Wave 0／final integrator |
 | `REM-GOV-002` | `AT-REM-GOV-007`～`012` | `AGENTS.md`、`docs/ORCHESTRATOR_PROTOCOL.md`、`docs/GOVERNANCE_RETROFIT_PLAN.md` | 不需 migration | `IN_PROGRESS` | protocol／report／liveness／single-writer 文件；跨 worker 行為未執行 | Wave 0／final integrator |
 | `REM-FS-001` | `AT-REM-FS-001`～`006` | `docs/FILESYSTEM_POLICY.md`、`docs/WORKTREE_CLEANUP_TODO.md`（歷史索引） | 不需 migration | `IN_PROGRESS` | 2026-08-14 targeted inventory、roots與cleanup checkpoint；未清理／未演練 | Wave 0／ops owner |
-| `REM-REL-001` | `AT-REM-REL-001`～`006` | 後續 task／schedule backend、API、data contract；本輪僅規格 | 後續評估 | `NOT_STARTED` | acceptance與Wave 1 owner已定義，無runtime evidence | Wave 1 backend/API/migration owner |
-| `REM-ASYNC-001` | `AT-REM-ASYNC-001`～`006` | 後續 persisted job contract與shared UI；本輪僅規格 | 後續評估 | `NOT_STARTED` | acceptance已定義，無phase／retry／reload runtime evidence | Wave 1 backend/API-data＋shared UI |
+| `REM-REL-001` | `AT-REM-REL-001`～`006` | `src/modules/tasks/atomic-command.ts`、`src/modules/tasks/schema.ts`、`src/worker/api/index.ts`、`migrations/0013_retrofit_operation_actor.sql`；既有task/schedule resource API保留 | append-only `0013`；不修改／不套用`0011`／`0012` | `IMPLEMENTED_UNVERIFIED` | Worker-D1 fixed-answer涵蓋valid task、task+schedule、invalid schedule、D1第二筆失敗回滾、same-key replay、payload conflict、cross-actor no-leak；offline/UI/真人/staging仍未驗收 | Wave 1A backend/API/data owner；next Wave 1B shared UI |
+| `REM-ASYNC-001` | `AT-REM-ASYNC-001`～`006` | `src/modules/async-jobs/schema.ts`、`src/modules/async-jobs/service.ts`、`src/worker/api/index.ts`；重用`provider_sync_jobs`／`provider_sync_runs`／`import_batches` | append-only `0013`只為actor-bound idempotency；不新增async job table，不修改／不套用`0011`／`0012` | `IMPLEMENTED_UNVERIFIED` | Worker-D1/API fixed-answer涵蓋status transition table、provider counters/history/reload/dead-letter、stable cursor/stale error、import row partition、unsupported retry/cancel；外部provider、shared UI、非owner staging與export/restore長工案例仍未驗收 | Wave 1A backend/API/data owner；next Wave 1B shared UI |
 | `REM-NAV-001` | `AT-REM-NAV-001`～`006` | 後續 route／desktop/mobile/narrow UI；本輪不改產品 | 不預設 migration | `NOT_STARTED` | acceptance已定義，無visual/mobile evidence | Wave 2 frontend owner |
 | `REM-FORM-001` | `AT-REM-FORM-001`～`006` | 後續 field／default／disclosure UI與API contract | 不預設 migration | `NOT_STARTED` | acceptance已定義，無form interaction evidence | Wave 2 frontend owner |
 | `REM-INT-001` | `AT-REM-INT-001`～`006` | 後續 integrations lifecycle／history；不新增多帳號 | 後續評估 | `NOT_STARTED` | acceptance已定義，無provider lifecycle evidence | Wave 3 integration/cost integrator |
@@ -184,3 +184,22 @@ A/N2整合commit `007768fae8f56893072cc056a007766cac462595` 的 staging version 
 - A 已從既有 staging public binding 以程序環境注入 `VITE_VAPID_PUBLIC_KEY`，keyed client build 799 modules 通過；bundle 實際包含同一 public key，未發現 private／subject／其他 secret identifier，VAPID private／subject 僅核對 secret 名稱／型別，不讀取值。
 - staging version `db41ff0c-7864-43d2-9a98-54000cebfa92` 唯讀確認 100% active；部署使用 `wrangler deploy --config wrangler.toml --env staging --keep-vars`，未執行或新增 migration，remote migration list 前後均為 `No migrations to apply!`。
 - 當時整合 gate：lint、雙 typecheck、unit 15 files／52 tests、Worker/D1/API 3 files／27 tests、完整隔離 Playwright 13/13、scan 與 `git diff --check` 通過；`verify:requirements` 的非零只因上述兩個 Push setup 尚未完成。未授權 GET `/deadlines`、通知／Push 訂閱／整合 API 均受 Access 回 302；當時未觸發真人操作或 `AT-GATE-08`。最終 coverage 與 `AT-GATE-08` 結果見本檔最上方 final section。
+## RETROFIT-W1A-INTEGRITY-ASYNC execution evidence（2026-08-14）
+
+本節只記錄本線 backend／API／data scope；current status仍唯一由`docs/IMPLEMENTATION_STATUS.md`宣告。branch為`codex/accept-external-integrations`，起始與完成前基線均以`git status --short`核對；本線未建立worktree、未switch/reset、未讀取secret、未執行OAuth／provider external call／remote D1／deploy。
+
+本線補充的版本界線：canonical local migration chain已經由`0013_retrofit_operation_actor.sql`前進到schema version 13；上述較早的schema 12／0011／0012敘述屬既有 release safety audit history。Wave 1A只驗證fresh chain、schema sentinel與migration ledger reapply／record preservation；pre-0013既有資料快照的獨立upgrade案例及remote/staging apply維持`NOT_RUN`。
+
+### REM-REL-001
+
+- Contract：`POST /api/v1/tasks/with-initial-schedule`；input/output為`src/modules/tasks/schema.ts`的`taskWithInitialScheduleInputSchema`／`taskWithInitialScheduleOutputSchema`；server implementation為`src/modules/tasks/atomic-command.ts`。`migrations/0013_retrofit_operation_actor.sql`只新增`api_idempotency.actor_id`及index，保留既有`0011`／`0012`不變。
+- Transaction：task、optional schedule、兩筆必要稽核（含`actor_id`／`request_id`）、actor-bound idempotency與兩個sync snapshots在同一D1 batch；reference、schedule relation、date range在寫入前驗證；D1 statement failure以batch rollback，不使用UI compensating delete。
+- Fixed-answer evidence：`tests/worker/retrofit-w1a.test.ts`涵蓋 task only、task+schedule linked、invalid schedule zero/zero、injected second-write rollback、same-key/same-payload replay、same-key/different-payload conflict、cross-actor conflict/no leak。既有`tasks`與`task-schedules` CRUD／offline sync未刪除；TasksPage未修改。
+- Remaining：AT-REM-REL-003（UI mobile/narrow）、AT-REM-REL-006（瀏覽器斷線／恢復真人scenario）仍`NOT_RUN`；offline outbox仍是既有resource-level replay，Wave 1B需明確接入一次提交或保留清楚fallback，不得暗示本線已完成端到端離線atomic UX。
+
+### REM-ASYNC-001
+
+- Contract：`src/modules/async-jobs/schema.ts`定義`async-job.v1`、status／phase enum、transition map、counter invariant、progress、capabilities、error、history與provenance；`src/modules/async-jobs/service.ts`只讀既有persisted資料。API為`GET /api/v1/async-jobs`與`GET /api/v1/async-jobs/:id`，list cursor固定為`updated_at DESC,id DESC`，cursor version不符回`ASYNC_CURSOR_STALE`，不存在回`NOT_FOUND`。
+- Capability matrix：provider manual/scheduled sync＝persisted job＋run、phase為來源status映射、source counters／retry/dead-letter/stale recovery／history可讀、background continuation=true、retry/cancel action=false；CSV import＝persisted`import_batches`＋真實row counters、reload read=true、history/retry/cancel=false；export＝`export_history`只記短同步完成紀錄，restore＝request內同步且有idempotency/audit，兩者不分類為async job，未造假progress。
+- Fixed-answer evidence：同一Worker-D1測試涵蓋合法／非法status transition、provider `RETRY_WAIT`／`PARTIAL` counters與history、reload後讀到D1新狀態、dead-letter、無total不產生percentage、stable cursor與stale cursor、import `2+1+1=4` row partition、not-found/no-leak與unsupported cancel/retry flags。既有provider cost admission／external adapter／scheduler transition code未改。
+- Remaining：AT-REM-ASYNC-003（shared UI）、AT-REM-ASYNC-005的staging非owner Access scenario、AT-REM-ASYNC-006真實YouTube／Instagram／cost sync仍`NOT_RUN`；provider cancel/retry server action未交付，Wave 1B不得顯示不存在的按鈕。
