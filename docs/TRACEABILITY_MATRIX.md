@@ -2,7 +2,32 @@
 
 本表確保每一項主要需求都有對應的正式要求與驗收，不得只出現在說明文字中。
 
-> 最新 A 最終整合狀態（2026-08-13）：staging version `db41ff0c-7864-43d2-9a98-54000cebfa92` 為 100% active；`INV-002`／`SETUP-007`、`DDL-008`／`SETUP-006`／`AT-PUSH-01`已完成並為`VERIFIED`，`AT-GATE-08`已通過。下方 `26d3ca9b-c910-452b-b3aa-f6a8c59b9450` 與較早的未完成狀態均屬歷史證據，不是目前 gate；需求狀態以本檔 current matrix 及 `IMPLEMENTATION_STATUS.md` 為準。
+## Current canonical truth（2026-08-14）
+
+需求 current status 的唯一宣告來源是 `docs/IMPLEMENTATION_STATUS.md`；本矩陣只提供 Requirement→Acceptance→實作／證據的追溯。`d7bc306030bd7a1e29182fdbd921eb077249f9b0` 已 push；0011／0012 未 remote apply；成本防線未 deploy；`SOC-009`／`SOC-010`／`DDL-009`、`SETUP-003`～`SETUP-005` current 為 `EXTERNAL_BLOCKED`；`NFR-001`／`OPS-002` 為 `IN_PROGRESS`；X frozen；external quota／billing truth unknown。未受影響的既有 `VERIFIED` 不因本次 reconciliation 重做。
+
+`SETUP-005` 舊 `VERIFIED`、舊 `AT-GATE-08 PASSED` 及 dated provider／deployment evidence 保留為 `Historical / Superseded by 2026-08-14 cost gate`，不再作 current release evidence。`ARCHITECTURE.md` 目前只定義 `ARCH-001`～`ARCH-003`；矩陣較早文字若出現 `ARCH-001~008`，只是已記錄的規格衝突，不創造 `ARCH-004`～`ARCH-008`。
+
+## Governance retrofit traceability（Wave 0 index）
+
+| Requirement | Acceptance family | Canonical requirement／implementation boundary | migration | Current status | Evidence／gap | Owner |
+|---|---|---|---|---|---|---|
+| `REM-GOV-001` | `AT-REM-GOV-001`～`006` | `AGENTS.md`、`docs/GOVERNANCE_RETROFIT_PLAN.md`、本檔、`docs/ACCEPTANCE_TESTS.md`、`docs/IMPLEMENTATION_STATUS.md` | 不需 migration | `VERIFIED` | static current/history verifier、唯一 current source與diff check通過；visual/mobile明載document-only N/A | Wave 0／final integrator |
+| `REM-GOV-002` | `AT-REM-GOV-007`～`012` | `AGENTS.md`、`docs/ORCHESTRATOR_PROTOCOL.md`、`docs/GOVERNANCE_RETROFIT_PLAN.md` | 不需 migration | `IN_PROGRESS` | protocol／report／liveness／single-writer 文件；跨 worker 行為未執行 | Wave 0／final integrator |
+| `REM-FS-001` | `AT-REM-FS-001`～`006` | `docs/FILESYSTEM_POLICY.md`、`docs/WORKTREE_CLEANUP_TODO.md`（歷史索引） | 不需 migration | `IN_PROGRESS` | 2026-08-14 targeted inventory、roots與cleanup checkpoint；未清理／未演練 | Wave 0／ops owner |
+| `REM-REL-001` | `AT-REM-REL-001`～`006` | 後續 task／schedule backend、API、data contract；本輪僅規格 | 後續評估 | `NOT_STARTED` | acceptance與Wave 1 owner已定義，無runtime evidence | Wave 1 backend/API/migration owner |
+| `REM-ASYNC-001` | `AT-REM-ASYNC-001`～`006` | 後續 persisted job contract與shared UI；本輪僅規格 | 後續評估 | `NOT_STARTED` | acceptance已定義，無phase／retry／reload runtime evidence | Wave 1 backend/API-data＋shared UI |
+| `REM-NAV-001` | `AT-REM-NAV-001`～`006` | 後續 route／desktop/mobile/narrow UI；本輪不改產品 | 不預設 migration | `NOT_STARTED` | acceptance已定義，無visual/mobile evidence | Wave 2 frontend owner |
+| `REM-FORM-001` | `AT-REM-FORM-001`～`006` | 後續 field／default／disclosure UI與API contract | 不預設 migration | `NOT_STARTED` | acceptance已定義，無form interaction evidence | Wave 2 frontend owner |
+| `REM-INT-001` | `AT-REM-INT-001`～`006` | 後續 integrations lifecycle／history；不新增多帳號 | 後續評估 | `NOT_STARTED` | acceptance已定義，無provider lifecycle evidence | Wave 3 integration/cost integrator |
+| `REM-TABLE-001` | `AT-REM-TABLE-001`～`006` | 後續 server query／archive／mobile table | 後續評估 | `NOT_STARTED` | acceptance已定義，無cursor／large dataset evidence | Wave 3 API＋frontend owner |
+| `REM-REL-002` | `AT-REM-REL-007`～`012` | `docs/COST_GUARDRAIL_PLAN.md`、`docs/OPERATIONS.md`、`docs/SETUP_CHECKLIST.md`、d7bc306；0011／0012下游 | 不新增；0011／0012未 remote apply | `IN_PROGRESS` | current cost gate、backup／rollback與停止點；未 deploy／未帳務對帳 | integration/cost integrator＋human checkpoint |
+
+Wave 0 acceptance 只定義可驗證案例；未執行的 semantic／interaction／visual/mobile／recovery／security／real scenario 不得寫成 `PASSED`。治理 requirement 的 visual/mobile 不適用時，案例會明載「沒有產品畫面，需由後續 UI requirement 驗收」，而非省略維度。
+
+> **Historical / Superseded by 2026-08-14 cost gate**：下方原有 2026-08-13 A 最終整合摘要與更早段落保存歷史 evidence；其 current status 不得覆蓋上方 current canonical truth。
+
+> **Historical / Superseded by 2026-08-14 cost gate**：A 最終整合狀態（2026-08-13）當時記錄 staging version `db41ff0c-7864-43d2-9a98-54000cebfa92` 為 100% active；`INV-002`／`SETUP-007`、`DDL-008`／`SETUP-006`／`AT-PUSH-01`已完成並為`VERIFIED`，`AT-GATE-08`當時已通過。下方 `26d3ca9b-c910-452b-b3aa-f6a8c59b9450` 與較早的未完成狀態均屬歷史證據，不是目前 gate；current status 以本檔上方 canonical truth及`IMPLEMENTATION_STATUS.md`為準。
 
 ## 第一批需求ID覆蓋索引
 

@@ -9,6 +9,120 @@
 - 外部token或使用者檔案尚未提供時，狀態為`AWAITING_USER_SETUP`，不可`VERIFIED`。
 - 所有測試skip、todo及only均使部署閘門失敗。
 
+## 2. Governance Retrofit acceptance（Wave 0 定義；尚非執行結果）
+
+本節新增的 `AT-REM-*` 是 remediation acceptance contract。`NOT_RUN` 是測試執行標記，不是 Requirement status；未有實際輸入／輸出、真實環境或後續 wave evidence 前，不得寫成 `PASSED`。每一項都標明 semantic、interaction、visual/mobile、recovery、security、real scenario；治理／filesystem 純文件項的 visual/mobile 會明載 N/A 原因。
+
+### REM-GOV-001　Canonical current/history truth reconciliation
+
+| Acceptance ID | 維度 | 固定輸入／操作 | 預期輸出 | 狀態 |
+|---|---|---|---|---|
+| `AT-REM-GOV-001` | semantic | 讀取 `IMPLEMENTATION_STATUS.md`、`TRACEABILITY_MATRIX.md`、`ACCEPTANCE_TESTS.md` 與 plan 的 current truth | 只有 `IMPLEMENTATION_STATUS.md` 宣告 current status；其他文件只追溯／索引並連回唯一來源 | `PASS (static)` |
+| `AT-REM-GOV-002` | interaction | 用 `rg` 搜尋 `SETUP-005`、`AT-GATE-08`、d7bc306、0011／0012與 `REM-*` | 舊結果每一處 current-like gate 都有 `Historical`／`Superseded by 2026-08-14 cost gate` 邊界；d7bc306與0011／0012 current facts一致 | `PASS (static)` |
+| `AT-REM-GOV-003` | visual/mobile | 以文件閱讀器在窄視窗閱讀 current truth與矩陣 | N/A：本 requirement沒有產品畫面；文件表格仍可讀，產品 mobile UI由 `REM-NAV-001` 驗收 | `N/A (document-only)` |
+| `AT-REM-GOV-004` | recovery | 新增一筆 dated historical evidence，不修改 current ledger，再重跑 consistency check | historical evidence不覆蓋 current；若發現衝突，狀態轉 blocker並指出 owner，不靜默改寫 | `PASS (policy/static)` |
+| `AT-REM-GOV-005` | security | 對 Wave 0 文件執行 secret／token／付款識別 pattern scan（不輸出值） | 無 OAuth token、API key、密碼、付款資料、未遮蔽CSV或私人payload；只保留去識別 evidence | `PASS (scan)` |
+| `AT-REM-GOV-006` | real scenario | 固定情境：HEAD=d7bc306、0011／0012未 remote apply、cost guardrail未 deploy、X frozen、external quota／billing unknown | `SOC-009`／`SOC-010`／`DDL-009`與`SETUP-003`～`005`為`EXTERNAL_BLOCKED`，`NFR-001`／`OPS-002`為`IN_PROGRESS`，未受影響 `VERIFIED` 保留 | `PASS (static)` |
+
+### REM-GOV-002　Control Plane／Execution Plane與liveness
+
+| Acceptance ID | 維度 | 固定輸入／操作 | 預期輸出 | 狀態 |
+|---|---|---|---|---|
+| `AT-REM-GOV-007` | semantic | 讀取 `AGENTS.md`與`ORCHESTRATOR_PROTOCOL.md` 的角色規則 | Sol Xhigh只做Control Plane；Worker預設Luna MAX、scope內執行；主控不實作 | `NOT_RUN` |
+| `AT-REM-GOV-008` | interaction | 建立一個含Task ID、parent、owner、依賴、允許／禁止操作的 dispatch envelope，讓worker yield | worker主動回報，不silent stop、不自行開下一wave；Control Plane可決定下一步 | `NOT_RUN` |
+| `AT-REM-GOV-009` | visual/mobile | 在桌面與窄視窗檢查 report envelope／owner map 可讀性 | N/A：沒有產品畫面或手機 capability；文件閱讀器至少能辨識 status、owner與blocker | `NOT_RUN` |
+| `AT-REM-GOV-010` | recovery | worker在工具失敗或依賴未完成時停止並回報 | 使用 `BLOCKED_DEPENDENCY`／`HANDOFF_REQUIRED`等允許 status，保留 runnable work，不把失聯當成功 | `NOT_RUN` |
+| `AT-REM-GOV-011` | security | dispatch涉及OAuth、billing、migration、deploy、backup或cleanup | envelope帶human checkpoint；worker不得取得／輸出secret或代替人類修改外部狀態 | `NOT_RUN` |
+| `AT-REM-GOV-012` | real scenario | Wave 1 backend worker與Wave 2 UI worker同時被規劃 | 各有單一 owner；shared contract未完成時UI不猜API；中央 docs只由single writer／unique integrator寫入 | `NOT_RUN` |
+
+### REM-FS-001　Filesystem boundary與retention
+
+| Acceptance ID | 維度 | 固定輸入／操作 | 預期輸出 | 狀態 |
+|---|---|---|---|---|
+| `AT-REM-FS-001` | semantic | 核對四個 approved roots與resolved path | 只有 `PROJECT_ROOT=D:\人生管理器`、`WORKTREE_ROOT=D:\人生管理器\.worktrees`、`BACKUP_ROOT=D:\人生管理器\backups`、`TEMP_ROOT=D:\人生管理器\.tmp` | `NOT_RUN` |
+| `AT-REM-FS-002` | interaction | 執行 targeted inventory與`git worktree list` | 觀測既有artifact及不存在的歷史paths，不移動、不刪除、不擴大掃描；canonical worktree唯一 | `NOT_RUN` |
+| `AT-REM-FS-003` | visual/mobile | 在狹窄 terminal／文件檢視器閱讀 path policy | N/A：filesystem policy沒有產品UI；長路徑仍需完整可辨識，不可用模糊相對路徑 | `NOT_RUN` |
+| `AT-REM-FS-004` | recovery | 模擬新worktree／backup／temp建立失敗與cleanup中斷 | 越界路徑拒絕；cleanup從inventory重新開始，不部分刪除、不破壞backup與Git | `NOT_RUN` |
+| `AT-REM-FS-005` | security | inventory／retention文件只記metadata，不讀取artifact內容 | 不寫出secret、真實資料、token、CSV、付款識別；tool cache不得成為source／backup | `NOT_RUN` |
+| `AT-REM-FS-006` | real scenario | 固定盤點 `.tmp`、`.wrangler`、`dist`、`test-results`、`playwright-report`、`backups` | 現有項目均保留；未來 cleanup必須 inventory→approval→verified delete，Wave 0結果為未執行 | `NOT_RUN` |
+
+### REM-REL-001　Task＋schedule atomicity／idempotent recovery（Wave 1）
+
+| Acceptance ID | 維度 | 固定輸入／操作 | 預期輸出 | 狀態 |
+|---|---|---|---|---|
+| `AT-REM-REL-001` | semantic | 同一 `idempotency_key` 同時建立task與schedule，注入任一寫入失敗 | transaction完整回滾；不可留下只建task或只建schedule的假成功 | `NOT_RUN` |
+| `AT-REM-REL-002` | interaction | 對同一request安全重試、timeout後查詢operation | 回傳同一 operation/result或明確可恢復狀態，不重複建立occurrence／schedule | `NOT_RUN` |
+| `AT-REM-REL-003` | visual/mobile | desktop、mobile-390、narrow-320重試表單 | 顯示真實保存／待重試／失敗狀態，不重複列出 task；mobile可觸達 recovery action | `NOT_RUN` |
+| `AT-REM-REL-004` | recovery | server在task寫入後schedule寫入前中斷，重新載入並執行recovery | persisted operation可重建或補償；歷史與audit完整，沒有部分建立假失敗 | `NOT_RUN` |
+| `AT-REM-REL-005` | security | 未授權或跨user idempotency key重放 | server拒絕且不洩漏另一 operation/result；寫入有actor、audit與transaction boundary | `NOT_RUN` |
+| `AT-REM-REL-006` | real scenario | 使用者建立每週任務與通知排程，瀏覽器於submit後斷線再恢復 | 最終只有一個task、一個schedule與可追溯狀態；不因 retry 產生重複提醒 | `NOT_RUN` |
+
+### REM-REL-002　Cost gate／migration安全整合（Wave 0定義，Wave 4執行）
+
+| Acceptance ID | 維度 | 固定輸入／操作 | 預期輸出 | 狀態 |
+|---|---|---|---|---|
+| `AT-REM-REL-007` | semantic | 固定 HEAD=d7bc306、remote pending=[0011,0012]、cost guardrail未deploy、local estimate | release ledger明示未remote apply／未deploy；`ESTIMATED`／`NOT_INVOICE_TRUTH`不轉成invoice truth | `NOT_RUN` |
+| `AT-REM-REL-008` | interaction | 嘗試依release順序做backup、remote list、staging apply、smoke與rollback decision | 每一步有 gate與停止點；Wave 0不得實際deploy、migration或外部provider操作 | `NOT_RUN` |
+| `AT-REM-REL-009` | visual/mobile | 檢查 cost status UI是否把estimate與invoice truth分開（本wave不修改UI） | N/A：Wave 0只有治理文件；既有／後續UI須由`AT-OPS-*`與`REM-NAV-001`驗收，不能以文件冒充畫面通過 | `NOT_RUN` |
+| `AT-REM-REL-010` | recovery | migration apply或cost gate smoke失敗，依backup／forward-only rollback plan | 不刪append-only migration／audit；停止非必要操作，保留backup與可重試的owner／checkpoint | `NOT_RUN` |
+| `AT-REM-REL-011` | security | 進行config／bundle／secret scan與migration evidence review | 不輸出secret、不改Cloudflare／provider／帳務；只保存去敏證據 | `NOT_RUN` |
+| `AT-REM-REL-012` | real scenario | current 2026-08-14 cost gate：0011／0012未套staging、quota／billing unknown、X frozen | release維持 blocked／未deploy；下游由integration/cost integrator＋human checkpoint接手 | `NOT_RUN` |
+
+### REM-ASYNC-001　Persisted async job contract（Wave 1）
+
+| Acceptance ID | 維度 | 固定輸入／操作 | 預期輸出 | 狀態 |
+|---|---|---|---|---|
+| `AT-REM-ASYNC-001` | semantic | job依序進入queued、claimed、running、retry_wait、succeeded／failed／cancelled | 每一狀態有server persisted phase、counter、timestamps、error code與history；不計算假百分比 | `NOT_RUN` |
+| `AT-REM-ASYNC-002` | interaction | reload、離開頁面、重新進入後按retry／cancel | API讀回同一job truth；action遵守狀態機與idempotency，不重複執行 | `NOT_RUN` |
+| `AT-REM-ASYNC-003` | visual/mobile | desktop、mobile-390、narrow-320查看長工作進度 | 顯示真實phase／completed／total／retry count／last update與可用action；沒有假百分比 | `NOT_RUN` |
+| `AT-REM-ASYNC-004` | recovery | worker crash、stale lease、網路中斷後reload | stale recovery與retry policy可重入；history保留原錯誤與新attempt，不遺失job | `NOT_RUN` |
+| `AT-REM-ASYNC-005` | security | 非owner查詢、cancel、retry job | server以Access／actor／resource scope拒絕，錯誤不洩漏provider payload或secret | `NOT_RUN` |
+| `AT-REM-ASYNC-006` | real scenario | YouTube／Instagram／cost sync在資料量未知時執行 | 使用真實counter與provider／cost gate phase；外部阻擋顯示具體原因，不顯示示範進度 | `NOT_RUN` |
+
+### REM-NAV-001　Desktop／Mobile／narrow reachability（Wave 2）
+
+| Acceptance ID | 維度 | 固定輸入／操作 | 預期輸出 | 狀態 |
+|---|---|---|---|---|
+| `AT-REM-NAV-001` | semantic | 建立正式 capability-to-route map | 每個第一批 capability有desktop、mobile、narrow可達路徑；延後模組不放空殼 | `NOT_RUN` |
+| `AT-REM-NAV-002` | interaction | 在desktop導覽、mobile「更多／系統」第二層、narrow keyboard操作 | 所有正式 action可到達、focus／back／deep link一致；mobile不刪功能 | `NOT_RUN` |
+| `AT-REM-NAV-003` | visual/mobile | viewport 1280、390、320執行route screenshot／可讀性檢查 | 沒有水平溢出、遮住主要action或不可觸達row action；資訊優先順序按mobile重排 | `NOT_RUN` |
+| `AT-REM-NAV-004` | recovery | 從深層路由reload、離線開啟、Access session失效 | 回到可理解的loading／offline／reauth狀態，不丟失 capability或顯示假資料 | `NOT_RUN` |
+| `AT-REM-NAV-005` | security | 直接請求未授權route與隱藏second-level入口 | Access與server authorization一致；隱藏導覽不是安全邊界 | `NOT_RUN` |
+| `AT-REM-NAV-006` | real scenario | 手機使用者要從首頁完成期限、任務、integration status與匯出操作 | 每項都能在不切桌面的情況下找到；沒有只在桌面存在的正式功能 | `NOT_RUN` |
+
+### REM-FORM-001　Field necessity／safe defaults／progressive disclosure（Wave 2）
+
+| Acceptance ID | 維度 | 固定輸入／操作 | 預期輸出 | 狀態 |
+|---|---|---|---|---|
+| `AT-REM-FORM-001` | semantic | 對每個欄位標記必要、可選、條件依賴與資料來源 | 沒有只為湊UI的欄位；金額、日期、關聯ID、來源不可藏成不可驗證附加欄位 | `NOT_RUN` |
+| `AT-REM-FORM-002` | interaction | 以safe default提交最小合法輸入，再展開advanced fields | 最小流程可完成完整功能；只有依賴成立時才要求額外欄位，預設不偷偷改變語意 | `NOT_RUN` |
+| `AT-REM-FORM-003` | visual/mobile | desktop、mobile-390、narrow-320填寫最長正式form | label、單位、錯誤與submit action可見；不以超大卡片／長卷掩蓋必要欄位 | `NOT_RUN` |
+| `AT-REM-FORM-004` | recovery | server validation或網路失敗後reload／retry | 使用者輸入可恢復；錯誤指向欄位與下一步；不產生部分資料或假成功 | `NOT_RUN` |
+| `AT-REM-FORM-005` | security | 缺少必要欄位、跨resource ID、未授權欄位與惡意字串 | Zod／server schema拒絕；無任意欄位寫入、HTML／code execution或secret回傳 | `NOT_RUN` |
+| `AT-REM-FORM-006` | real scenario | 新增task、integration reauth與cost override各走最小流程 | 欄位負擔降低但仍保留完整能力、audit與human approval；override不變成自動放行 | `NOT_RUN` |
+
+### REM-INT-001　Integration lifecycle（Wave 3）
+
+| Acceptance ID | 維度 | 固定輸入／操作 | 預期輸出 | 狀態 |
+|---|---|---|---|---|
+| `AT-REM-INT-001` | semantic | 對既定provider/account cardinality建立 lifecycle state map | list、status、reauth、retry、disable、disconnect、delete-or-retention、history語意不重疊；不新增多帳號 | `NOT_RUN` |
+| `AT-REM-INT-002` | interaction | 對CONNECTED、NEEDS_REAUTH、ERROR、DISABLED各按可用action | API／UI只允許合法transition，action有idempotency與固定錯誤碼 | `NOT_RUN` |
+| `AT-REM-INT-003` | visual/mobile | desktop與mobile/narrow查看多provider status與action | provider、帳號遮罩、last sync、error、next action可讀；row action不被裁切 | `NOT_RUN` |
+| `AT-REM-INT-004` | recovery | reauth callback失敗、provider timeout、disconnect後reload | 保留history與原始／正規化關聯；可重試或明確停用，不刪歷史資料 | `NOT_RUN` |
+| `AT-REM-INT-005` | security | token expiry、錯誤payload、disconnect／delete請求 | token只在server密文保存；不寫log／UI；刪除／purge若未獨立批准不得執行 | `NOT_RUN` |
+| `AT-REM-INT-006` | real scenario | YouTube、Instagram、Resend其中一個外部狀態失效而其他模組可用 | 失效provider顯示真實阻擋，其他模組照常；disconnect預設保留history | `NOT_RUN` |
+
+### REM-TABLE-001　Server-side table query與mobile row action（Wave 3）
+
+| Acceptance ID | 維度 | 固定輸入／操作 | 預期輸出 | 狀態 |
+|---|---|---|---|---|
+| `AT-REM-TABLE-001` | semantic | 定義search、filter、sort、cursor、archive visibility與total／hasNext語意 | API schema明確；查詢、分頁與archive不靠client假截取或不透明總數 | `NOT_RUN` |
+| `AT-REM-TABLE-002` | interaction | 大資料集交替搜尋／篩選／排序／next cursor／clear | server query每次返回可追溯cursor；不重複、不跳列、不把舊filter結果混入 | `NOT_RUN` |
+| `AT-REM-TABLE-003` | visual/mobile | desktop、390、320查看table與row action | 欄位／單位／狀態可讀，row action可觸達；必要資訊不是只靠hover | `NOT_RUN` |
+| `AT-REM-TABLE-004` | recovery | cursor過期、網路中斷、archive後reload | 顯示可恢復錯誤並重新從合法cursor查詢；archive visibility與history一致 | `NOT_RUN` |
+| `AT-REM-TABLE-005` | security | server query帶未授權owner／filter／sort欄位 | schema白名單與resource authorization拒絕；不以前端隱藏欄位作安全邊界 | `NOT_RUN` |
+| `AT-REM-TABLE-006` | real scenario | 任務、交易、provider runs各有大量資料與archive列 | 同一query contract可正確搜尋／排序／查看archive；mobile仍能完成最重要row action | `NOT_RUN` |
+
 ## 2. Core與自定義
 
 ### AT-CORE-01　領域與事業CRUD
@@ -651,9 +765,9 @@ lint、typecheck、Vitest、D1、API contract、Playwright全部通過，無skip
 
 YouTube、Instagram、Push、Resend及Firstrade真實驗收若尚未完成，release不得標為全面完成；可部署staging，但狀態必須明示。
 
-### 2026-08-13 最終整合 gate 結果
+### Historical / Superseded by 2026-08-14 cost gate：2026-08-13 最終整合 gate 結果
 
-`AT-GATE-08` `PASSED`。最新正式狀態為：`SOC-010`／`SETUP-004`／`AT-IG-01`～`AT-IG-05`、`INV-002`／`SETUP-007`／`AT-INV-05`、`DDL-008`／`SETUP-006`／`AT-PUSH-01`、`DDL-009`／`SETUP-005`／`AT-MAIL-01` 均 `VERIFIED`；YouTube `SOC-009`／`SETUP-003`及既有跨裝置／PWA／UI gate維持既有 `VERIFIED`。所有外部真人證據均保留於本檔、`IMPLEMENTATION_STATUS.md`、`TRACEABILITY_MATRIX.md`及`SETUP_CHECKLIST.md`；本 gate 不改production `SETUP-009`。
+`AT-GATE-08` 當時 `PASSED`，此結果是 `Historical / Superseded by 2026-08-14 cost gate`。`SOC-010`／`SETUP-004`、`INV-002`／`SETUP-007`、`DDL-008`／`SETUP-006`、`DDL-009`／`SETUP-005` 的未受成本 gate影響證據仍保留；current status以`IMPLEMENTATION_STATUS.md` current ledger為準。所有外部真人證據均保留於本檔、`IMPLEMENTATION_STATUS.md`、`TRACEABILITY_MATRIX.md`及`SETUP_CHECKLIST.md`，不把舊 gate當目前 release-ready宣稱。
 
 ### 2026-08-14 staging release safety audit addendum
 

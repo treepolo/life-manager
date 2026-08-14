@@ -11,9 +11,35 @@
 - `EXTERNAL_BLOCKED`
 - `VERIFIED`
 
-> 最新 A 整合線狀態（2026-08-13）：N2 與 C final 證據已以 no-ff merge 納入；staging 最新 active version 為 `db41ff0c-7864-43d2-9a98-54000cebfa92`（100%）。本檔較早段落中的 `26d3ca9b-c910-452b-b3aa-f6a8c59b9450` 是 N1 歷史部署，不是目前 active version；最新部署證據以本檔末段為準。
+## 2026-08-14 Governance Retrofit Wave 0 current ledger
 
-> A 最終整合 gate（2026-08-13）已 `PASSED`：B `codex/accept-firstrade@300b3d71742024bb28915f6bd55d29a9110237b6` 與 C `codex/accept-web-push-final@f032a5bd60c5b6ecd8d09d38c5ec381c811bd1ec` 的完成證據已逐項保留並整合；`INV-002`／`SETUP-007`、`DDL-008`／`SETUP-006`／`AT-PUSH-01`已收斂為`VERIFIED`，`AT-GATE-08`已通過。staging version與100% active、remote migration、完整測試／掃描及未部署理由見本檔最終整合段落；worktree清理另依`WORKTREE_CLEANUP_TODO.md`的安全順序執行。
+本節是本次 Wave 0 的 canonical working record；完成後仍須以同一節的 evidence 更新，不得以聊天摘要取代。`REM-GOV-001` 已由 current/history static verifier收斂為 `VERIFIED`；其餘治理／filesystem／成本整合仍依下表保守維持 `IN_PROGRESS`，Wave 1 以後的 runtime／UI／provider 行為維持 `NOT_STARTED`，不因建立 acceptance 而宣稱已實作。
+
+| Requirement ID | 狀態 | 預定／實際文件 | migration | 預定驗證與 evidence | blocker／next owner |
+|---|---|---|---|---|---|
+| `REM-GOV-001` | `VERIFIED` | `AGENTS.md`、`docs/GOVERNANCE_RETROFIT_PLAN.md`、`docs/TRACEABILITY_MATRIX.md`、`docs/ACCEPTANCE_TESTS.md`、本檔、`docs/SETUP_CHECKLIST.md`、`docs/OPERATIONS.md` | 不需 migration | `AT-REM-GOV-001`～`006` static current/history verifier、唯一 current source、`git diff --check`通過；visual/mobile為document-only N/A | 文件治理 requirement已完成；不代表任何下游 runtime／external gate通過 |
+| `REM-GOV-002` | `IN_PROGRESS` | `AGENTS.md`、`docs/ORCHESTRATOR_PROTOCOL.md`、`docs/GOVERNANCE_RETROFIT_PLAN.md` | 不需 migration | report envelope、single-writer、liveness、dispatch policy 文件檢查；跨 worker 行為未執行 | Control／Execution 行為需後續 task evidence；Wave 0／final integrator |
+| `REM-FS-001` | `IN_PROGRESS` | `docs/FILESYSTEM_POLICY.md`、`docs/GOVERNANCE_RETROFIT_PLAN.md`、`docs/WORKTREE_CLEANUP_TODO.md`（僅索引） | 不需 migration | targeted inventory、worktree list、containment／retention policy；未執行 cleanup | 既有 artifact retention與未來 verified delete尚未實際演練；ops owner |
+| `REM-REL-002` | `IN_PROGRESS` | `docs/GOVERNANCE_RETROFIT_PLAN.md`、`docs/COST_GUARDRAIL_PLAN.md`、`docs/OPERATIONS.md`、`docs/SETUP_CHECKLIST.md` | 不新增；`0011`／`0012` 既有且未 remote apply | d7bc306、pending migration、backup／rollback／staging gate 文件與不執行證據；未部署 | cost guardrail未 deploy、0011／0012未套 staging、quota／billing unknown；integration/cost integrator＋human checkpoint |
+| `REM-REL-001` | `NOT_STARTED` | `docs/GOVERNANCE_RETROFIT_PLAN.md`、後續 backend/API/data contract | 後續評估，Wave 0 不新增 | 未執行；acceptance只定義固定答案與 recovery scope | Wave 1 backend/API/migration owner |
+| `REM-ASYNC-001` | `NOT_STARTED` | `docs/GOVERNANCE_RETROFIT_PLAN.md`、後續 shared job contract | 後續評估，Wave 0 不新增 | 未執行；不得用假百分比 | Wave 1 backend/API-data owner＋shared UI owner |
+| `REM-NAV-001` | `NOT_STARTED` | `docs/GOVERNANCE_RETROFIT_PLAN.md`、後續 frontend route／mobile work | 不預設 migration | 未執行；desktop/mobile/narrow visual acceptance待後續 | Wave 2 frontend owner |
+| `REM-FORM-001` | `NOT_STARTED` | `docs/GOVERNANCE_RETROFIT_PLAN.md`、後續 frontend/API contract | 不預設 migration | 未執行；不得猜 API default | Wave 2 frontend owner |
+| `REM-INT-001` | `NOT_STARTED` | `docs/GOVERNANCE_RETROFIT_PLAN.md`、後續 integration lifecycle contract | 後續評估 | 未執行；不新增多帳號 scope | Wave 3 integration/cost integrator |
+| `REM-TABLE-001` | `NOT_STARTED` | `docs/GOVERNANCE_RETROFIT_PLAN.md`、後續 server query/UI work | 後續評估 | 未執行；archive／cursor／mobile row acceptance待後續 | Wave 3 API＋frontend owner |
+
+### Wave 0 working constraints and source gaps
+
+- 允許修改只限中央 governance／requirements／traceability／acceptance／status／operations／setup 文件與 `docs/GOVERNANCE_RETROFIT_PLAN.md`、`docs/ORCHESTRATOR_PROTOCOL.md`、`docs/FILESYSTEM_POLICY.md`；不修改 `src`、`public`、`migrations`、`tests`、implementation scripts、`wrangler`、package artifacts 或外部平台。
+- current truth：`d7bc306030bd7a1e29182fdbd921eb077249f9b0` 已 push；`0011`／`0012` 尚未 remote apply；成本防線尚未 deploy；`SOC-009`／`SOC-010`／`DDL-009`、`SETUP-003`～`SETUP-005` current `EXTERNAL_BLOCKED`；`NFR-001`／`OPS-002` `IN_PROGRESS`；X frozen；external quota／billing truth unknown。
+- 舊 `SETUP-005`、`AT-GATE-08` 與 2026-08-13 或更早 dated release／provider evidence 只保留作 `Historical`／`Superseded by 2026-08-14 cost gate`，不撤銷未受影響的 `VERIFIED`（CORE／TASK／FIN／INV、`SOC-001`～`SOC-008`／`SOC-011`、`DDL-001`～`DDL-008`、OFF／DATA／UI/chart、Firstrade CSV、Web Push）。
+- 預期的 Layer 1／Layer 2 外部檔案在本機路徑不存在；已記錄 dependency gap，使用者提供的核准 audit baseline 作為本輪 read-only input，不複製外部 source。需要逐條外部核對時由主控取得 source並設 human checkpoint。
+
+> **Historical boundary**：除本檔上方 current ledger、2026-08-14 SETUP-010／staging safety／cost addendum 外，以下 2026-08-13 或更早的 workstream、deployment、provider、真人驗收與「目前」句子均為歷史 evidence；與 current ledger 衝突時以本節為準，不刪除歷史紀錄。
+
+> **Historical / Superseded by 2026-08-14 cost gate**：A 整合線狀態（2026-08-13）當時記錄 N2 與 C final 證據已以 no-ff merge 納入；staging version `db41ff0c-7864-43d2-9a98-54000cebfa92`為100%。本檔較早段落中的`26d3ca9b-c910-452b-b3aa-f6a8c59b9450`是歷史部署；所有 dated deployment evidence不得覆蓋上方 current ledger。
+
+> **Historical / Superseded by 2026-08-14 cost gate**：A 最終整合 gate（2026-08-13）當時記錄為 `PASSED`；B `codex/accept-firstrade@300b3d71742024bb28915f6bd55d29a9110237b6` 與 C `codex/accept-web-push-final@f032a5bd60c5b6ecd8d09d38c5ec381c811bd1ec` 的完成證據仍逐項保留；`INV-002`／`SETUP-007`、`DDL-008`／`SETUP-006`／`AT-PUSH-01` 的未受成本 gate 影響結果仍保留為 `VERIFIED`。但 `AT-GATE-08` 與受影響外部整合的舊結果不能當 current cost release evidence；current status 以本節與 2026-08-14 addendum 為準。
 
 ## 2026-08-14 SETUP-010 帳戶級唯讀核對完成（SETUP-010 VERIFIED；NFR-001／OPS-002 仍 IN_PROGRESS）
 
@@ -625,9 +651,9 @@
 - 狀態／資料一致性：UI顯示Web Push `READY`、電腦`ACTIVE`及最新成功時間、手機`DISABLED`及既有成功時間；`GET /api/v1/push-subscriptions`回讀兩台各一筆且各有成功紀錄、錯誤0。D1去識別聚合同樣為computer `ACTIVE` 1／mobile `DISABLED` 1，各有last success／error 0；`notification_channels`為`WEB_PUSH` enabled／`READY`且有last success／error 0；最新`WEB_PUSH` delivery為`SENT` 1、送至ACTIVE 1、送至DISABLED 0、錯誤0，查詢`rows_written=0`。
 - 本輪結論：`DDL-008`、`SETUP-006`、`AT-PUSH-01`標為`VERIFIED`。C線本身不執行`AT-GATE-08`；A最終整合線在所有外部驗收完成後執行並通過該 gate。本輪不改Instagram、YouTube、Firstrade、Resend、production `SETUP-009`。
 
-### 2026-08-13 A最終整合 gate 完成
+### Historical / Superseded by 2026-08-14 cost gate：2026-08-13 A最終整合 gate 完成
 
 - B `300b3d71742024bb28915f6bd55d29a9110237b6` 與 C `f032a5bd60c5b6ecd8d09d38c5ec381c811bd1ec` 相對 A 已部署 runtime 只新增正式文件／去識別驗收證據；`src/`、`public/`、`wrangler.toml`、`package.json`、`scripts/`與`migrations/`均無差異，因此 staging bundle unchanged，本次不重部署。
 - 本機最終 gate：`npm run lint -- --ignore-pattern backups`、`npm run typecheck`（`tsconfig.json`與`tsconfig.worker.json`）、`npm test -- --run`（15 files／52 tests）、`npm run test:worker`（3 files／27 tests）、`npm run build:client`（799 modules）、`npm run test:e2e`（13/13 isolated Playwright）、`npm run scan`、`npm run verify:requirements`（112 IDs；VERIFIED 83／AWAITING_USER_SETUP 29）、`git diff --check`均通過。未修改或刪除被忽略的`backups/`；lint使用既有明確的`--ignore-pattern backups`邊界。
 - staging唯讀核對：`db41ff0c-7864-43d2-9a98-54000cebfa92`為100% active；remote `d1 migrations list LIFE_DB --env staging --remote`為`No migrations to apply!`；未執行或重跑migration，未觸發真人 Email／Push／Firstrade匯入。未授權`/`、`/deadlines`、通知／Push訂閱／整合GET均由Access回`302`。
-- gate結論：`SOC-010`／`SETUP-004`、`INV-002`／`SETUP-007`、`DDL-008`／`SETUP-006`、`DDL-009`／`SETUP-005`及其對應`AT-IG-01`～`AT-IG-05`、`AT-INV-05`、`AT-PUSH-01`、`AT-MAIL-01`均`VERIFIED`；`AT-GATE-08` `PASSED`。production `SETUP-009`未修改；worktree清理仍依`WORKTREE_CLEANUP_TODO.md`安全順序待執行。
+- **Historical gate conclusion**：`SOC-010`／`SETUP-004`、`INV-002`／`SETUP-007`、`DDL-008`／`SETUP-006`、`DDL-009`／`SETUP-005`及其對應`AT-IG-01`～`AT-IG-05`、`AT-INV-05`、`AT-PUSH-01`、`AT-MAIL-01`當時均`VERIFIED`；`AT-GATE-08`當時`PASSED`。未受成本 gate影響的結果保留，但受影響 current status以2026-08-14 ledger為準；production `SETUP-009`未修改。

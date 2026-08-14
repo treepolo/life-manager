@@ -181,3 +181,9 @@ Codex先建立共用設計token及四個代表頁面的正式高完成度實作�
 代表頁面使用`tests/fixtures`或本機開發seed驗證資訊密度，但正式production build不得引用fixtures。完成這四頁後再套用至其他頁面，不能每頁自行生成風格。
 
 視覺驗收需涵蓋320px手機、一般手機、平板、1366px筆電與大型桌面；不得只在寬螢幕截圖看起來正常。
+
+## 9. Governance Retrofit UI boundary（2026-08-14）
+
+Wave 0 不改產品畫面，只把後續驗收與owner固定下來：`REM-NAV-001`由單一frontend owner驗證desktop／mobile／narrow reachability，mobile可把低頻入口放入「更多／系統」第二層但不得刪 capability；`REM-FORM-001`先等正式API contract，再以field necessity、safe defaults與progressive disclosure降低負擔；`REM-ASYNC-001`只能顯示server persisted的phase／counter／retry／last update，不得用假百分比。
+
+任何 table／integration action的mobile可達性分別由 `REM-TABLE-001`／`REM-INT-001` 驗收；文件 acceptance的 visual/mobile N/A 不等於產品UI通過。未執行的後續案例維持 `NOT_RUN`。

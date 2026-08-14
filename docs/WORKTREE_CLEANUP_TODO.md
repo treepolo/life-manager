@@ -6,12 +6,14 @@
 
 正式專案唯一保留位置：`D:\人生管理器`
 
+> **Historical cleanup record / current policy supersession（2026-08-14）**：上方 `VERIFIED` 只代表 2026-08-13 的既有 worktree 收斂動作與 targeted paths evidence，不代表本輪重新清理或允許在專案外建立新 worktree。Wave 0 不清理、不移動、不刪除任何既有 artifact；current containment 以 `docs/FILESYSTEM_POLICY.md` 為準。
+
 ## 必須完成的結果
 
 - 最終程式碼、正式文件、Git branch 與驗收證據都必須收斂回 `D:\人生管理器`。
 - C 槽不得留下本專案的 Codex worktree、`node_modules` 或建置產物。
 - A／B／C／D／N 等輔助 worktree 在成果合併、推送及驗收完成後都必須移除，不保留多份專案資料夾。
-- 後續若仍需建立 worktree，只能明確建立於 `D:\人生管理器-wt-*`；不得再使用 Codex 預設的 `C:\Users\gg013\.codex\worktrees\*`。
+- 後續若仍需建立 worktree，只能建立於 `D:\人生管理器\.worktrees\*`；不得再使用專案外 sibling `D:\人生管理器-wt-*` 或 Codex 預設的 `C:\Users\gg013\.codex\worktrees\*`。
 
 ## 原先不得刪除（已完成收斂後清理）
 

@@ -25,6 +25,12 @@
 
 若文件互相衝突，應先停止衝突部分的實作，記錄衝突位置，並以使用者最新明確決定為最高依據。不得自行挑選最容易做的版本。
 
+### 1.1 Governance Retrofit canonical index
+
+2026-08-14 起，Wave 0–5 的 requirement／dependency／owner／human checkpoint 索引唯一放在 `docs/GOVERNANCE_RETROFIT_PLAN.md`；Control Plane／Execution Plane、dispatch-and-yield、worker report、project liveness、single-writer 與唯一 integrator 規則見 `docs/ORCHESTRATOR_PROTOCOL.md`；filesystem boundary、retention 與 cleanup checkpoint 見 `docs/FILESYSTEM_POLICY.md`。這些是 Layer 1／Layer 2 的 repo delta，不複製外部治理來源。功能 current status 仍唯一以 `docs/IMPLEMENTATION_STATUS.md` 為準；`TRACEABILITY_MATRIX.md` 與 `ACCEPTANCE_TESTS.md` 提供鏈接與案例，不各自宣稱 current。
+
+目前 current truth 為 d7bc306 已 push、0011／0012 尚未 remote apply、成本防線尚未 deploy、受影響外部整合為 `EXTERNAL_BLOCKED`、NFR-001／OPS-002 為 `IN_PROGRESS`；舊 deployment／provider／AT-GATE-08 evidence 必須明示 Historical／Superseded by 2026-08-14 cost gate。Wave 0 不修改產品程式、不執行 migration、deploy、OAuth、同步或 cleanup。
+
 ## 2. 已確認的固定決策
 
 - 部署：Cloudflare Workers承載前端靜態資產與後端API，D1保存雲端資料。

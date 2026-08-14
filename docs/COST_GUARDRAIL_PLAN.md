@@ -2,6 +2,12 @@
 
 > 開發計畫與驗收基準（文件開工 2026-08-13，官方來源再次查核日 2026-08-14，Asia/Taipei）。本檔把既有 `NFR-001`／`OPS-002` 轉成可執行的開發與驗收閘門；Phase 0–2 已在本地實作，staging release safety audit 進行中，未新增產品功能、未修改帳務或 Cloudflare 設定。
 
+## Current canonical release boundary（2026-08-14）
+
+本檔的 current boundary 是：d7bc306 已 push；`0011_cost_guardrails.sql`／`0012_cost_guardrail_atomic_transitions.sql` 已存在但尚未 remote apply；cost guardrail 尚未 deploy；`NFR-001`／`OPS-002` 仍 `IN_PROGRESS`；`SETUP-010` 的 `VERIFIED` 僅代表人工唯讀核對；external quota／billing／invoice truth unknown。Phase 0–2 的 local implementation、local ledger與synthetic evidence不等於 staging／production release或帳戶級成本安全。
+
+任何較早的「目前版本／已完成」句子若與此 boundary不一致，視為 `Historical / Superseded by 2026-08-14 cost gate`，保留作 evidence，不得覆蓋 current status。Wave 0 不部署、不套用migration、不呼叫provider、不修改帳務／Cloudflare狀態。
+
 ## 0. 判定、證據優先級與範圍
 
 ### 0.1 帳戶特定結帳證據優先

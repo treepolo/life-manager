@@ -264,3 +264,11 @@ Provider能被應用層阻擋的工作必須先取得admission reservation；Wor
 - OAuth成功但未取得真實資料：`IMPLEMENTED_UNVERIFIED`。
 - 真實資料同步、原始回應保存、正規化核對及UI顯示通過：`VERIFIED`。
 - 平台政策或帳號資格造成無法進行：`EXTERNAL_BLOCKED`，必須附官方錯誤與日期。
+
+## 10. Governance Retrofit boundary（2026-08-14）
+
+Wave 0 只新增治理與文件索引，不改模組化單體、路由、狀態管理、migration或runtime。Control／Execution Plane、single-writer／唯一 integrator與wave dependency見 `docs/ORCHESTRATOR_PROTOCOL.md`／`docs/GOVERNANCE_RETROFIT_PLAN.md`；filesystem containment見 `docs/FILESYSTEM_POLICY.md`。
+
+`ARCHITECTURE.md`目前正式定義的架構需求只有 `ARCH-001`～`ARCH-003`。矩陣或歷史段落出現 `ARCH-001~008`時，僅作既有規格衝突紀錄，不虛構 `ARCH-004`～`ARCH-008`，也不在本輪擴充產品架構。
+
+下游 `REM-REL-001`／`REM-ASYNC-001`需先由單一 backend/API-data owner固定 persisted contract與transaction boundary；`REM-NAV-001`／`REM-FORM-001`的 frontend owner必須等待正式API schema，不能由UI猜測。`REM-INT-001`／`REM-REL-002`由單一 integration/cost integrator處理，保留既定provider cardinality與migration安全邊界。

@@ -2,6 +2,12 @@
 
 Codex必須在需要使用者介入前填入實際網址、欄位名稱與命令。不得只說「請設定OAuth」。秘密不要貼進聊天或commit；應由使用者在終端／平台Secret介面輸入。
 
+## Current setup truth boundary（2026-08-14）
+
+設定完成與產品 current status 以 `docs/IMPLEMENTATION_STATUS.md` 為準。本檔較早的 checked／verified steps 是 historical evidence，除非下方明確標為 current，不得覆寫 current gate。`d7bc306` 已 push；0011／0012 未 remote apply；成本防線未 deploy；`SOC-009`／`SOC-010`／`DDL-009`、`SETUP-003`～`SETUP-005` current 為 `EXTERNAL_BLOCKED`；`NFR-001`／`OPS-002` 為 `IN_PROGRESS`；X frozen。未受影響的 `SETUP-006`、`SETUP-007`與其他既有 `VERIFIED` 保留，不重做。
+
+`SETUP-003`、`SETUP-004`、`SETUP-005` 中較早完成的 OAuth／真人 provider／寄信核對只作 `Historical / Superseded by 2026-08-14 cost gate` evidence；Wave 0 不登入、不授權、不同步、不寄信、不部署、不執行 migration。
+
 ## SETUP-001　開始開發前
 
 使用者目前不需要先設定所有雲端服務。Codex先完成本機正式架構、D1、核心功能、離線、adapter及自動測試。
@@ -54,6 +60,8 @@ Codex在進行前填入：
 - [x] Codex以staging D1唯讀聚合交叉核對：`areas=1`、area `APPLIED` operation=1、非`APPLIED`=0、area change=1、max area cursor=1、有效device=2、cursor=2、兩個cursor的min/max pulled值皆為1；Cloudflare回報APAC／HKG primary、`rows_written=0`、`changes=0`。查詢沒有選取ID、名稱、說明、原則、user agent或私人payload。2026-08-03曾在SQL前遇到API `7403`，已由2026-08-09本次成功查詢收斂，不以舊失敗冒充完成。
 
 ## SETUP-003　YouTube
+
+目前狀態：`EXTERNAL_BLOCKED`（2026-08-14 cost gate；Analytics／account usage、reset與billing truth不足）。本節較早的授權、同步與YouTube真人 evidence 為 `Historical / Superseded by 2026-08-14 cost gate`，不撤銷未受影響的程式與資料 evidence，也不在 Wave 0 重做。
 
 Codex先提供：
 
@@ -138,6 +146,8 @@ Codex先提供：
 
 ## SETUP-004　Instagram
 
+目前狀態：`EXTERNAL_BLOCKED`（2026-08-14 cost gate；本帳戶 exact quota／usage／reset與billing truth未知）。本節較早的Meta授權、同步與Instagram真人 evidence 為 `Historical / Superseded by 2026-08-14 cost gate`，不在 Wave 0 重做。
+
 Codex先提供：
 
 - Meta App類型與名稱：依Meta Developers當下提供的Instagram API自用情境選`Business`，名稱建議`Life Manager Personal`；若介面已改名，以Instagram Login產品支援的類型為準並把畫面選項記回本檔。
@@ -192,7 +202,9 @@ Codex先提供：
 
 ## SETUP-005　Resend電子郵件
 
-目前狀態：`VERIFIED`（2026-08-12，D線 `codex/accept-resend`；帳號、兩個Secret、收件設定、正式`OPEN`期限、真實寄送與本人收件均已完成）。
+目前狀態：`EXTERNAL_BLOCKED`（2026-08-14 cost gate；Resend account plan／remaining／reset與billing truth未知）。
+
+> **Historical / Superseded by 2026-08-14 cost gate**：2026-08-12 D線曾記錄帳號、兩個Secret、收件設定、正式`OPEN`期限、真實寄送與本人收件完成；`AT-MAIL-01`及其去敏 delivery evidence 保留，但不能當 current cost release evidence。
 
 本次真實驗收結果：
 

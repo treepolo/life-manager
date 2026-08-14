@@ -105,3 +105,16 @@
    - 測試命令與結果；
    - 需要使用者執行的下一個單一步驟。
 6. 不得以「主要功能已完成」「基本上完成」「核心已就緒」取代逐項狀態。
+
+## 8. Governance Retrofit Wave 0 增量（2026-08-14）
+
+以下是 Layer 1／Layer 2 治理規則在本 repo 的 delta，不複製外部文件。治理 canonical index 為 `docs/GOVERNANCE_RETROFIT_PLAN.md`，協作 protocol 為 `docs/ORCHESTRATOR_PROTOCOL.md`，filesystem boundary 為 `docs/FILESYSTEM_POLICY.md`；功能 current truth 仍唯一以 `docs/IMPLEMENTATION_STATUS.md` 為準。
+
+- **Control Plane／Execution Plane**：Sol Xhigh 是 Control Plane／主控，只負責拆解、風險／情境 human checkpoint、dispatch、整合、驗證與回報，不直接實作 worker 被分派的功能。Worker 預設使用 Luna MAX；只能在明確 scope 與允許檔案內執行。指定模型不可用時必須 `NEEDS_ESCALATION`，不得暗自改用其他模型。
+- **Dispatch-and-Yield**：每項派工都要有 Task ID、parent、requirement／acceptance、owner、依賴、允許／禁止操作、預期報告與下一步。Worker 在完成、handoff、dependency、human blocker 或 escalation 前主動 yield；不得 silent stop、不得自行開下一 wave 或喚醒其他 worker。
+- **Worker report envelope**：報告至少包含 status（只用 `DONE`／`HANDOFF_REQUIRED`／`BLOCKED_DEPENDENCY`／`BLOCKED_HUMAN`／`NEEDS_ESCALATION`）、branch／HEAD、commit／push、修改檔案、Requirement→Acceptance→Traceability→Status evidence、未完成、blocker、next owner、仍可立即執行的 runnable work。`DONE` 只代表該 task scope 完成，不代表整個產品完成。
+- **Project liveness**：Control Plane 必須能從 dispatch、worker report、commit／push 與 status ledger 判斷 task 仍有 owner；沒有回報不能解讀為成功。長時間工具、外部依賴與 human checkpoint 都要留下可追蹤狀態。
+- **Single-writer／唯一 integrator**：中央治理文件由 Wave 0／final integrator 單一 writer 維護；task／async backend、shared async UI、navigation／forms、integration／cost／provider sync、final merge／deploy／regression 各有單一 active owner。等待 API contract 時不得猜測；唯一 integrator 才能整合、回歸、commit／push。
+- **狀態語意**：`IMPLEMENTED_UNVERIFIED` 是 `IN_PROGRESS` 的較細分；`EXTERNAL_BLOCKED` 是外部依賴阻擋，不等同 `AWAITING_USER_SETUP`。不為了上位治理的字面集合重設既有狀態；未受 current evidence 影響的 `VERIFIED` 不得無故重做。
+- **Risk／scenario human checkpoints**：OAuth、provider quota／billing、migration apply、production deploy、backup restore、cleanup、未遮蔽資料與 secret 都必須由人類在 dispatch 前核准。文件 evidence 不得冒充真實授權或帳務 truth。
+- **Filesystem containment**：新 worktree 只能在 `D:\人生管理器\.worktrees`；canonical root、backup、temp 與 generated artifact 的 retention／cleanup 依 `docs/FILESYSTEM_POLICY.md`。Wave 0 不建立外部 worktree、不移動／刪除既有 artifact、不清理、不部署、不套用 migration。

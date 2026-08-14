@@ -1,5 +1,11 @@
 # 部署、排程、備份與維護
 
+## Current canonical operations truth（2026-08-14）
+
+本節是本檔唯一 current operations boundary：HEAD `d7bc306030bd7a1e29182fdbd921eb077249f9b0` 已 push；`0011`／`0012` 尚未套用 staging；成本防線尚未 deploy；`SOC-009`／`SOC-010`／`DDL-009`、`SETUP-003`～`SETUP-005` current 為 `EXTERNAL_BLOCKED`；`NFR-001`／`OPS-002` 為 `IN_PROGRESS`；X frozen；external quota／billing truth unknown。Wave 0 不 deploy、不 migration、不 OAuth、不 sync、不 cleanup。
+
+下方 2026-08-13 或更早的 deployment、provider、真人驗收與「目前版本」句子均是 `Historical / Superseded by 2026-08-14 cost gate`，只保存 evidence，不得當作 current release gate。未受影響的 `VERIFIED` 保留，不因本次 current/history reconciliation 重做。
+
 ## OPS-001　環境
 
 至少有：
@@ -19,6 +25,10 @@ workers.dev的Access操作採目標導向，不把易改版的側邊欄名稱當
 不要把Access邊界302誤當成完整驗收：先用無session請求證明首頁與API都導向Access，再確認JWK URL回200；將`ACCESS_TEAM_DOMAIN`與`ACCESS_AUD`作為非secret staging vars，把本人email以`ACCESS_ALLOWED_EMAIL` Worker Secret輸入。2026-08-03已完成這三項設定並部署版本`96f1e1b9-0902-4401-afb5-ea2825085e08`，部署列表為100%，部署後Secret名稱仍存在，無session首頁與API仍回302，JWK仍回200；本人session也已取得health 200／schema 8。最後仍須核對目標hostname的Access application只有`Allow`／`Include`／`Emails`／本人單一值，不得另有Allow、Bypass、`Everyone`、email domain或只以登入方式放行的規則。
 
 ## OPS-002　零成本防線
+
+### 2026-08-14 current release boundary
+
+`0011`／`0012` 是 append-only pending migrations，尚未 remote apply；本機 cost guardrail evidence 與 local estimate 不能冒充 provider invoice truth；staging deployment、backup／rollback drill及受影響 regression仍是下游 integration/cost integrator＋human checkpoint工作。`SETUP-010` 的 `VERIFIED` 只代表人工唯讀核對完成，不代表 `NFR-001`／`OPS-002` release ready。
 
 - 使用 Cloudflare 提供網址，第一批不要求購買網域；「零月費」是部署目標，不是付款帳戶永不出帳的保證。
 - 使用者提供的 Cloudflare 結帳頁已明示「超出包含額度的額外使用量將以月為單位計費」並有授權每月向付款卡收取超額使用量；這個帳戶特定、去識別證據優先於先前的一般 Free 稽核結論。不得再寫「Zero Trust Free 超額一定不會扣款」。
@@ -258,11 +268,11 @@ App內：
 - 唯讀一致性：UI與`GET /api/v1/push-subscriptions`均讀回手機`DISABLED`、電腦`ACTIVE`、兩台last success存在且error為空；D1 `WEB_PUSH` channel為enabled／`READY`且last success存在、error為空；最新delivery為`SENT` 1、to active 1、to disabled 0、error 0，查詢`rows_written=0`。
 - 結論：`DDL-008`、`SETUP-006`、`AT-PUSH-01`均為`VERIFIED`；C線本身不執行`AT-GATE-08`，A最終整合 gate已在所有外部驗收完成後執行；不修改production`SETUP-009`或其他整合線。
 
-### A最終整合 gate（2026-08-13）
+### Historical / Superseded by 2026-08-14 cost gate：A最終整合 gate（2026-08-13）
 
 - B `300b3d71742024bb28915f6bd55d29a9110237b6` 與 C `f032a5bd60c5b6ecd8d09d38c5ec381c811bd1ec`相對 A 已部署 runtime 只帶入正式文件與去識別驗收證據；`src/`、`public/`、`wrangler.toml`、`package.json`、`scripts/`、`migrations/`沒有由這兩個完成線 commit新增或修改。因此現有 staging runtime bundle與A已部署版本一致，本次沒有重部署；這是 bundle unchanged 的明確 no-redeploy 判定，不是跳過部署驗證。
 - staging `life-manager-staging` version `db41ff0c-7864-43d2-9a98-54000cebfa92`唯讀確認100% active；`d1 migrations list LIFE_DB --env staging --remote`為`No migrations to apply!`，本階段沒有執行或重跑migration。VAPID／Resend／Meta／Google secrets只核對名稱／型別，不讀取值。
-- 最終外部 gate：YouTube、Instagram、Firstrade、Web Push及Resend均有各線真實證據；`SOC-010`／`SETUP-004`、`INV-002`／`SETUP-007`、`DDL-008`／`SETUP-006`、`DDL-009`／`SETUP-005`均為`VERIFIED`，`AT-IG-01`～`AT-IG-05`、`AT-INV-05`、`AT-PUSH-01`及`AT-MAIL-01`完成，`AT-GATE-08` `PASSED`。未修改production `SETUP-009`。
+- **Historical external gate**：YouTube、Instagram、Firstrade、Web Push及Resend當時均有各線真實證據；`SOC-010`／`SETUP-004`、`INV-002`／`SETUP-007`、`DDL-008`／`SETUP-006`、`DDL-009`／`SETUP-005`當時均為`VERIFIED`，`AT-GATE-08`當時`PASSED`。未受成本 gate影響的證據保留，但不能當 current cost release evidence；未修改production `SETUP-009`。
 
 ## OPS-010　W-8BEN與報稅提醒排程
 

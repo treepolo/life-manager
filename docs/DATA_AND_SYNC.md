@@ -304,3 +304,11 @@ IndexedDB至少包含：
 - 使用者資料刪除先保留server tombstone；離線舊版本再次送出只會形成衝突，不會復活資料。
 - 原始CSV與provider payload是來源證據，標為長期保存，不進自動log清理。未來提供刪除時必須先顯示受影響的normalized rows與source refs、要求備份、使用冪等operation並寫audit。
 - 固定答案D1測試涵蓋「游標0不刪、游標越過才刪」及「DELETE tombstone阻止舊離線版本復活」。
+
+## 12. Governance Retrofit data boundary（2026-08-14）
+
+Wave 0 不新增資料表、不修改既有migration、不執行D1寫入。`REM-REL-001`／`REM-ASYNC-001`後續若需要 task＋schedule operation、persisted job、phase／counter／retry／cancel／history，必須由單一 backend/API-data owner提出正式schema、Zod contract、transaction、idempotency key、audit欄位與migration；金額、日期、關聯ID、來源與常用篩選欄位不得只藏在JSON。
+
+任何衍生數字仍須帶指標識別／版本、value／unit、來源、觀測筆數、時間窗、篩選／分組、聚合、分母、缺失／排除數、計算時間與精確／估算／手動／來源回報品質。成本 local ledger的 `ESTIMATED`／`NOT_INVOICE_TRUTH`不能升格為provider invoice truth；0011／0012在下游 apply前保持 append-only pending。
+
+離線輸入、編輯、刪除／封存、恢復同步的現有規則不因 retrofit 簡化。所有後續 async／task recovery需覆蓋離線、reload、重試、stale lease、權限失效與衝突；Wave 0只在 `docs/ACCEPTANCE_TESTS.md`定義案例，不宣稱 runtime evidence。

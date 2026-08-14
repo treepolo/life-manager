@@ -441,3 +441,22 @@ Facebook、Threads及方格子API延後。方格子可在未來依官方CSV或�
 「零月費」只表示產品的部署與選型目標，不是 Cloudflare、第三方 provider 或付款帳戶的扣款保證。成本安全必須同時核對帳戶／方案 allowlist、超額計費授權、官方 quota／reset／usage source、50／70／80%或75／85%告警／門檻、依 risk class 的降載、internal hard-stop／fail-closed 及恢復稽核；細節與固定答案見 `docs/COST_GUARDRAIL_PLAN.md`。有可靠官方 included baseline 但沒有帳戶 current usage 的資源，只能以 `LOCAL_CONSERVATIVE`／`ESTIMATED` local ledger 放行其對應 operation，並明示 `providerInvoiceTruth=false`；exact allowance／measurement unknown 的 provider operation 仍須獨立 fail-closed，不得因另一資源未知而全域封鎖。Workers inbound invocation、Access／Zero Trust seat 與帳戶付款不受 App gate 控制，必須標為 `ACCOUNT_CONTROL_REQUIRED`。
 
 程式可以阻止本產品繼續發出非必要 requests、writes、sync、通知或 provider calls，也可以在帳戶／用量資料未知時停止；程式不能取消 Cloudflare checkout 授權、付款方式、Workers Paid／其他產品方案、Access seat 或帳戶 invoice。若沒有官方 API／hard cap 或帳戶特定狀態不明，相關功能不得以估算宣稱安全，必須停用、人工確認或維持 `EXTERNAL_BLOCKED`／`AWAITING_USER_SETUP`。
+
+## 5. Governance Retrofit delta（Wave 0–5）
+
+以下是 Layer 1／Layer 2 的 repo-level remediation requirements，不是把第一批產品縮成 MVP，也不在 Wave 0 偷增產品功能。每項 requirement 的完整 acceptance family、current status、owner 與 dependency 分別見 `docs/ACCEPTANCE_TESTS.md`、`docs/TRACEABILITY_MATRIX.md`、`docs/IMPLEMENTATION_STATUS.md` 與 `docs/GOVERNANCE_RETROFIT_PLAN.md`。
+
+| Requirement ID | 正式要求 | Wave 0 邊界／後續交付 | Acceptance family |
+|---|---|---|---|
+| `REM-GOV-001` | 所有 current status 只有一個來源；歷史 evidence 顯式 Historical／Superseded，不撤銷未受影響 `VERIFIED`。 | Wave 0 完成 canonical current/history 文件邊界與 consistency evidence。 | `AT-REM-GOV-*` |
+| `REM-GOV-002` | 正式治理 Control／Execution Plane、dispatch-and-yield、worker report、project liveness、single-writer／唯一 integrator。 | Wave 0 落地 protocol、AGENTS delta與owner map；跨 worker 行為在後續 task 驗證。 | `AT-REM-GOV-*` |
+| `REM-FS-001` | 限定 canonical roots、worktree containment、backup／generated artifact retention及 inventory→approval→verified delete。 | Wave 0 只做 targeted inventory與政策，不清理、不移動、不讀取真實資料。 | `AT-REM-FS-*` |
+| `REM-REL-001` | task＋schedule 建立／寫入具原子性與 idempotent recovery，禁止部分建立被報成失敗或成功。 | Wave 1 backend/API/data contract；Wave 0 只定義 acceptance與owner。 | `AT-REM-REL-*` |
+| `REM-ASYNC-001` | 共用 persisted async job contract 具真實 phase／counter／retry／cancel／reload／history semantics，禁止假百分比。 | Wave 1 backend/API-data與shared UI contract；Wave 0 不改 runtime。 | `AT-REM-ASYNC-*` |
+| `REM-NAV-001` | Desktop／mobile／narrow 均可到達正式 capability，mobile 不刪功能。 | Wave 2 frontend route／responsive remediation；「更多／系統」可作第二層入口。 | `AT-REM-NAV-*` |
+| `REM-FORM-001` | 以 field necessity、safe defaults、progressive disclosure與dependency interaction降低 burden，但保留完整能力。 | Wave 2 frontend依正式 API contract施工，不先猜欄位。 | `AT-REM-FORM-*` |
+| `REM-INT-001` | 在既定 provider/account cardinality 內提供 integration list/status/reauth/retry/disable/disconnect/delete-or-retention/history。 | Wave 3 integration/cost integrator；不新增同 provider 多帳號，disconnect 預設保留 history。 | `AT-REM-INT-*` |
+| `REM-TABLE-001` | table 使用 server-side search/filter/sort/cursor，清楚 archive visibility，mobile row/action 可用。 | Wave 3 API＋frontend owner；不得以 client-only 假分頁代替。 | `AT-REM-TABLE-*` |
+| `REM-REL-002` | 安全整合 d7bc306＋0011/0012、backup／rollback、staging deployment與受影響 regression；local estimate 不得冒充 invoice truth。 | Wave 0 記錄 current gate與禁止操作；Wave 4 才可由單一 integration/cost integrator在 human checkpoint執行。 | `AT-REM-REL-*` |
+
+Wave 0 current truth：d7bc306 已 push；0011／0012 未 remote apply；成本防線未 deploy；受影響 provider／setup IDs 為 `EXTERNAL_BLOCKED`，`NFR-001`／`OPS-002` 為 `IN_PROGRESS`；X、OAuth、migration、deploy、sync與cleanup 凍結。這些是 release boundary，不是產品完成宣稱。
