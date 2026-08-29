@@ -1,57 +1,48 @@
 import { NavLink, Outlet } from "react-router-dom";
 
 import { useSyncState } from "@/app/providers/SyncProvider";
-import { StatusMark } from "@/components/design-system/Panel";
 
 const navigation = [
-  ["/", "今日", "01"],
-  ["/areas", "領域／事業", "02"],
-  ["/tasks", "任務", "03"],
-  ["/finance", "財務", "04"],
-  ["/social", "社群", "05"],
-  ["/deadlines", "重要期限", "06"],
-  ["/metrics", "指標／事件", "07"],
-  ["/integrations", "外部連線", "08"],
-  ["/data", "資料管理", "09"],
+  ["/", "首頁", "⌂"],
+  ["/tasks", "每日任務", "✓"],
+  ["/settings", "設定", "✎"],
 ] as const;
 
 export function AppShell() {
   const sync = useSyncState();
+  const syncLabel = sync.lastError ? "同步錯誤" : sync.syncing ? "同步中" : `${sync.pendingCount} 待同步`;
   return (
     <div className="app-shell">
       <aside className="side-rail">
-        <div className="brand"><span>LM</span><strong>人生管理器</strong><small>FORMAL R1</small></div>
-        <nav aria-label="主要導覽">
-          {navigation.map(([to, label, number]) => (
+        <div className="brand">
+          <span className="brand-mark">LM</span>
+          <div><strong>人生管理器</strong><small>每天畫一點進度</small></div>
+        </div>
+        <nav aria-label="主要導覽" className="main-nav">
+          {navigation.map(([to, label, symbol]) => (
             <NavLink key={to} to={to} end={to === "/"} className={({ isActive }) => isActive ? "nav-item is-active" : "nav-item"}>
-              <span>{number}</span>{label}
+              <span aria-hidden="true">{symbol}</span>{label}
             </NavLink>
           ))}
         </nav>
-        <div className="rail-status">
-          <span>SYNC</span>
-          <StatusMark tone={sync.lastError ? "danger" : sync.pendingCount ? "pending" : "good"}>
-            {sync.lastError ? "錯誤" : sync.syncing ? "同步中" : `${sync.pendingCount} 待同步`}
-          </StatusMark>
-          {sync.lastError ? <small className="sync-error" role="alert">{sync.lastError}</small> : null}
-          <button className="button button--quiet" type="button" onClick={() => void sync.sync()} disabled={sync.syncing}>立即同步</button>
+        <div className={sync.lastError ? "sync-card has-error" : "sync-card"}>
+          <span className="sync-dot" aria-hidden="true" />
+          <div><strong>{syncLabel}</strong>{sync.lastError ? <small role="alert">{sync.lastError}</small> : <small>資料會在裝置間同步</small>}</div>
+          <button type="button" className="sync-button" onClick={() => void sync.sync()} disabled={sync.syncing}>同步</button>
         </div>
       </aside>
       <main className="main-stage"><Outlet /></main>
-      <aside className="mobile-sync-status" aria-label="手機同步狀態">
-        <StatusMark tone={sync.lastError ? "danger" : sync.pendingCount ? "pending" : "good"}>
-          {sync.lastError ? "同步錯誤" : sync.syncing ? "同步中" : `${sync.pendingCount} 待同步`}
-        </StatusMark>
-        {sync.lastError ? <small role="alert">{sync.lastError}</small> : null}
-        <button className="button button--quiet" type="button" onClick={() => void sync.sync()} disabled={sync.syncing}>立即同步</button>
-      </aside>
       <nav className="mobile-nav" aria-label="手機主要導覽">
-        {navigation.slice(0, 5).map(([to, label, number]) => (
+        {navigation.map(([to, label, symbol]) => (
           <NavLink key={to} to={to} end={to === "/"} className={({ isActive }) => isActive ? "is-active" : ""}>
-            <span>{number}</span>{label === "領域／事業" ? "總覽" : label}
+            <span aria-hidden="true">{symbol}</span><small>{label}</small>
           </NavLink>
         ))}
       </nav>
+      <div className={sync.lastError ? "mobile-sync has-error" : "mobile-sync"}>
+        <span>{syncLabel}</span>
+        <button type="button" onClick={() => void sync.sync()} disabled={sync.syncing}>同步</button>
+      </div>
     </div>
   );
 }
