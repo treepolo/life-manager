@@ -43,11 +43,29 @@ export async function apiPostLongRunning<T>(path: string, body: unknown, signal?
   }));
 }
 
+function resourceQuery(query: string, cursor?: string): string {
+  const params = new URLSearchParams(query.startsWith("?") ? query.slice(1) : query);
+  params.set("limit", "100");
+  if (cursor) params.set("cursor", cursor);
+  else params.delete("cursor");
+  const serialized = params.toString();
+  return serialized ? `?${serialized}` : "";
+}
+
 export async function listResource<T extends Record<string, unknown>>(resource: string, query = "", signal?: AbortSignal): Promise<T[]> {
   try {
-    const response = await apiGet<{ data: T[] }>(`/api/v1/${resource}${query}`, signal);
-    await cacheServerEntities(resource, response.data);
-    return response.data;
+    const items: T[] = [];
+    let cursor: string | undefined;
+    do {
+      const response = await apiGet<{ data: T[]; meta?: { nextCursor?: string | null } }>(
+        `/api/v1/${resource}${resourceQuery(query, cursor)}`,
+        signal,
+      );
+      items.push(...response.data);
+      cursor = response.meta?.nextCursor ?? undefined;
+    } while (cursor);
+    await cacheServerEntities(resource, items);
+    return items;
   } catch (error) {
     if (!navigator.onLine || error instanceof TypeError) {
       const includeArchived = new URLSearchParams(query.startsWith("?") ? query.slice(1) : query).get("includeArchived") === "true";
@@ -111,18 +129,47 @@ export async function updateResource(
   }
 }
 
-export async function archiveResource(resource: string, entityId: string, baseVersion: number, restore = false): Promise<void> {
+export async function archiveResource(resource: string, entityId: string, baseVersion: number, restore = false): Promise<Record<string, unknown>> {
   const operationId = uuidv7();
+  const kind = restore ? "RESTORE" : "ARCHIVE";
   if (!navigator.onLine) {
-    await commitOfflineMutation({ entityType: resource, entityId, kind: restore ? "RESTORE" : "ARCHIVE", baseVersion, payload: {} });
-    return;
+    await commitOfflineMutation({ entityType: resource, entityId, kind, baseVersion, payload: {} });
+    return { id: entityId, version: baseVersion, pending: true, [restore ? "archivedAt" : "archivedAt"]: restore ? null : new Date().toISOString() };
   }
   try {
-    await apiPost(`/api/v1/${resource}/${entityId}/${restore ? "restore" : "archive"}`, { operationId, baseVersion, data: {} });
+    const response = await apiPost<{ data: Record<string, unknown> }>(
+      `/api/v1/${resource}/${entityId}/${restore ? "restore" : "archive"}`,
+      { operationId, baseVersion, data: {} },
+    );
+    await cacheServerEntities(resource, [response.data]);
+    return response.data;
   } catch (error) {
     if (error instanceof TypeError) {
-      await commitOfflineMutation({ entityType: resource, entityId, kind: restore ? "RESTORE" : "ARCHIVE", baseVersion, payload: {} });
-      return;
+      await commitOfflineMutation({ entityType: resource, entityId, kind, baseVersion, payload: {} });
+      return { id: entityId, version: baseVersion, pending: true };
+    }
+    throw error;
+  }
+}
+
+export async function deleteResource(resource: string, entityId: string, baseVersion: number): Promise<Record<string, unknown>> {
+  const operationId = uuidv7();
+  if (!navigator.onLine) {
+    await commitOfflineMutation({ entityType: resource, entityId, kind: "DELETE", baseVersion, payload: {} });
+    return { id: entityId, deletedAt: new Date().toISOString(), version: baseVersion, pending: true };
+  }
+  try {
+    const response = await responseJson<{ data: Record<string, unknown> }>(await gatedFetch(`/api/v1/${resource}/${entityId}`, {
+      method: "DELETE",
+      headers: { "content-type": "application/json", accept: "application/json" },
+      body: JSON.stringify({ operationId, baseVersion, data: {} }),
+    }));
+    await cacheServerEntities(resource, [response.data]);
+    return response.data;
+  } catch (error) {
+    if (error instanceof TypeError) {
+      await commitOfflineMutation({ entityType: resource, entityId, kind: "DELETE", baseVersion, payload: {} });
+      return { id: entityId, deletedAt: new Date().toISOString(), version: baseVersion, pending: true };
     }
     throw error;
   }
