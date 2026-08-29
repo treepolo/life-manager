@@ -59,6 +59,7 @@ CREATE TABLE financial_goals_v2 (
   amount_minor INTEGER CHECK (amount_minor IS NULL OR amount_minor >= 0),
   currency_code TEXT NOT NULL DEFAULT 'TWD' CHECK (currency_code = 'TWD'),
   minor_unit_scale INTEGER NOT NULL DEFAULT 0 CHECK (minor_unit_scale = 0),
+  deleted_at TEXT,
   source_type TEXT NOT NULL DEFAULT 'MANUAL',
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
