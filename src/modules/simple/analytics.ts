@@ -39,13 +39,14 @@ export interface FinancialSeriesPoint {
 }
 
 function taipeiLocalDate(instant: string): string {
-  const formatter = new Intl.DateTimeFormat("en-CA", {
+  const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: "Asia/Taipei",
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
-  });
-  return formatter.format(new Date(instant));
+  }).formatToParts(new Date(instant));
+  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((item) => item.type === type)?.value ?? "";
+  return `${part("year")}-${part("month")}-${part("day")}`;
 }
 
 function minDate(values: string[]): string | null {
@@ -92,9 +93,9 @@ export function buildTaskCategorySeries(input: {
 
 function historyOrder(a: FinancialHistoryRecord, b: FinancialHistoryRecord): number {
   if (a.effectiveLocalDate !== b.effectiveLocalDate) return a.effectiveLocalDate.localeCompare(b.effectiveLocalDate);
-  const aUpdated = a.updatedAt ?? a.createdAt ?? "";
-  const bUpdated = b.updatedAt ?? b.createdAt ?? "";
-  if (aUpdated !== bUpdated) return aUpdated.localeCompare(bUpdated);
+  const aCreated = a.createdAt ?? "";
+  const bCreated = b.createdAt ?? "";
+  if (aCreated !== bCreated) return aCreated.localeCompare(bCreated);
   return a.id.localeCompare(b.id);
 }
 
