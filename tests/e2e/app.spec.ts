@@ -1,4 +1,4 @@
-import { expect, test, type BrowserContext, type Page, type TestInfo } from "@playwright/test";
+import { expect, test, type Page, type TestInfo } from "@playwright/test";
 
 async function openAndRegister(page: Page, path: string): Promise<void> {
   const registered = page.waitForResponse((response) => response.url().includes("/api/v1/sync/devices") && response.ok());
@@ -85,13 +85,17 @@ test("財務目標與歷史可新增、修正、刪除並回到首頁反映", as
   await add.getByRole("button", { name: "新增紀錄" }).click();
 
   const incomeHistory = page.locator(".history-section").filter({ hasText: "固定月收入歷史" });
-  const firstRow = incomeHistory.locator(".history-row").filter({ has: incomeHistory.locator('input[value="30000"]') }).first();
-  await firstRow.locator('input[name="amount"]').fill("32000");
-  await firstRow.getByRole("button", { name: "儲存修正" }).click();
+  await expect(incomeHistory.locator(".history-row")).toHaveCount(2);
+  const latestRow = incomeHistory.locator(".history-row").nth(0);
+  const olderRow = incomeHistory.locator(".history-row").nth(1);
+  await expect(latestRow.locator('input[name="amount"]')).toHaveValue("35000");
+  await expect(olderRow.locator('input[name="amount"]')).toHaveValue("30000");
+
+  await olderRow.locator('input[name="amount"]').fill("32000");
+  await olderRow.getByRole("button", { name: "儲存修正" }).click();
   await expect.poll(async () => (await apiList(page, "financial-history")).some((item) => item.amountMinor === 32000)).toBe(true);
 
   page.once("dialog", (dialog) => dialog.accept());
-  const latestRow = incomeHistory.locator(".history-row").filter({ has: incomeHistory.locator('input[value="35000"]') }).first();
   await latestRow.getByRole("button", { name: "刪除" }).click();
   await expect.poll(async () => (await apiList(page, "financial-history")).length).toBe(1);
 
