@@ -90,6 +90,19 @@ export async function getOrCreateSyncMeta(): Promise<SyncMeta> {
   return created;
 }
 
+function applyLocalOperation(
+  current: Record<string, unknown> | undefined,
+  input: { kind: OutboxOperation["kind"]; entityId: string; payload: Record<string, unknown> },
+  occurredAt: string,
+): Record<string, unknown> {
+  if (input.kind === "UPSERT" || input.kind === "APPEND") {
+    return { ...(current ?? {}), ...input.payload, id: input.entityId, deletedAt: null };
+  }
+  if (input.kind === "RESTORE") return { ...(current ?? {}), archivedAt: null, deletedAt: null };
+  if (input.kind === "ARCHIVE") return { ...(current ?? {}), archivedAt: occurredAt };
+  return { ...(current ?? {}), deletedAt: occurredAt };
+}
+
 export async function commitOfflineMutation(input: {
   entityType: string;
   entityId: string;
@@ -99,6 +112,76 @@ export async function commitOfflineMutation(input: {
 }): Promise<OutboxOperation> {
   const db = await localDatabase();
   const meta = await getOrCreateSyncMeta();
+  const occurredAt = new Date().toISOString();
+  const transaction = db.transaction(["entities", "outbox"], "readwrite");
+  const key = `${input.entityType}:${input.entityId}`;
+  const current = await transaction.objectStore("entities").get(key);
+  const allOutbox = await transaction.objectStore("outbox").getAll();
+  const sameEntity = allOutbox
+    .filter((candidate) => candidate.entityType === input.entityType && candidate.entityId === input.entityId)
+    .sort((left, right) => left.clientOccurredAt.localeCompare(right.clientOccurredAt));
+  const latest = sameEntity.at(-1);
+
+  if (input.kind === "DELETE" && latest?.kind === "UPSERT" && latest.baseVersion === null) {
+    for (const operation of sameEntity) await transaction.objectStore("outbox").delete(operation.operationId);
+    await transaction.objectStore("entities").delete(key);
+    await transaction.done;
+    notifyOutboxChanged();
+    return {
+      operationId: uuidv7(), deviceId: meta.deviceId, entityType: input.entityType, entityId: input.entityId,
+      kind: "DELETE", baseVersion: null, payload: {}, clientOccurredAt: occurredAt, schemaVersion: 1,
+      attempts: 0, lastError: null,
+    };
+  }
+
+  if (latest?.kind === "UPSERT" && input.kind === "UPSERT") {
+    const merged: OutboxOperation = {
+      ...latest,
+      payload: { ...latest.payload, ...input.payload },
+      clientOccurredAt: occurredAt,
+      attempts: 0,
+      lastError: null,
+    };
+    const nextData = applyLocalOperation(current?.data, input, occurredAt);
+    await transaction.objectStore("outbox").put(merged);
+    await transaction.objectStore("entities").put({
+      key,
+      entityType: input.entityType,
+      entityId: input.entityId,
+      version: current?.version ?? input.baseVersion ?? 0,
+      data: nextData,
+      pending: true,
+      updatedAt: occurredAt,
+    });
+    await transaction.done;
+    notifyOutboxChanged();
+    return merged;
+  }
+
+  if (latest?.kind === "UPSERT" && input.kind === "DELETE" && latest.baseVersion !== null) {
+    const collapsed: OutboxOperation = {
+      ...latest,
+      kind: "DELETE",
+      payload: {},
+      clientOccurredAt: occurredAt,
+      attempts: 0,
+      lastError: null,
+    };
+    await transaction.objectStore("outbox").put(collapsed);
+    await transaction.objectStore("entities").put({
+      key,
+      entityType: input.entityType,
+      entityId: input.entityId,
+      version: current?.version ?? input.baseVersion ?? 0,
+      data: applyLocalOperation(current?.data, input, occurredAt),
+      pending: true,
+      updatedAt: occurredAt,
+    });
+    await transaction.done;
+    notifyOutboxChanged();
+    return collapsed;
+  }
+
   const operation: OutboxOperation = {
     operationId: uuidv7(),
     deviceId: meta.deviceId,
@@ -107,27 +190,19 @@ export async function commitOfflineMutation(input: {
     kind: input.kind,
     baseVersion: input.baseVersion,
     payload: input.payload,
-    clientOccurredAt: new Date().toISOString(),
+    clientOccurredAt: occurredAt,
     schemaVersion: 1,
     attempts: 0,
     lastError: null,
   };
-  const transaction = db.transaction(["entities", "outbox"], "readwrite");
-  const key = `${input.entityType}:${input.entityId}`;
-  const current = await transaction.objectStore("entities").get(key);
-  const nextData = input.kind === "UPSERT" || input.kind === "APPEND"
-    ? { ...(current?.data ?? {}), ...input.payload, id: input.entityId }
-    : input.kind === "RESTORE"
-      ? { ...(current?.data ?? {}), archivedAt: null, deletedAt: null }
-      : { ...(current?.data ?? {}), archivedAt: operation.clientOccurredAt };
   await transaction.objectStore("entities").put({
     key,
     entityType: input.entityType,
     entityId: input.entityId,
     version: current?.version ?? input.baseVersion ?? 0,
-    data: nextData,
+    data: applyLocalOperation(current?.data, input, occurredAt),
     pending: true,
-    updatedAt: operation.clientOccurredAt,
+    updatedAt: occurredAt,
   });
   await transaction.objectStore("outbox").put(operation);
   await transaction.done;
@@ -143,13 +218,11 @@ export async function listOutbox(limit = 100): Promise<OutboxOperation[]> {
   const db = await localDatabase();
   const operations = await db.getAllFromIndex("outbox", "byCreated");
   const dependencyPriority: Record<string, number> = {
-    areas: 10, businesses: 20, "financial-accounts": 20, "finance-categories": 20,
-    platforms: 20, tags: 20, "event-types": 20, metrics: 20, tasks: 30,
-    "income-sources": 30, "social-accounts": 30, "content-assets": 30,
-    "task-schedules": 40, events: 40, "social-metrics": 40, "asset-definitions": 40,
-    "platform-posts": 50, "metric-observations": 50, transactions: 50, "asset-snapshots": 50,
-    "social-snapshots": 60, conversions: 60, "entity-links": 70,
-    "task-completions": 80, "task-deferrals": 80, "deadline-completions": 80,
+    "task-categories": 10,
+    "financial-goals": 10,
+    "daily-tasks": 20,
+    "financial-history": 20,
+    "daily-task-completions": 30,
   };
   return operations.sort((left, right) => {
     const occurred = left.clientOccurredAt.localeCompare(right.clientOccurredAt);
