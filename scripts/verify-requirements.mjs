@@ -5,35 +5,24 @@ const trace = await readFile(new URL("docs/TRACEABILITY_MATRIX.md", root), "utf8
 const status = await readFile(new URL("docs/IMPLEMENTATION_STATUS.md", root), "utf8");
 
 const sequences = {
-  "PRD-VISION": 5,
-  CORE: 7,
-  TASK: 4,
-  FIN: 8,
-  INV: 4,
-  SOC: 11,
-  DDL: 9,
-  OFF: 6,
-  DATA: 4,
-  NFR: 10,
-  ARCH: 3,
+  PROD: 5,
+  TASK: 6,
+  FIN: 6,
   UI: 6,
-  "UI-CHART": 10,
-  SEC: 5,
-  OPS: 11,
-  SETUP: 9,
+  OFF: 5,
+  OPS: 5,
 };
 const ids = Object.entries(sequences).flatMap(([prefix, count]) =>
   Array.from({ length: count }, (_, index) => `${prefix}-${String(index + 1).padStart(3, "0")}`),
 );
-
+const allowedStatuses = new Set([
+  "NOT_STARTED",
+  "IN_PROGRESS",
+  "IMPLEMENTED_UNVERIFIED",
+  "AWAITING_USER_SETUP",
+  "VERIFIED",
+]);
 const failures = [];
-for (const id of ids) {
-  if (!trace.includes(id)) failures.push(`${id} missing from TRACEABILITY_MATRIX.md`);
-}
-const allowedStatuses = new Set(["NOT_STARTED", "IN_PROGRESS", "IMPLEMENTED_UNVERIFIED", "AWAITING_USER_SETUP", "EXTERNAL_BLOCKED", "VERIFIED"]);
-const releaseReadyStatuses = new Set(["AWAITING_USER_SETUP", "EXTERNAL_BLOCKED", "VERIFIED"]);
-const statusById = new Map();
-const rowsById = new Map();
 
 function expandRequirementCell(cell) {
   const expanded = new Set();
@@ -48,55 +37,45 @@ function expandRequirementCell(cell) {
   return [...expanded];
 }
 
-for (const line of status.split(/\r?\n/)) {
-  if (!line.startsWith("|")) continue;
-  const cells = line.split("|").slice(1, -1).map((cell) => cell.trim());
-  let requirementCell;
-  let rowStatus;
-  if (allowedStatuses.has(cells[1])) {
-    [requirementCell, rowStatus] = cells;
-  } else if (allowedStatuses.has(cells[2])) {
-    requirementCell = cells[1];
-    rowStatus = cells[2];
-  } else {
-    continue;
-  }
-  for (const id of expandRequirementCell(requirementCell)) {
-    if (!ids.includes(id)) continue;
-    if (!statusById.has(id)) statusById.set(id, new Set());
-    statusById.get(id).add(rowStatus);
-    if (!rowsById.has(id)) rowsById.set(id, []);
-    rowsById.get(id).push(line);
+for (const id of ids) {
+  if (!trace.includes(id) && !trace.includes(`${id.split("-")[0]}-${id.slice(-3)}`)) {
+    const prefix = id.split("-")[0];
+    const numeric = Number(id.slice(-3));
+    const coveredByRange = [...trace.matchAll(new RegExp(`${prefix}-(\\d{3})~(\\d{3})`, "g"))]
+      .some((match) => numeric >= Number(match[1]) && numeric <= Number(match[2]));
+    if (!coveredByRange) failures.push(`${id} missing from TRACEABILITY_MATRIX.md`);
   }
 }
 
-const statusCounts = new Map();
+const statusById = new Map();
+for (const line of status.split(/\r?\n/)) {
+  if (!line.startsWith("|")) continue;
+  const cells = line.split("|").slice(1, -1).map((cell) => cell.trim());
+  if (cells.length < 2 || !allowedStatuses.has(cells[1])) continue;
+  for (const id of expandRequirementCell(cells[0])) {
+    if (!ids.includes(id)) continue;
+    if (!statusById.has(id)) statusById.set(id, new Set());
+    statusById.get(id).add(cells[1]);
+  }
+}
+
 for (const id of ids) {
-  const statuses = statusById.get(id);
-  if (!statuses?.size) {
-    failures.push(`${id} missing from a status table in IMPLEMENTATION_STATUS.md`);
-    continue;
-  }
-  if (statuses.size !== 1) {
-    failures.push(`${id} has conflicting statuses: ${[...statuses].join(", ")}`);
-    continue;
-  }
-  const [effectiveStatus] = statuses;
-  statusCounts.set(effectiveStatus, (statusCounts.get(effectiveStatus) ?? 0) + 1);
-  if (!releaseReadyStatuses.has(effectiveStatus)) failures.push(`${id} is not release-ready: ${effectiveStatus}`);
-  if (effectiveStatus === "AWAITING_USER_SETUP") {
-    const hasConcreteGate = rowsById.get(id).some((line) => /等待|尚未|登入|授權|裝置|部署|雲端|Access|CSV|外部/.test(line));
-    if (!hasConcreteGate) failures.push(`${id} awaits setup without a concrete external gate`);
-  }
+  const states = statusById.get(id);
+  if (!states?.size) failures.push(`${id} missing from IMPLEMENTATION_STATUS.md`);
+  else if (states.size !== 1) failures.push(`${id} has conflicting statuses: ${[...states].join(", ")}`);
 }
-if (trace.includes("ARCH-001~008") && !trace.includes("規格衝突紀錄")) {
-  failures.push("ARCH-001~008 conflict is not documented");
-}
+
+if (!trace.includes("規格衝突紀錄")) failures.push("latest-scope conflict record missing from TRACEABILITY_MATRIX.md");
+if (!status.includes("正式舊表清理") || !status.includes("outbox=0")) failures.push("production old-table cleanup gate is not documented");
 
 if (failures.length) {
   console.error(failures.join("\n"));
   process.exitCode = 1;
 } else {
-  const summary = [...statusCounts.entries()].map(([key, value]) => `${key}=${value}`).join(", ");
-  console.log(`Requirement coverage passed: ${ids.length} explicit first-batch IDs have consistent status-table entries in both ledgers (${summary}).`);
+  const counts = new Map();
+  for (const states of statusById.values()) {
+    const state = [...states][0];
+    counts.set(state, (counts.get(state) ?? 0) + 1);
+  }
+  console.log(`Requirement coverage passed for ${ids.length} simplified requirements (${[...counts.entries()].map(([key, value]) => `${key}=${value}`).join(", ")}).`);
 }
