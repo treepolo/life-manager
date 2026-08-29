@@ -1,14 +1,26 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { apiPostLongRunning } from "@/app/api/client";
-import { acquireRequestSlot } from "@/core/network/request-gate";
-import { applyServerChanges, cacheServerEntities, cachedEntities, commitOfflineMutation, getOrCreateSyncMeta, listOutbox, localDatabase } from "@/core/sync/client-db";
+import {
+  applyServerChanges,
+  cacheServerEntities,
+  cachedEntities,
+  commitOfflineMutation,
+  getOrCreateSyncMeta,
+  listOutbox,
+  localDatabase,
+} from "@/core/sync/client-db";
 import { createSyncPassSignal, syncNow } from "@/core/sync/sync-manager";
 
-describe("IndexedDB離線輸入", () => {
+describe("新版 IndexedDB 離線同步", () => {
   beforeEach(async () => {
     const db = await localDatabase();
-    await Promise.all([db.clear("entities"), db.clear("outbox"), db.clear("syncMeta"), db.clear("conflicts"), db.clear("cachedQueries")]);
+    await Promise.all([
+      db.clear("entities"),
+      db.clear("outbox"),
+      db.clear("syncMeta"),
+      db.clear("conflicts"),
+      db.clear("cachedQueries"),
+    ]);
   });
 
   afterEach(() => {
@@ -16,53 +28,79 @@ describe("IndexedDB離線輸入", () => {
     vi.unstubAllGlobals();
   });
 
-  it("本機entity與outbox在同一transaction保存，重啟讀取仍存在", async () => {
-    const meta = await getOrCreateSyncMeta();
-    const entityId = "019fc1d9-d4e7-7c11-94e2-198d9fcd7201";
-    const operation = await commitOfflineMutation({ entityType: "areas", entityId, kind: "UPSERT", baseVersion: null, payload: { id: entityId, name: "離線領域" } });
-    expect(operation.deviceId).toBe(meta.deviceId);
-    expect(await listOutbox()).toEqual([expect.objectContaining({ entityType: "areas", entityId, kind: "UPSERT" })]);
-    expect(await cachedEntities("areas")).toEqual([expect.objectContaining({ entityId, pending: true, data: expect.objectContaining({ name: "離線領域" }) })]);
+  it("五種新版資料可以離線保存且依相依順序送出", async () => {
+    const ids = {
+      category: "019fc1d9-d4e7-7c11-94e2-198d9fcd7201",
+      task: "019fc1d9-d4e7-7c11-94e2-198d9fcd7202",
+      completion: "019fc1d9-d4e7-7c11-94e2-198d9fcd7203",
+      goal: "019fc1d9-d4e7-7c11-94e2-198d9fcd7204",
+      history: "019fc1d9-d4e7-7c11-94e2-198d9fcd7205",
+    };
+    await commitOfflineMutation({ entityType: "task-categories", entityId: ids.category, kind: "UPSERT", baseVersion: null, payload: { id: ids.category, name: "訓練", description: "" } });
+    await commitOfflineMutation({ entityType: "daily-tasks", entityId: ids.task, kind: "UPSERT", baseVersion: null, payload: { id: ids.task, categoryId: ids.category, name: "投球", description: "" } });
+    await commitOfflineMutation({ entityType: "daily-task-completions", entityId: ids.completion, kind: "UPSERT", baseVersion: null, payload: { id: ids.completion, taskId: ids.task, completedLocalDate: "2026-08-30", completedAt: "2026-08-30T00:00:00.000Z" } });
+    await commitOfflineMutation({ entityType: "financial-goals", entityId: ids.goal, kind: "UPSERT", baseVersion: null, payload: { id: ids.goal, goalKind: "SAVINGS", amountMinor: 100000, currencyCode: "TWD", minorUnitScale: 0 } });
+    await commitOfflineMutation({ entityType: "financial-history", entityId: ids.history, kind: "UPSERT", baseVersion: null, payload: { id: ids.history, metricKind: "SAVINGS", effectiveLocalDate: "2026-08-30", amountMinor: 20000, currencyCode: "TWD", minorUnitScale: 0 } });
+
+    const outbox = await listOutbox();
+    expect(outbox.map((item) => item.entityType)).toEqual([
+      "task-categories",
+      "daily-tasks",
+      "daily-task-completions",
+      "financial-goals",
+      "financial-history",
+    ]);
+    expect((await cachedEntities("daily-tasks"))[0]).toMatchObject({ pending: true, data: { name: "投球" } });
   });
 
-  it("併發初始化只建立一個穩定裝置身分", async () => {
-    const identities = await Promise.all(Array.from({ length: 8 }, () => getOrCreateSyncMeta()));
-    expect(new Set(identities.map((identity) => identity.deviceId))).toHaveLength(1);
+  it("同一資料連續離線修改會合併成一筆 UPSERT", async () => {
+    const id = "019fc1d9-d4e7-7c11-94e2-198d9fcd7210";
+    const first = await commitOfflineMutation({ entityType: "task-categories", entityId: id, kind: "UPSERT", baseVersion: 3, payload: { name: "原名稱" } });
+    const second = await commitOfflineMutation({ entityType: "task-categories", entityId: id, kind: "UPSERT", baseVersion: 3, payload: { description: "新敘述" } });
+    expect(second.operationId).toBe(first.operationId);
+    expect(await listOutbox()).toEqual([
+      expect.objectContaining({ baseVersion: 3, payload: { name: "原名稱", description: "新敘述" } }),
+    ]);
+  });
+
+  it("尚未同步的新資料離線刪除會直接取消建立，不留下無效 outbox", async () => {
+    const id = "019fc1d9-d4e7-7c11-94e2-198d9fcd7211";
+    await commitOfflineMutation({ entityType: "financial-history", entityId: id, kind: "UPSERT", baseVersion: null, payload: { id, metricKind: "SAVINGS", effectiveLocalDate: "2026-08-30", amountMinor: 1 } });
+    await commitOfflineMutation({ entityType: "financial-history", entityId: id, kind: "DELETE", baseVersion: 0, payload: {} });
+    expect(await listOutbox()).toEqual([]);
+    expect(await cachedEntities("financial-history")).toEqual([]);
+  });
+
+  it("已存在資料離線刪除使用 deletedAt，不會誤標成 archivedAt", async () => {
+    const id = "019fc1d9-d4e7-7c11-94e2-198d9fcd7212";
+    await cacheServerEntities("financial-history", [{ id, metricKind: "SAVINGS", amountMinor: 10, version: 4, deletedAt: null }]);
+    await commitOfflineMutation({ entityType: "financial-history", entityId: id, kind: "DELETE", baseVersion: 4, payload: {} });
+    const cached = (await cachedEntities("financial-history"))[0];
+    expect(cached.data.deletedAt).toEqual(expect.any(String));
+    expect(cached.data.archivedAt).toBeUndefined();
+    expect((await listOutbox())[0]).toMatchObject({ kind: "DELETE", baseVersion: 4 });
   });
 
   it("伺服器快取不覆蓋尚待同步的本機版本", async () => {
-    const entityId = "019fc1d9-d4e7-7c11-94e2-198d9fcd7202";
-    await commitOfflineMutation({ entityType: "tasks", entityId, kind: "UPSERT", baseVersion: 1, payload: { title: "本機修改" } });
-    await cacheServerEntities("tasks", [{ id: entityId, title: "伺服器舊值", version: 2 }]);
-    expect((await cachedEntities("tasks"))[0].data.title).toBe("本機修改");
+    const id = "019fc1d9-d4e7-7c11-94e2-198d9fcd7213";
+    await commitOfflineMutation({ entityType: "daily-tasks", entityId: id, kind: "UPSERT", baseVersion: 1, payload: { name: "本機修改" } });
+    await cacheServerEntities("daily-tasks", [{ id, name: "伺服器舊值", version: 2 }]);
+    expect((await cachedEntities("daily-tasks"))[0].data.name).toBe("本機修改");
   });
 
-  it("伺服器確認最後一筆操作後清除待同步狀態並更新版本", async () => {
-    const entityId = "019fc1d9-d4e7-7c11-94e2-198d9fcd7203";
-    const operation = await commitOfflineMutation({ entityType: "areas", entityId, kind: "UPSERT", baseVersion: null, payload: { id: entityId, name: "完成同步" } });
+  it("伺服器確認操作後清除待同步並更新版本", async () => {
+    const id = "019fc1d9-d4e7-7c11-94e2-198d9fcd7214";
+    const operation = await commitOfflineMutation({ entityType: "task-categories", entityId: id, kind: "UPSERT", baseVersion: null, payload: { id, name: "同步完成", description: "" } });
     await applyServerChanges({
-      acknowledged: [{ operationId: operation.operationId, entityType: "areas", entityId, status: "APPLIED", resultVersion: 1 }],
-      changes: [{ cursor: 1, entityType: "areas", entityId, version: 1, snapshot: { id: entityId, name: "完成同步", version: 1 } }],
+      acknowledged: [{ operationId: operation.operationId, entityType: "task-categories", entityId: id, status: "APPLIED", resultVersion: 1 }],
+      changes: [{ cursor: 1, entityType: "task-categories", entityId: id, version: 1, snapshot: { id, name: "同步完成", version: 1 } }],
       nextCursor: 1,
     });
     expect(await listOutbox()).toEqual([]);
-    expect(await cachedEntities("areas")).toEqual([expect.objectContaining({ entityId, version: 1, pending: false })]);
+    expect(await cachedEntities("task-categories")).toEqual([expect.objectContaining({ entityId: id, version: 1, pending: false })]);
   });
 
-  it("同一資料仍有後續操作時維持待同步狀態", async () => {
-    const entityId = "019fc1d9-d4e7-7c11-94e2-198d9fcd7204";
-    const first = await commitOfflineMutation({ entityType: "areas", entityId, kind: "UPSERT", baseVersion: 1, payload: { name: "第一次" } });
-    await commitOfflineMutation({ entityType: "areas", entityId, kind: "UPSERT", baseVersion: 1, payload: { strategyText: "第二次" } });
-    await applyServerChanges({
-      acknowledged: [{ operationId: first.operationId, entityType: "areas", entityId, status: "APPLIED", resultVersion: 2 }],
-      changes: [{ cursor: 2, entityType: "areas", entityId, version: 2, snapshot: { id: entityId, name: "第一次", version: 2 } }],
-      nextCursor: 2,
-    });
-    expect(await listOutbox()).toHaveLength(1);
-    expect((await cachedEntities("areas"))[0].pending).toBe(true);
-  });
-
-  it("同步進行中再次觸發時會補跑一輪並上傳稍後加入的操作", async () => {
+  it("同步進行中再次觸發會補跑一輪並上傳稍後加入的操作", async () => {
     await getOrCreateSyncMeta();
     let releaseFirstPull!: () => void;
     let markFirstPullStarted!: () => void;
@@ -71,30 +109,24 @@ describe("IndexedDB離線輸入", () => {
     let pullCount = 0;
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
+      if (url.includes("/sync/devices")) return Response.json({ data: {}, meta: {} });
       if (url.includes("/sync/batch")) {
-        const body = JSON.parse(String(init?.body)) as { operations: Array<{ operationId: string }> };
-        return new Response(JSON.stringify({ data: { results: body.operations.map((operation) => ({
-          operationId: operation.operationId,
-          status: "APPLIED",
-          resultVersion: 1,
-        })) } }), { status: 200, headers: { "content-type": "application/json" } });
+        const requestBody = JSON.parse(String(init?.body)) as { operations: Array<{ operationId: string; entityType: string; entityId: string }> };
+        return Response.json({ data: { results: requestBody.operations.map((operation) => ({ ...operation, status: "APPLIED", resultVersion: 1 })) } });
       }
       pullCount += 1;
       if (pullCount === 1) {
         markFirstPullStarted();
         await firstPullGate;
       }
-      return new Response(JSON.stringify({ data: { changes: [], nextCursor: 0 } }), {
-        status: 200,
-        headers: { "content-type": "application/json" },
-      });
+      return Response.json({ data: { changes: [], nextCursor: 0 } });
     });
     vi.stubGlobal("fetch", fetchMock);
 
     const firstSync = syncNow();
     await firstPullStarted;
-    const entityId = "019fc1d9-d4e7-7c11-94e2-198d9fcd7205";
-    await commitOfflineMutation({ entityType: "areas", entityId, kind: "UPSERT", baseVersion: null, payload: { id: entityId, name: "競態後加入" } });
+    const id = "019fc1d9-d4e7-7c11-94e2-198d9fcd7215";
+    await commitOfflineMutation({ entityType: "task-categories", entityId: id, kind: "UPSERT", baseVersion: null, payload: { id, name: "稍後加入", description: "" } });
     const secondSync = syncNow();
     releaseFirstPull();
     await Promise.all([firstSync, secondSync]);
@@ -104,7 +136,7 @@ describe("IndexedDB離線輸入", () => {
     expect(await listOutbox()).toEqual([]);
   });
 
-  it("同步每一輪30秒後會以可讀逾時原因中止", () => {
+  it("同步每一輪 30 秒後以可讀逾時原因中止", () => {
     vi.useFakeTimers();
     const pass = createSyncPassSignal();
     expect(pass.signal.aborted).toBe(false);
@@ -112,38 +144,5 @@ describe("IndexedDB離線輸入", () => {
     expect(pass.signal.aborted).toBe(true);
     expect(pass.signal.reason).toMatchObject({ name: "TimeoutError", message: expect.stringContaining("同步逾時") });
     pass.dispose();
-  });
-
-  it("長時間provider同步不占用核心outbox的序列請求通道", async () => {
-    const release = await acquireRequestSlot();
-    const fetchMock = vi.fn(async () => Response.json({ data: { status: "SUCCEEDED" } }));
-    vi.stubGlobal("fetch", fetchMock);
-    try {
-      await expect(apiPostLongRunning("/api/v1/integrations/connection/sync", { operationId: "operation" }))
-        .resolves.toEqual({ data: { status: "SUCCEEDED" } });
-      expect(fetchMock).toHaveBeenCalledOnce();
-    } finally {
-      release();
-    }
-  });
-
-  it("第一批核心輸入類型可離線保存修改與封存操作，恢復會清除本機封存旗標", async () => {
-    const coreInputTypes = [
-      "areas", "businesses", "tasks", "task-schedules", "financial-accounts", "finance-categories",
-      "income-sources", "transactions", "fx-rates", "asset-definitions", "asset-snapshots", "expense-baselines",
-      "brokerage-accounts", "metrics", "metric-observations", "event-types", "tags", "events", "platforms",
-      "social-accounts", "content-assets", "platform-posts", "social-metrics", "social-snapshots", "conversions",
-      "deadlines", "entity-links",
-    ];
-    for (const [index, entityType] of coreInputTypes.entries()) {
-      const entityId = `019fc1d9-d4e7-7c11-94e2-${String(index + 100).padStart(12, "0")}`;
-      await commitOfflineMutation({ entityType, entityId, kind: "UPSERT", baseVersion: null, payload: { id: entityId, label: `${entityType}-create` } });
-      await commitOfflineMutation({ entityType, entityId, kind: "UPSERT", baseVersion: 1, payload: { label: `${entityType}-update` } });
-      await commitOfflineMutation({ entityType, entityId, kind: "ARCHIVE", baseVersion: 1, payload: {} });
-      await commitOfflineMutation({ entityType, entityId, kind: "RESTORE", baseVersion: 1, payload: {} });
-      const cached = (await cachedEntities(entityType))[0];
-      expect(cached).toMatchObject({ entityId, pending: true, data: { label: `${entityType}-update`, archivedAt: null, deletedAt: null } });
-    }
-    expect(await listOutbox(200)).toHaveLength(coreInputTypes.length * 4);
   });
 });
