@@ -95,10 +95,8 @@ export const resourceDefinitions: Record<string, ResourceDefinition> = {
     },
     filterFields: new Set(["goalKind"]),
     defaultSourceType: "MANUAL",
-    versioned: true,
-    timestamps: true,
-    softDelete: false,
     archivable: false,
+    ...editable,
   },
   "financial-history": {
     key: "financial-history",
