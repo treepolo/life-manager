@@ -77,25 +77,22 @@ export function parseEntity(definition: ResourceDefinition, value: unknown): Rec
   return parsed.data as Record<string, unknown>;
 }
 
-const entityLinkTargets = {
-  INCOME_SOURCE: { table: "income_sources", condition: "deleted_at IS NULL" },
-  EXPENSE_CATEGORY: { table: "finance_categories", condition: "deleted_at IS NULL AND kind = 'EXPENSE'" },
-  TASK: { table: "task_definitions", condition: "deleted_at IS NULL" },
-  EVENT: { table: "events", condition: "deleted_at IS NULL" },
-  METRIC: { table: "metric_definitions", condition: "deleted_at IS NULL" },
-  CONTENT: { table: "content_assets", condition: "deleted_at IS NULL" },
-  SAVED_VIEW: { table: "saved_views", condition: "deleted_at IS NULL" },
-} as const;
-
 export async function validateResourceReferences(db: D1Database, definition: ResourceDefinition, entity: Record<string, unknown>): Promise<void> {
-  if (definition.key !== "entity-links") return;
-  const target = entityLinkTargets[entity.toType as keyof typeof entityLinkTargets];
-  const [business, linked] = await Promise.all([
-    db.prepare("SELECT id FROM businesses WHERE id = ? AND deleted_at IS NULL").bind(entity.fromId).first(),
-    target ? db.prepare(`SELECT id FROM ${target.table} WHERE id = ? AND ${target.condition}`).bind(entity.toId).first() : null,
-  ]);
-  if (!business) throw new ApiError(404, "NOT_FOUND", "找不到關聯來源事業。");
-  if (!linked) throw new ApiError(404, "NOT_FOUND", "找不到指定類型的關聯目標。", { toType: entity.toType, toId: entity.toId });
+  if (definition.key === "daily-tasks") {
+    const category = await db.prepare(
+      "SELECT id FROM task_categories_v2 WHERE id = ? AND deleted_at IS NULL AND archived_at IS NULL",
+    ).bind(entity.categoryId).first();
+    if (!category) throw new ApiError(404, "NOT_FOUND", "找不到使用中的任務分類。");
+  }
+  if (definition.key === "daily-task-completions") {
+    const task = await db.prepare(
+      `SELECT t.id FROM daily_tasks_v2 t
+       JOIN task_categories_v2 c ON c.id = t.category_id
+       WHERE t.id = ? AND t.deleted_at IS NULL AND t.archived_at IS NULL
+         AND c.deleted_at IS NULL AND c.archived_at IS NULL`,
+    ).bind(entity.taskId).first();
+    if (!task) throw new ApiError(404, "NOT_FOUND", "找不到使用中的每日任務。");
+  }
 }
 
 async function replayIfPresent(
@@ -226,8 +223,9 @@ async function updateResource(
   const next = { ...current, ...write.data, updatedAt: now, version: nextVersion };
   const responseBody = responseSchema.parse({ data: next, meta: { requestId } });
   const responseJson = JSON.stringify(responseBody);
+  const deleteClause = definition.softDelete ? "AND deleted_at IS NULL" : "";
   const update = db
-    .prepare(`UPDATE ${definition.table} SET ${assignments.join(", ")} WHERE id = ? AND version = ? AND deleted_at IS NULL`)
+    .prepare(`UPDATE ${definition.table} SET ${assignments.join(", ")} WHERE id = ? AND version = ? ${deleteClause}`)
     .bind(...values, id, write.baseVersion);
   const audit = db
     .prepare(
