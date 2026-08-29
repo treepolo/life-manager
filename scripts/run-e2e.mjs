@@ -8,9 +8,6 @@ const xdgDirectory = resolve(workspace, ".wrangler/xdg");
 const wrangler = resolve(workspace, "node_modules/wrangler/bin/wrangler.js");
 const playwright = resolve(workspace, "node_modules/@playwright/test/cli.js");
 const environment = { ...process.env, XDG_CONFIG_HOME: xdgDirectory };
-// Miniflare can terminate between isolated databases on Windows. Retry only
-// when the health check confirms that the local Worker itself died; assertion
-// failures still stop immediately and are never retried.
 const MAX_WRANGLER_CRASH_RETRIES = 2;
 const HEALTH_CHECK_TIMEOUT_MS = 3_000;
 mkdirSync(stateRoot, { recursive: true });
@@ -31,7 +28,7 @@ async function waitUntilReady(server) {
       const response = await fetch("http://127.0.0.1:4173/");
       if (response.ok) return;
     } catch {
-      // Server is still starting.
+      // Worker is still starting.
     }
     await new Promise((resolveDelay) => setTimeout(resolveDelay, 200));
   }
@@ -78,7 +75,9 @@ async function runProject(playwrightArgs) {
         try {
           process.kill(server.pid, "SIGKILL");
         } catch (error) {
-          if (!(error instanceof Error) || !("code" in error) || error.code !== "ESRCH") process.stderr.write(`E2E Wrangler收尾警告：${String(error)}\n`);
+          if (!(error instanceof Error) || !("code" in error) || error.code !== "ESRCH") {
+            process.stderr.write(`E2E Wrangler收尾警告：${String(error)}\n`);
+          }
         }
       }
     }
@@ -89,24 +88,21 @@ run(process.execPath, [resolve(workspace, "scripts/build-client.mjs")]);
 
 const inputArguments = process.argv.slice(2);
 const desktopCases = [
-  "正式 UI 可寫入 D1",
-  "離線修改、封存、重開與恢復可同步",
-  "離線任務排程、財務交易與資產快照可同步",
-  "離線指標觀測與事件可同步",
-  "離線社群快照與手動成交可同步",
-  "離線期限建立可同步",
-  "離線任務完成可同步",
-  "外部同步長請求期間顯示同步中並鎖定重複動作",
-  "正式圖表具完整語意、事件互動且D1資料更新會改變曲線",
+  "每日任務可建立分類、任務並在首頁完成與撤銷",
+  "財務目標與歷史可新增、修正、刪除並回到首頁反映",
+  "離線新增分類與每日任務後恢復連線可同步到 D1",
+  "首頁只呈現三個核心入口與三種成果區塊",
 ];
+const viewportCase = "桌機、平板與手機版面沒有水平溢出且更新提示不遮住底部導覽";
 const projectArguments = inputArguments.length
   ? [inputArguments]
   : [
       ...desktopCases.map((caseTitle) => ["--project=desktop", "--grep", caseTitle]),
-      ["--project=tablet-768", "--grep", "完整viewport維持首頁優先層級、期限入口與reduced-motion"],
-      ["--project=large-desktop", "--grep", "完整viewport維持首頁優先層級、期限入口與reduced-motion"],
-      ["--project=mobile-390", "--grep", "正式 UI 可寫入 D1"],
-      ["--project=mobile-320", "--grep", "正式 UI 可寫入 D1"],
+      ["--project=desktop", "--grep", viewportCase],
+      ["--project=large-desktop", "--grep", viewportCase],
+      ["--project=tablet-768", "--grep", viewportCase],
+      ["--project=mobile-390", "--grep", viewportCase],
+      ["--project=mobile-320", "--grep", viewportCase],
     ];
 
 let exitCode = 0;
