@@ -5,9 +5,8 @@ declare namespace Cloudflare {
     TEST_MIGRATIONS: import("cloudflare:test").D1Migration[];
     ENVIRONMENT: "test";
     APP_TIMEZONE: string;
-    TOKEN_ENCRYPTION_KEY: string;
-    GOOGLE_CLIENT_ID: string;
-    INSTAGRAM_API_VERSION: string;
-    OAUTH_STATE_TTL_MINUTES: string;
+    ACCESS_TEAM_DOMAIN?: string;
+    ACCESS_AUD?: string;
+    ACCESS_ALLOWED_EMAIL?: string;
   }
 }
