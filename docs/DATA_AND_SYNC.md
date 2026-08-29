@@ -1,286 +1,50 @@
-# 資料、離線同步、公式與備份
-
-## 1. 資料設計原則
-
-- 使用ULID或UUIDv7等可離線生成且全域唯一的ID。
-- 所有資料保存`created_at`、`updated_at`、`version`、`source_type`及必要audit欄位。
-- 日期時間以UTC instant保存，另保存使用者輸入的local date／timezone語意；顯示使用Asia/Taipei。
-- 金錢使用`amount_minor`整數、`currency_code`及`minor_unit_scale`，不使用浮點數累積。
-- 比率與匯率使用高精度decimal string或固定縮放整數，運算後依規則四捨五入。
-- 刪除使用`tombstone`及`deleted_at`支援跨裝置同步，重要資料優先封存。
-- 所有匯入與外部API資料保存來源證據，不允許只有轉換後結果。
-
-## 2. 建議主要資料表
-
-### 2.1 Core與自定義
-
-- `areas`
-- `businesses`
-- `entity_links`
-- `tags`
-- `entity_tags`
-- `event_types`
-- `events`
-- `metric_definitions`
-- `metric_observations`
-- `formula_definitions`
-- `saved_views`
-- `audit_log`
+# 資料與同步
 
-`metric_definitions`至少包含`key`、`name`、`unit`、`value_type`、`role`、`domain`、`source_policy`及`archived_at`。
+## 1. 資料原則
 
-### 2.2 Tasks
+- 顯示與每日完成日期語意使用 `Asia/Taipei`。
+- 金額第一版只用新台幣整數元，不以浮點數累積。
+- 所有可修改產品資料有 version；刪除使用 `deleted_at` tombstone。
+- 任務／分類停用優先使用 `archived_at`，歷史紀錄不因封存消失。
+- 財務目前值不另存；從有效歷史推導。
 
-- `task_definitions`
-- `task_schedules`
-- `task_occurrences`
-- `task_completions`
+## 2. 新版資料表
 
-Occurrence需可重建但不得因排程修改而抹除歷史。Completion為append-only。
+### `task_categories_v2`
+名稱、敘述、封存／刪除、版本。
 
-### 2.3 Finance
+### `daily_tasks_v2`
+分類外鍵、名稱、敘述、封存／刪除、版本。
 
-- `financial_accounts`
-- `finance_categories`
-- `income_sources`
-- `financial_transactions`
-- `asset_definitions`
-- `asset_snapshots`
-- `fx_rates`
-- `expense_baselines`
+### `daily_task_completions_v2`
+任務外鍵、完成的本地日期、完成時間、刪除、版本。有效列對 `(task_id, completed_local_date)` 唯一，因此同一任務同一天最多完成一次；撤銷以 soft delete 實作。
 
-`financial_transactions`保存原幣金額；TWD換算可以查詢時計算或保存版本化derived snapshot，但必須保留匯率證據。
+### `financial_goals_v2`
+固定兩種 goal kind：`MONTHLY_INCOME`、`SAVINGS`。金額可為空。
 
-### 2.4 Investments與匯入
+### `financial_history_v2`
+固定兩種 metric kind：`MONTHLY_INCOME`、`SAVINGS`。每筆有生效日期與金額，可修改、soft delete。同一天可存在多筆；該日顯示值採最後建立且仍有效的一筆。
 
-- `brokerage_accounts`
-- `brokerage_activity`
-- `import_batches`
-- `import_files`
-- `import_rows`
-- `import_mapping_profiles`
-- `source_reported_values`
+## 3. 財務推導
 
-`import_rows`保存原始列JSON、row hash、解析狀態、正規化entity ID及錯誤。去重鍵不得只依賴列號；應使用帳戶、日期、活動類型、金額、標的、交易識別及原始雜湊的穩定組合，並提供人工處理重複候選。
+截至今天，先排除未來紀錄；同一天多筆依建立時間與 ID 穩定排序，取最後一筆。跨日期則取日期最新的一筆作目前值。圖表將每個有效日期的最後一筆畫成階梯線，最後值延伸至今天。
 
-### 2.5 Social
+## 4. IndexedDB
 
-- `social_platforms`
-- `social_accounts`
-- `content_assets`
-- `platform_posts`
-- `social_metric_definitions`
-- `social_metric_snapshots`
-- `conversion_records`
-- `comparison_definitions`
-- `provider_connections`
-- `provider_raw_payloads`
-- `provider_sync_runs`
-- `provider_sync_run_payloads`
-- `provider_sync_jobs`
+維持既有 `entities`、`outbox`、`syncMeta`、`conflicts`、`appSettings`、`cachedQueries`。新版 `entityType` 只有：
 
-`content_assets`保存內容風格／主題等分析條件；`platform_posts`保存平台發布實體。不得把平台帳號總指標與單篇指標混在同一個無類型欄位。
+- `task-categories`
+- `daily-tasks`
+- `daily-task-completions`
+- `financial-goals`
+- `financial-history`
 
-`social_metric_snapshots`的帳號級與貼文級目標是XOR關係。schema 9由`0009_social_snapshot_uniqueness.sql`分別以partial unique index保證`(definition, account, observed_at, source_type)`與`(definition, post, observed_at, source_type)`唯一；不能依賴同時包含兩個可空外鍵的原始UNIQUE，因SQLite的`NULL`不互相衝突。schema 10新增`provider_sync_run_payloads`，在不複製相同raw內容的前提下保存每次run的payload順序與完整來源集合。
+離線 UPSERT 同一實體會合併；尚未上傳的新實體若離線刪除，直接取消其建立操作；既有實體 DELETE 在本機標記 `deletedAt`。
 
-### 2.6 Deadlines與通知
+## 5. 伺服器同步
 
-- `deadline_items`
-- `deadline_completions`
-- `deadline_templates`
-- `notification_channels`
-- `push_subscriptions`
-- `notification_deliveries`
-- `notification_preferences`
+操作以 `operationId` 冪等，使用 `baseVersion` 做版本衝突檢查。成功後寫入 D1、`sync_operations`、`sync_change_log` 與 audit。pull 使用裝置 cursor；未註冊或停用裝置不能推進 cursor。
 
-`deadline_items`只有兩種importance。提醒啟動依`actionable_from_local_date`，可另有`due_local_date`。全域通知時間及重複週期放在`notification_preferences`，不為每一事項建立多階段日期。
+## 6. 舊資料
 
-### 2.7 Sync
-
-- `sync_operations`
-- `sync_devices`
-- `sync_cursors`
-- `conflict_records`
-
-## 3. 原始資料與正規化資料
-
-每次YouTube、Instagram或CSV匯入需：
-
-1. 建立`provider_sync_run`或`import_batch`。
-2. 保存原始payload／原始列及雜湊，並為該次run逐項寫入`provider_sync_run_payloads`；全域去重命中既有raw時仍不可省略run關聯。
-3. 驗證schema與來源識別。
-4. 正規化到正式資料表。
-5. 建立來源參照。
-6. 記錄新增、更新、忽略、重複及錯誤數。
-7. 允許從原始證據重新正規化，不能要求重新向平台抓取才能修正parser。
-
-原始資料的保存期限預設長期保留；若資料量接近免費額度，再提供可預覽的清理功能，不能靜默刪除。
-
-YouTube Data API的每支影片`views`／`likes`／`comments`保存為貼文級累積快照；YouTube Analytics channel day report的`views`／`likes`／`comments`保存為帳號級非累積快照。Analytics來源日是America/Los_Angeles的曆日，`observed_at`必須依當日PST／PDT轉為UTC；值原樣保存有限的帶符號十進位來源值，因平台調整可能讓日區間值為負，不得改寫成0或丟棄整列。每個快照都要指向對應的`provider_raw_payloads`，並保留query組合與`youtube-analytics-v2-channel-daily@2026-08-09`定義版本。
-
-同一次provider run只查找或建立每個metric definition一次，快照prepared statements以最多100筆一批交給D1 `batch()`；每批維持D1交易語意，並降低逐筆資料庫往返。這只改變寫入方式，不省略raw payload、snapshot、來源參照或唯一性驗證。
-
-`provider_raw_payloads.sync_run_id`只表示該份全域去重raw最初由哪一次run建立；列舉任一次run的完整抓取證據必須查`provider_sync_run_payloads`，並以`payload_order`還原取得順序。migration 0010只將既有raw回填到其原始擁有run；無法由舊資料可靠推斷的後續去重命中不得事後臆測回填，須由部署後的新真實run驗證。
-
-## 4. 社群數據時間窗
-
-### 4.1 累積快照
-
-平台常回傳截至觀測當下的累積值。每筆snapshot需保存：
-
-- `observed_at`;
-- `published_at`;
-- `age_seconds`;
-- `metric_key`;
-- `value`;
-- `is_cumulative`;
-- provider metric name／version;
-- raw payload reference.
-
-### 4.2 首日值
-
-首日分析的品質標記：
-
-- `EXACT`：觀測時間在設定的精確容許範圍；
-- `NEAREST`：使用最近值，需顯示偏差；
-- `INTERPOLATED`：只有在指標定義允許且公式明示時；
-- `INSUFFICIENT`：沒有可接受觀測。
-
-預設不得對累積曝光做未揭露線性插值。結果UI顯示每篇內容實際觀測年齡。
-
-## 5. 公式引擎
-
-### 5.1 支援語法
-
-- numeric literals；
-- metric references；
-- `+ - * /`；
-- 括號；
-- 可白名單化的聚合函式，例如`SUM`、`AVG`、`COUNT`、`LAST`、`DELTA`；
-- 明確時間窗參數。
-
-### 5.2 禁止
-
-- JavaScript；
-- `eval`；
-- 網路存取；
-- SQL片段；
-- 動態屬性存取；
-- 無界遞迴；
-- 跨使用者資料（本產品雖單人，仍禁止）。
-
-### 5.3 版本與依據
-
-公式修改建立新版本，歷史結果保留使用版本。計算時輸出AST、輸入值、來源、缺失、四捨五入及結果品質。
-
-## 6. 離線客戶端資料
-
-IndexedDB至少包含：
-
-- `entities`：最近同步資料，以type＋id索引；
-- `outbox`：待送operation；
-- `syncMeta`：cursor、最後同步時間及schema版本；
-- `conflicts`；
-- `appSettings`；
-- `cachedQueries`（可重建）。
-
-敏感OAuth token不得進IndexedDB。
-
-## 7. 寫入與同步協定
-
-### 7.1 Operation格式
-
-```json
-{
-  "operationId": "uuid",
-  "deviceId": "uuid",
-  "entityType": "financial_transaction",
-  "entityId": "uuid",
-  "kind": "UPSERT",
-  "baseVersion": 3,
-  "payload": {},
-  "clientOccurredAt": "...",
-  "schemaVersion": 1
-}
-```
-
-伺服器以`operationId`保證冪等；重送同一operation不得產生重複交易或完成紀錄。
-
-### 7.2 同步流程
-
-1. 本機transaction同時更新entity與outbox。
-2. 同步器按建立順序批次傳送。
-3. 伺服器在D1 transaction驗證、套用及記錄operation。
-4. 伺服器回傳新version及變更cursor。
-5. 客戶端刪除成功outbox並拉取cursor後的新變更。
-6. 失敗保留可讀錯誤及重試，不丟資料。
-
-實作約束：
-
-- pull必須帶已註冊且未停用的`deviceId`；伺服器更新`sync_devices.last_seen_at`及`sync_cursors.last_pulled_cursor`，不得接受匿名cursor推進。
-- 同一瀏覽器的普通API、sync batch與後續pull共用`src/core/network/request-gate.ts`，確保D1寫入／拉取不與頁面重抓重疊；這是請求排序，不是省略任何資料。
-- 每一輪同步以30秒具名逾時包住請求閘門、batch與pull；逾時或呼叫端取消時保留outbox並顯示可讀錯誤，不把未確認資料當成成功。
-- 同步進行中若收到另一個自動或手動觸發，完成當輪後必須再跑一輪；避免操作在當輪讀取outbox之後才寫入而滯留。自動同步成功後立即刷新查詢與待同步計數。
-- Provider外部同步不共用上述核心outbox請求閘門，避免長時間YouTube／Instagram工作讓30秒outbox逾時誤報「請求已取消」。它仍使用獨立pending狀態、伺服器job單一執行權及明確錯誤回應；不能藉由繞過閘門允許重複點擊。
-- `RESTORE`對可封存資料清除`archived_at`，對可刪除資料清除`deleted_at`；同步change snapshot、IndexedDB及D1必須使用相同欄位語意。
-- Server acknowledgement只有在同一entity沒有後續outbox operation時才清除本機`pending`；未確認的後續操作不得被伺服器snapshot覆蓋。
-- Service Worker shell明確預快取`/assets/app.js`與`/assets/app.css`，使使用者在離線重開後仍能啟動App並從IndexedDB讀出正式資料與outbox。
-
-### 7.3 衝突
-
-- `baseVersion`等於伺服器version：套用。
-- 不等：回傳409及伺服器資料。
-- UI提供本機版本、伺服器版本及欄位差異。
-- 不得使用無提示last-write-wins處理金額、期限完成狀態或指引。
-- append-only completion／observation使用獨立ID，通常不衝突。
-- delete使用tombstone，避免離線裝置復活已刪資料。
-
-### 7.4 觸發同步
-
-- `online`事件；
-- App初始化；
-- `visibilitychange`回到前景；
-- 手動同步；
-- 支援時Background Sync。
-
-每次同步需有timeout、批次大小、退避及可取消機制。
-
-## 8. Service Worker與更新
-
-- `scripts/build-client.mjs`在Vite完成後，以`index.html`、固定名稱JS／CSS、manifest與icons的實際內容計算SHA-256短版本，寫入`dist/sw.js`及cache名稱；不得使用永久固定cache名稱。相同檔名但內容改變時，`sw.js`內容與cache版本必須改變。
-- 安裝時只接受成功的同源app shell回應；Cloudflare Access登入redirect或其他跨來源回應不得預快取。
-- 導覽與靜態資產在線時使用network-first並更新同版cache，只有網路失敗才回退cache；不能以cache-first讓既有裝置永久停留舊bundle。
-- API使用network-first，不將私人API回應放入公開Cache Storage；正式資料進IndexedDB。
-- 前端註冊`/sw.js`時使用`updateViaCache: "none"`並主動`registration.update()`；新版本進入waiting時顯示固定在初始viewport內的更新提示，不能排在路由內容之後或在使用者有未同步outbox時強制reload；手機提示位於同步狀態列與底部導覽上方。
-- 更新前先完成或保存outbox。
-- 離線時仍可顯示重要期限警告及本地待辦。
-
-## 9. 資料匯出
-
-### 9.1 JSON
-
-匯出含schema version、exported_at、所有entity及來源參照；秘密、Access JWT、OAuth token、Resend key與Push私鑰永不匯出。
-
-### 9.2 CSV
-
-每個模組使用穩定欄名與資料字典。以`'`或安全策略處理以`= + - @`開頭的字串，防試算表公式注入。
-
-### 9.3 SQL
-
-文件化使用`wrangler d1 export`。還原測試需在乾淨本機D1套用並比對row counts及關鍵checksum。
-
-## 10. 備份與復原
-
-- 使用D1 Time Travel作短期災難復原，但不視為唯一備份。
-- 使用者可隨時匯出JSON／CSV。
-- 發布破壞性migration前建立D1 SQL匯出。
-- 每個release需執行一次本機還原測試。
-- `OPERATIONS.md`記錄復原命令、最近成功日期及驗證結果。
-
-## 11. 已實作保留與安全刪除
-
-- 操作、通知及Cron紀錄預設保留365日，已消耗／過期OAuth state預設30日；天數以Worker vars調整，排程實作在`src/worker/scheduled/index.ts`。
-- 同步change log超過保留期仍不代表可刪；必須存在有效裝置，且所有有效裝置游標都已越過該筆。沒有有效裝置或任何裝置尚未pull時保留。
-- 使用者資料刪除先保留server tombstone；離線舊版本再次送出只會形成衝突，不會復活資料。
-- 原始CSV與provider payload是來源證據，標為長期保存，不進自動log清理。未來提供刪除時必須先顯示受影響的normalized rows與source refs、要求備份、使用冪等operation並寫audit。
-- 固定答案D1測試涵蓋「游標0不刪、游標越過才刪」及「DELETE tombstone阻止舊離線版本復活」。
+舊產品資料不自動搬入新版，避免將舊模型的複雜語意誤映射成新模型。既有舊表暫留 D1；只有完成正式備份、所有裝置 outbox=0、新版 staging 驗證後，才可新增 cleanup migration 物理移除。
