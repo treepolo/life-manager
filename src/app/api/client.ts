@@ -52,7 +52,7 @@ function resourceQuery(query: string, cursor?: string): string {
   return serialized ? `?${serialized}` : "";
 }
 
-export async function listResource<T extends Record<string, unknown>>(resource: string, query = "", signal?: AbortSignal): Promise<T[]> {
+export async function listResource<T extends { id: string }>(resource: string, query = "", signal?: AbortSignal): Promise<T[]> {
   try {
     const items: T[] = [];
     let cursor: string | undefined;
@@ -64,14 +64,14 @@ export async function listResource<T extends Record<string, unknown>>(resource: 
       items.push(...response.data);
       cursor = response.meta?.nextCursor ?? undefined;
     } while (cursor);
-    await cacheServerEntities(resource, items);
+    await cacheServerEntities(resource, items as unknown as Array<Record<string, unknown>>);
     return items;
   } catch (error) {
     if (!navigator.onLine || error instanceof TypeError) {
       const includeArchived = new URLSearchParams(query.startsWith("?") ? query.slice(1) : query).get("includeArchived") === "true";
       return (await cachedEntities(resource))
         .filter((entry) => !entry.data.deletedAt && (includeArchived || !entry.data.archivedAt))
-        .map((entry) => entry.data as T);
+        .map((entry) => entry.data as unknown as T);
     }
     throw error;
   }
@@ -134,7 +134,7 @@ export async function archiveResource(resource: string, entityId: string, baseVe
   const kind = restore ? "RESTORE" : "ARCHIVE";
   if (!navigator.onLine) {
     await commitOfflineMutation({ entityType: resource, entityId, kind, baseVersion, payload: {} });
-    return { id: entityId, version: baseVersion, pending: true, [restore ? "archivedAt" : "archivedAt"]: restore ? null : new Date().toISOString() };
+    return { id: entityId, version: baseVersion, pending: true, archivedAt: restore ? null : new Date().toISOString() };
   }
   try {
     const response = await apiPost<{ data: Record<string, unknown> }>(
