@@ -12,7 +12,7 @@
     "build": "npm run typecheck && npm run build:client",
     "build:client": "node scripts/build-client.mjs",
     "preview": "vite preview",
-    "deploy:staging": "npm run verify && wrangler deploy --config wrangler.toml --env staging",
+    "deploy:staging": "npm run verify:staging-deploy && wrangler deploy --config wrangler.toml --env staging",
     "deploy:production": "npm run verify && wrangler deploy --config wrangler.toml --env production",
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.worker.json",
@@ -26,6 +26,7 @@
     "db:backup:local": "wrangler d1 export LIFE_DB --local --output backups/local.sql",
     "scan": "node scripts/scan-production-placeholders.mjs",
     "verify:requirements": "node scripts/verify-requirements.mjs",
+    "verify:staging-deploy": "npm run lint && npm run typecheck && npm run test && npm run test:worker && npm run build:client && npm run scan && npm run verify:requirements",
     "verify": "npm run lint && npm run typecheck && npm run test && npm run test:worker && npm run build:client && npm run test:e2e && npm run scan && npm run verify:requirements"
   },
   "dependencies": {
