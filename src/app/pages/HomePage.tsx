@@ -16,7 +16,7 @@ import {
   buildTaskCategorySeries,
   currentFinancialValue,
 } from "@/modules/simple/analytics";
-import { ageOnDate, daysUntilNextBirthday, taipeiDate } from "@/modules/simple/date";
+import { ageOnDate, birthdayYearProgress, daysUntilNextBirthday, taipeiDate } from "@/modules/simple/date";
 import type {
   DailyTask,
   DailyTaskCompletion,
@@ -120,12 +120,44 @@ function SavingsPercentileCard() {
 function LifeRibbon({ birthDate, today }: { birthDate: string | null; today: string }) {
   const age = birthDate ? ageOnDate(birthDate, today) : null;
   const birthdayDays = birthDate ? daysUntilNextBirthday(birthDate, today) : null;
+  const birthdayYear = birthDate ? birthdayYearProgress(birthDate, today) : null;
   return (
-    <div className="life-ribbon" aria-label="人生時間">
-      <span>人生時間</span>
-      <strong>{age === null ? "—" : `${age} 歲`}</strong>
-      <i />
-      <b>{birthdayDays === null ? "設定生日" : birthdayDays === 0 ? "今天生日" : `生日還有 ${birthdayDays} 天`}</b>
+    <div className="life-ribbon" aria-label="這一歲的生日年度進度">
+      <div className="life-ribbon-summary">
+        <span>這一歲</span>
+        <strong>{age === null ? "—" : `${age} 歲`}</strong>
+        <b>{birthdayDays === null ? "設定生日" : birthdayDays === 0 ? "今天生日" : `生日還有 ${birthdayDays} 天`}</b>
+      </div>
+      {birthdayYear ? (
+        <div
+          className="birthday-year-axis"
+          aria-label={`${birthdayYear.currentAge}歲生日到${birthdayYear.nextAge}歲生日；今天位於年度的${Math.round(birthdayYear.progress * 100)}%`}
+        >
+          <div className="birthday-age-labels" aria-hidden="true">
+            <span>{birthdayYear.currentAge}歲</span>
+            <span>{birthdayYear.nextAge}歲</span>
+          </div>
+          <div className="birthday-year-line">
+            {birthdayYear.monthTicks.map((tick) => (
+              <span
+                className="birthday-month-tick"
+                key={tick.date}
+                style={{ left: `${tick.progress * 100}%` }}
+                title={tick.date}
+              >
+                <i />
+                <small>{tick.label}</small>
+              </span>
+            ))}
+            <mark
+              className="birthday-today-marker"
+              style={{ left: `${birthdayYear.progress * 100}%` }}
+              title={`今天 ${today}`}
+              aria-label={`今天 ${today}`}
+            />
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
