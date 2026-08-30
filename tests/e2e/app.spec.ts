@@ -44,6 +44,27 @@ async function createCategoryAndTask(page: Page): Promise<void> {
   await expect(page.getByText("投球訓練", { exact: true })).toBeVisible();
 }
 
+async function expectChartAxisInsideFrame(page: Page, title: string): Promise<void> {
+  const panel = page.locator(".chart-panel").filter({ hasText: title });
+  const yLabel = panel.getByTestId("chart-y-label");
+  await expect(yLabel).toBeVisible();
+  const geometry = await panel.evaluate((element) => {
+    const frame = element.querySelector(".chart-frame")!.getBoundingClientRect();
+    const label = element.querySelector(".chart-y-label > span")!.getBoundingClientRect();
+    const canvas = element.querySelector(".chart-canvas")!.getBoundingClientRect();
+    return {
+      frame: { top: frame.top, right: frame.right, bottom: frame.bottom, left: frame.left },
+      label: { top: label.top, right: label.right, bottom: label.bottom, left: label.left },
+      canvas: { top: canvas.top, right: canvas.right, bottom: canvas.bottom, left: canvas.left },
+    };
+  });
+  expect(geometry.label.top).toBeGreaterThanOrEqual(geometry.frame.top - 1);
+  expect(geometry.label.bottom).toBeLessThanOrEqual(geometry.frame.bottom + 1);
+  expect(geometry.label.left).toBeGreaterThanOrEqual(geometry.frame.left - 1);
+  expect(geometry.label.right).toBeLessThanOrEqual(geometry.canvas.left + 1);
+  expect(geometry.canvas.right).toBeLessThanOrEqual(geometry.frame.right + 1);
+}
+
 test("每日任務可建立分類、任務並在首頁完成與撤銷", async ({ page }) => {
   await openAndRegister(page, "/tasks");
   await createCategoryAndTask(page);
@@ -55,6 +76,7 @@ test("每日任務可建立分類、任務並在首頁完成與撤銷", async ({
   await task.click();
   await expect(page.locator(".today-score strong")).toHaveText("1/1");
   await expect(task).toHaveClass(/is-done/);
+  await expectChartAxisInsideFrame(page, "每日任務累積完成次數");
 
   await task.click();
   await expect(page.locator(".today-score strong")).toHaveText("0/1");
@@ -104,6 +126,7 @@ test("財務目標與歷史可新增、修正、刪除並回到首頁反映", as
   await expect(incomeCard).toContainText("NT$ 32,000");
   await expect(incomeCard).toContainText("NT$ 50,000");
   await expect(page.getByRole("heading", { name: "固定月收入變化" })).toBeVisible();
+  await expectChartAxisInsideFrame(page, "固定月收入變化");
 });
 
 test("離線新增分類與每日任務後恢復連線可同步到 D1", async ({ page, context }, testInfo) => {
