@@ -39,9 +39,11 @@ async function createCategoryAndTask(page: Page): Promise<void> {
   const taskPanel = page.locator(".crayon-panel").filter({ hasText: "新增每日任務" });
   await taskPanel.getByLabel("名稱").fill("投球訓練");
   await taskPanel.getByLabel("敘述").fill("完成今天的投球");
+  await taskPanel.getByLabel("成果").fill("投球訓練");
+  await taskPanel.getByLabel("單位").fill("次");
   await taskPanel.getByLabel("分類").selectOption({ label: "訓練" });
   await taskPanel.getByRole("button", { name: "新增每日任務" }).click();
-  await expect(page.getByText("投球訓練", { exact: true })).toBeVisible();
+  await expect(page.getByText("投球訓練", { exact: true }).first()).toBeVisible();
 }
 
 async function expectChartAxisInsideFrame(page: Page, title: string): Promise<void> {
@@ -70,18 +72,69 @@ test("每日任務可建立分類、任務並在首頁完成與撤銷", async ({
   await createCategoryAndTask(page);
   await navigate(page, "/");
 
+  const achievement = page.locator(".task-achievement").filter({ hasText: "投球訓練" });
+  await expect(achievement).toContainText("0");
   const task = page.locator(".daily-task").filter({ hasText: "投球訓練" });
   await expect(task).toBeVisible();
   await expect(page.locator(".today-score strong")).toHaveText("0/1");
   await task.click();
   await expect(page.locator(".today-score strong")).toHaveText("1/1");
   await expect(task).toHaveClass(/is-done/);
+  await expect(achievement).toContainText("1");
+  await expect(page.locator(".today-score")).toContainText("收工");
   await expectChartAxisInsideFrame(page, "每日任務累積完成次數");
 
   await task.click();
   await expect(page.locator(".today-score strong")).toHaveText("0/1");
   await expect(task).not.toHaveClass(/is-done/);
   expect(await apiList(page, "daily-task-completions")).toHaveLength(0);
+});
+
+test("每日任務可補登過去日期、撤銷補登，未來日期前後端都禁止", async ({ page }) => {
+  await openAndRegister(page, "/tasks");
+  await createCategoryAndTask(page);
+
+  const dateInput = page.getByLabel("投球訓練補登日期");
+  await expect(dateInput).toHaveAttribute("max", /2026-08-3[01]/);
+  await dateInput.fill("2026-08-01");
+  const row = page.locator(".task-admin-row").filter({ hasText: "投球訓練" });
+  await row.getByRole("button", { name: "補登完成" }).click();
+  await expect.poll(async () => (await apiList(page, "daily-task-completions")).some((item) => item.completedLocalDate === "2026-08-01")).toBe(true);
+  await expect(row.getByRole("button", { name: "撤銷這天" })).toBeVisible();
+  await row.getByRole("button", { name: "撤銷這天" }).click();
+  await expect.poll(async () => (await apiList(page, "daily-task-completions")).length).toBe(0);
+
+  const task = (await apiList(page, "daily-tasks"))[0];
+  const futureResponse = await page.request.post("/api/v1/daily-task-completions", {
+    data: {
+      operationId: "018f6cc6-2c49-4c3d-8c1f-0123456789aa",
+      data: {
+        id: "018f6cc6-2c49-7c3d-8c1f-0123456789ab",
+        taskId: task.id,
+        completedLocalDate: "2099-01-01",
+        completedAt: "2099-01-01T00:00:00.000Z",
+      },
+    },
+  });
+  expect(futureResponse.status()).toBe(400);
+});
+
+test("出生年月日可設定，首頁顯示年齡生日倒數且成就在今日區塊上方", async ({ page }) => {
+  await openAndRegister(page, "/settings");
+  const profilePanel = page.locator(".profile-panel");
+  await profilePanel.getByLabel("出生年月日").fill("2000-01-01");
+  await profilePanel.getByRole("button", { name: "儲存" }).click();
+  await expect.poll(async () => (await apiList(page, "user-profile"))[0]?.birthDate).toBe("2000-01-01");
+
+  await navigate(page, "/");
+  const lifeRibbon = page.locator(".life-ribbon");
+  await expect(lifeRibbon).toContainText("歲");
+  await expect(lifeRibbon).toContainText("生日還有");
+  const order = await page.evaluate(() => ({
+    achievementTop: document.querySelector(".achievement-board")!.getBoundingClientRect().top,
+    heroTop: document.querySelector(".hero-scribble")!.getBoundingClientRect().top,
+  }));
+  expect(order.achievementTop).toBeLessThan(order.heroTop);
 });
 
 test("財務目標與歷史可新增、修正、刪除並回到首頁反映", async ({ page }) => {
@@ -125,6 +178,7 @@ test("財務目標與歷史可新增、修正、刪除並回到首頁反映", as
   const incomeCard = page.locator(".money-card").filter({ hasText: "固定月收入" });
   await expect(incomeCard).toContainText("NT$ 32,000");
   await expect(incomeCard).toContainText("NT$ 50,000");
+  await expect(page.locator(".percentile-card").filter({ hasText: "你的月收入贏過" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "固定月收入變化" })).toBeVisible();
   await expectChartAxisInsideFrame(page, "固定月收入變化");
 });
@@ -142,7 +196,7 @@ test("離線新增分類與每日任務後恢復連線可同步到 D1", async ({
   const categories = await apiList(page, "task-categories");
   const tasks = await apiList(page, "daily-tasks");
   expect(categories).toEqual(expect.arrayContaining([expect.objectContaining({ name: "訓練" })]));
-  expect(tasks).toEqual(expect.arrayContaining([expect.objectContaining({ name: "投球訓練" })]));
+  expect(tasks).toEqual(expect.arrayContaining([expect.objectContaining({ name: "投球訓練", achievementName: "投球訓練", achievementUnit: "次" })]));
 });
 
 test("首頁只呈現三個核心入口與三種成果區塊", async ({ page }) => {
@@ -154,6 +208,9 @@ test("首頁只呈現三個核心入口與三種成果區塊", async ({ page }) 
   for (const retired of ["領域／事業", "社群", "重要期限", "指標／事件", "外部連線"]) {
     await expect(page.getByText(retired, { exact: true })).toHaveCount(0);
   }
+  await expect(page.locator(".achievement-board")).toBeVisible();
+  await expect(page.getByText("今天把這些完成就好", { exact: true })).toBeVisible();
+  await expect(page.getByText("固定任務每天重新開始，完成紀錄會留在你的累積曲線裡。", { exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "每日任務累積完成次數" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "積蓄變化" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "固定月收入變化" })).toBeVisible();
