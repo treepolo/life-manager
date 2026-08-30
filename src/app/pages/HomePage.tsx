@@ -212,20 +212,20 @@ export function HomePage() {
           curve="stepAfter"
         />
         <CrayonLineChart
-          title="積蓄變化"
-          description="使用你手動記錄的有效歷史；同一天多筆紀錄以最後一筆為準。"
-          data={savingsSeries}
-          series={[{ key: "value", name: "積蓄" }]}
-          yLabel="積蓄（新台幣）"
-          valueFormatter={(value) => `NT$ ${money.format(value)}`}
-          curve="stepAfter"
-        />
-        <CrayonLineChart
           title="固定月收入變化"
           description="每筆紀錄從該日期起生效，直到下一次更新。"
           data={incomeSeries}
           series={[{ key: "value", name: "固定月收入" }]}
           yLabel="月收入（新台幣）"
+          valueFormatter={(value) => `NT$ ${money.format(value)}`}
+          curve="stepAfter"
+        />
+        <CrayonLineChart
+          title="積蓄變化"
+          description="使用你手動記錄的有效歷史；同一天多筆紀錄以最後一筆為準。"
+          data={savingsSeries}
+          series={[{ key: "value", name: "積蓄" }]}
+          yLabel="積蓄（新台幣）"
           valueFormatter={(value) => `NT$ ${money.format(value)}`}
           curve="stepAfter"
         />
