@@ -16,6 +16,16 @@ export const dailyTaskInputSchema = z.object({
   description: z.string().trim().max(2000).default(""),
   achievementName: z.string().trim().max(120).default(""),
   achievementUnit: z.string().trim().max(24).default(""),
+}).superRefine((value, context) => {
+  const hasName = Boolean(value.achievementName);
+  const hasUnit = Boolean(value.achievementUnit);
+  if (hasName !== hasUnit) {
+    context.addIssue({
+      code: "custom",
+      path: hasName ? ["achievementUnit"] : ["achievementName"],
+      message: "成果與單位要一起填，或一起留空。",
+    });
+  }
 });
 
 export const dailyTaskCompletionInputSchema = z.object({
