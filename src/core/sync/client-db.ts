@@ -295,8 +295,15 @@ export async function applyServerChanges(input: {
       });
     }
   }
-  const meta = await getOrCreateSyncMeta();
-  await transaction.objectStore("syncMeta").put({ ...meta, cursor: input.nextCursor, lastSyncAt: new Date().toISOString() });
+  const syncMetaStore = transaction.objectStore("syncMeta");
+  const meta = (await syncMetaStore.get("state")) ?? {
+    key: "state",
+    deviceId: uuidv7(),
+    cursor: 0,
+    lastSyncAt: null,
+    schemaVersion: 1,
+  } satisfies SyncMeta;
+  await syncMetaStore.put({ ...meta, cursor: input.nextCursor, lastSyncAt: new Date().toISOString() });
   await transaction.done;
   notifyOutboxChanged();
 }
