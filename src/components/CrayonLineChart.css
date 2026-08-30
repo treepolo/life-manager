@@ -1,3 +1,12 @@
+.chart-heading { align-items: flex-start; }
+.chart-heading-side { display: grid; justify-items: end; gap: 8px; max-width: min(620px, 58%); }
+.chart-heading-side > p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.5; text-align: right; }
+.chart-range-control { display: inline-grid; grid-template-columns: repeat(4, auto); gap: 4px; padding: 3px; border: 2px solid #9b907e; background: #fffaf0; }
+.chart-range-control button { border: 0; padding: 5px 8px; background: transparent; color: #665c4e; font-size: 11px; font-weight: 900; }
+.chart-range-control button:hover { background: #f4ead7; }
+.chart-range-control button.is-active { background: #f7d95f; box-shadow: inset 0 -2px 0 #8b6f20; }
+.chart-range-control button:focus-visible { outline: 2px solid var(--blue); outline-offset: 1px; }
+
 .chart-panel .chart-frame {
   width: 100%;
   height: 330px;
@@ -44,6 +53,11 @@
   outline: none;
 }
 
+@media (max-width: 780px) {
+  .chart-heading-side { max-width: 100%; justify-items: start; }
+  .chart-heading-side > p { text-align: left; }
+}
+
 @media (max-width: 520px) {
   .chart-panel .chart-frame {
     width: 100%;
@@ -53,7 +67,7 @@
     margin-left: 0;
   }
 
-  .chart-y-label {
-    font-size: 11px;
-  }
+  .chart-y-label { font-size: 11px; }
+  .chart-range-control { width: 100%; grid-template-columns: repeat(4, 1fr); }
+  .chart-range-control button { padding: 6px 4px; font-size: 10px; }
 }
