@@ -18,48 +18,84 @@
 .achievement-board-head h1 { margin: 2px 0 0; font-size: clamp(21px, 2.5vw, 29px); }
 .life-ribbon {
   flex: 0 0 auto;
-  min-width: min(390px, 46vw);
-  display: grid;
-  grid-template-columns: auto auto 1fr auto;
-  grid-template-areas: "label age spacer birthday" "timeline timeline timeline timeline";
-  align-items: center;
-  gap: 5px 9px;
-  padding: 8px 11px 10px;
+  width: min(470px, 52vw);
+  padding: 8px 12px 9px;
   border: 2px solid #776b59;
   background: #fffdf4;
-  transform: rotate(.25deg);
+  transform: rotate(.18deg);
 }
-.life-ribbon > span { grid-area: label; color: var(--muted); font-size: 10px; font-weight: 900; }
-.life-ribbon strong { grid-area: age; font-size: 18px; white-space: nowrap; }
-.life-ribbon b { grid-area: birthday; font-size: 11px; white-space: nowrap; }
-.life-ribbon i {
-  grid-area: timeline;
+.life-ribbon-summary { display: grid; grid-template-columns: auto auto 1fr; gap: 8px; align-items: baseline; }
+.life-ribbon-summary > span { color: var(--muted); font-size: 10px; font-weight: 900; }
+.life-ribbon-summary strong { font-size: 18px; white-space: nowrap; }
+.life-ribbon-summary b { justify-self: end; font-size: 11px; white-space: nowrap; }
+.birthday-year-axis { margin-top: 5px; }
+.birthday-age-labels { display: flex; justify-content: space-between; margin: 0 2px 2px; color: #62594d; font-size: 9px; font-weight: 900; }
+.birthday-year-line {
   position: relative;
-  display: block;
-  height: 15px;
-  margin: 6px 20px 0;
-  border-top: 3px solid #7f7464;
-  background: repeating-linear-gradient(90deg, transparent 0 23px, rgba(127,116,100,.55) 23px 25px, transparent 25px 48px);
+  height: 29px;
+  margin: 0 7px;
+  border-top: 3px solid #756a5b;
 }
-.life-ribbon i::before,
-.life-ribbon i::after {
+.birthday-year-line::before,
+.birthday-year-line::after {
+  content: "";
   position: absolute;
-  top: -8px;
+  top: -7px;
   width: 9px;
   height: 9px;
   border: 2px solid #675d50;
   border-radius: 50%;
   background: #f7d95f;
   box-shadow: 0 0 0 2px #fffdf4;
-  font-style: normal;
-  color: #6a6052;
+}
+.birthday-year-line::before { left: -5px; }
+.birthday-year-line::after { right: -5px; }
+.birthday-month-tick {
+  position: absolute;
+  top: -4px;
+  transform: translateX(-50%);
+  height: 25px;
+  pointer-events: none;
+}
+.birthday-month-tick i {
+  display: block;
+  width: 1px;
+  height: 8px;
+  margin: 0 auto;
+  border-left: 1px solid #9d917f;
+}
+.birthday-month-tick small {
+  display: block;
+  margin-top: 2px;
+  color: #776d60;
   font-size: 8px;
-  font-weight: 900;
+  font-weight: 850;
   line-height: 1;
   white-space: nowrap;
 }
-.life-ribbon i::before { content: "出生"; left: -4px; text-indent: -9px; padding-top: 14px; }
-.life-ribbon i::after { content: "今天"; right: -4px; text-indent: -7px; padding-top: 14px; background: #78ac6b; }
+.birthday-today-marker {
+  position: absolute;
+  top: -8px;
+  width: 4px;
+  height: 15px;
+  padding: 0;
+  border: 0;
+  border-radius: 2px;
+  background: var(--green);
+  box-shadow: 0 0 0 2px #fffdf4;
+  transform: translateX(-50%) rotate(2deg);
+}
+.birthday-today-marker::after {
+  content: "今天";
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: #4f7249;
+  font-size: 8px;
+  font-weight: 950;
+  white-space: nowrap;
+}
 .achievement-grid { position: relative; z-index: 1; display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 9px; }
 .achievement-card { position: relative; min-height: 142px; padding: 12px 12px 10px; border: 2px solid #6e6355; background: rgba(255,253,246,.94); box-shadow: 2px 2px 0 rgba(93,81,66,.22); }
 .achievement-card:nth-child(2n) { transform: rotate(.25deg); }
@@ -99,18 +135,20 @@
 
 @media (max-width: 1080px) {
   .achievement-grid { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
-  .life-ribbon { min-width: min(350px, 48vw); }
+  .life-ribbon { width: min(420px, 56vw); }
 }
 @media (max-width: 780px) {
   .achievement-board-head { align-items: flex-start; }
-  .life-ribbon { min-width: min(360px, 100%); grid-template-columns: auto auto 1fr auto; }
+  .life-ribbon { width: min(430px, 100%); }
 }
 @media (max-width: 520px) {
   .achievement-board { padding: 14px 12px; }
   .achievement-board-head { display: grid; }
-  .life-ribbon { justify-self: stretch; min-width: 0; width: 100%; grid-template-columns: auto auto 1fr; grid-template-areas: "label age birthday" "timeline timeline timeline"; }
-  .life-ribbon b { justify-self: end; }
-  .life-ribbon i { margin-inline: 18px; }
+  .life-ribbon { justify-self: stretch; width: 100%; min-width: 0; padding-inline: 9px; }
+  .life-ribbon-summary { grid-template-columns: auto auto 1fr; gap: 6px; }
+  .life-ribbon-summary b { font-size: 10px; }
+  .birthday-year-line { margin-inline: 6px; }
+  .birthday-month-tick small { font-size: 7px; }
   .achievement-grid { display: flex; gap: 8px; overflow-x: auto; scroll-snap-type: x mandatory; padding: 1px 2px 7px; scrollbar-width: thin; }
   .achievement-card { flex: 0 0 min(238px, calc(100vw - 58px)); min-height: 136px; scroll-snap-align: start; }
   .achievement-number-row strong { font-size: 38px; }
