@@ -225,10 +225,10 @@ export async function listOutbox(limit = 100): Promise<OutboxOperation[]> {
     "daily-task-completions": 30,
   };
   return operations.sort((left, right) => {
-    const occurred = left.clientOccurredAt.localeCompare(right.clientOccurredAt);
-    if (occurred !== 0) return occurred;
     const dependency = (dependencyPriority[left.entityType] ?? 50) - (dependencyPriority[right.entityType] ?? 50);
-    return dependency || left.operationId.localeCompare(right.operationId);
+    if (dependency !== 0) return dependency;
+    const occurred = left.clientOccurredAt.localeCompare(right.clientOccurredAt);
+    return occurred || left.operationId.localeCompare(right.operationId);
   }).slice(0, limit);
 }
 
@@ -279,21 +279,23 @@ export async function applyServerChanges(input: {
       await transaction.objectStore("outbox").put(operation);
     }
   }
-  const remaining = await transaction.objectStore("outbox").getAll();
   for (const change of input.changes) {
     const key = `${change.entityType}:${change.entityId}`;
-    const pending = remaining.some((candidate) => candidate.entityType === change.entityType && candidate.entityId === change.entityId);
-    await transaction.objectStore("entities").put({
-      key,
-      entityType: change.entityType,
-      entityId: change.entityId,
-      version: change.version,
-      data: change.snapshot,
-      pending,
-      updatedAt: new Date().toISOString(),
-    });
+    const current = await transaction.objectStore("entities").get(key);
+    const pending = (await transaction.objectStore("outbox").getAll()).some((candidate) => candidate.entityType === change.entityType && candidate.entityId === change.entityId);
+    if (!pending && (!current || change.version >= current.version)) {
+      await transaction.objectStore("entities").put({
+        key,
+        entityType: change.entityType,
+        entityId: change.entityId,
+        version: change.version,
+        data: change.snapshot,
+        pending: false,
+        updatedAt: new Date().toISOString(),
+      });
+    }
   }
-  const meta = (await transaction.objectStore("syncMeta").get("state"))!;
+  const meta = await getOrCreateSyncMeta();
   await transaction.objectStore("syncMeta").put({ ...meta, cursor: input.nextCursor, lastSyncAt: new Date().toISOString() });
   await transaction.done;
   notifyOutboxChanged();
@@ -306,29 +308,29 @@ export async function cachedEntities(entityType: string): Promise<LocalEntity[]>
 export async function cacheServerEntities(entityType: string, entities: Array<Record<string, unknown>>): Promise<void> {
   const db = await localDatabase();
   const transaction = db.transaction("entities", "readwrite");
-  for (const data of entities) {
-    if (typeof data.id !== "string") continue;
-    const key = `${entityType}:${data.id}`;
+  for (const entity of entities) {
+    const id = String(entity.id);
+    const key = `${entityType}:${id}`;
     const current = await transaction.store.get(key);
     if (current?.pending) continue;
     await transaction.store.put({
       key,
       entityType,
-      entityId: data.id,
-      version: typeof data.version === "number" ? data.version : 1,
-      data,
+      entityId: id,
+      version: Number(entity.version ?? 0),
+      data: entity,
       pending: false,
-      updatedAt: typeof data.updatedAt === "string" ? data.updatedAt : new Date().toISOString(),
+      updatedAt: String(entity.updatedAt ?? new Date().toISOString()),
     });
   }
   await transaction.done;
 }
 
-export async function cacheQuery(key: string, value: unknown): Promise<void> {
-  await (await localDatabase()).put("cachedQueries", { key, value, cachedAt: new Date().toISOString() });
+export async function cachedQuery<T>(key: string): Promise<T | undefined> {
+  const record = await (await localDatabase()).get("cachedQueries", key);
+  return record?.value as T | undefined;
 }
 
-export async function readCachedQuery<T>(key: string): Promise<{ value: T; cachedAt: string } | null> {
-  const cached = await (await localDatabase()).get("cachedQueries", key);
-  return cached ? { value: cached.value as T, cachedAt: cached.cachedAt } : null;
+export async function cacheQuery(key: string, value: unknown): Promise<void> {
+  await (await localDatabase()).put("cachedQueries", { key, value, cachedAt: new Date().toISOString() });
 }
