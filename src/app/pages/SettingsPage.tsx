@@ -2,8 +2,8 @@ import type { FormEvent } from "react";
 
 import { useResource } from "@/app/hooks/use-resource";
 import { useSyncState } from "@/app/providers/SyncProvider";
-import { taipeiDate } from "@/modules/simple/date";
-import type { FinancialGoal, FinancialHistory } from "@/modules/simple/model";
+import { ageOnDate, daysUntilNextBirthday, taipeiDate } from "@/modules/simple/date";
+import type { FinancialGoal, FinancialHistory, UserProfile } from "@/modules/simple/model";
 import type { FinancialGoalKind, FinancialMetricKind } from "@/modules/simple/schema";
 
 const money = new Intl.NumberFormat("zh-TW", { maximumFractionDigits: 0 });
@@ -83,11 +83,24 @@ function HistorySection({
 
 export function SettingsPage() {
   const today = taipeiDate();
+  const profileResource = useResource<UserProfile>("user-profile");
   const goalsResource = useResource<FinancialGoal>("financial-goals");
   const historyResource = useResource<FinancialHistory>("financial-history");
   const sync = useSyncState();
+  const profile = (profileResource.list.data ?? [])[0] ?? null;
   const goals = goalsResource.list.data ?? [];
   const history = historyResource.list.data ?? [];
+  const age = profile?.birthDate ? ageOnDate(profile.birthDate, today) : null;
+  const birthdayDays = profile?.birthDate ? daysUntilNextBirthday(profile.birthDate, today) : null;
+
+  const saveProfile = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!profile) return;
+    const form = new FormData(event.currentTarget);
+    const birthDate = String(form.get("birthDate") ?? "").trim() || null;
+    if (birthDate && birthDate > today) return;
+    profileResource.update.mutate({ id: profile.id, version: profile.version, patch: { birthDate } });
+  };
 
   const saveGoal = (goal: FinancialGoal, amountMinor: number | null) => {
     goalsResource.update.mutate({ id: goal.id, version: goal.version, patch: { amountMinor } });
@@ -99,7 +112,7 @@ export function SettingsPage() {
     const metricKind = String(form.get("metricKind")) as FinancialMetricKind;
     const amountMinor = parseAmount(form.get("amount"));
     const effectiveLocalDate = String(form.get("date"));
-    if (amountMinor === null || !effectiveLocalDate || !(metricKind in labels)) return;
+    if (amountMinor === null || !effectiveLocalDate || effectiveLocalDate > today || !(metricKind in labels)) return;
     historyResource.create.mutate({ metricKind, effectiveLocalDate, amountMinor, currencyCode: "TWD", minorUnitScale: 0 });
     event.currentTarget.reset();
   };
@@ -109,7 +122,7 @@ export function SettingsPage() {
     const form = new FormData(event.currentTarget);
     const amountMinor = parseAmount(form.get("amount"));
     const effectiveLocalDate = String(form.get("date"));
-    if (amountMinor === null || !effectiveLocalDate) return;
+    if (amountMinor === null || !effectiveLocalDate || effectiveLocalDate > today) return;
     historyResource.update.mutate({ id: record.id, version: record.version, patch: { amountMinor, effectiveLocalDate } });
   };
 
@@ -118,9 +131,11 @@ export function SettingsPage() {
     historyResource.remove.mutate({ id: record.id, version: record.version });
   };
 
-  const busy = goalsResource.update.isPending || historyResource.create.isPending || historyResource.update.isPending || historyResource.remove.isPending;
-  const error = goalsResource.list.error ?? historyResource.list.error ?? goalsResource.update.error
-    ?? historyResource.create.error ?? historyResource.update.error ?? historyResource.remove.error;
+  const busy = profileResource.update.isPending || goalsResource.update.isPending || historyResource.create.isPending
+    || historyResource.update.isPending || historyResource.remove.isPending;
+  const error = profileResource.list.error ?? goalsResource.list.error ?? historyResource.list.error
+    ?? profileResource.update.error ?? goalsResource.update.error ?? historyResource.create.error
+    ?? historyResource.update.error ?? historyResource.remove.error;
 
   return (
     <div className="page crayon-page">
@@ -133,6 +148,22 @@ export function SettingsPage() {
       </header>
 
       {error ? <p className="notice-strip notice-strip--danger">{errorText(error)}</p> : null}
+
+      <section className="crayon-panel profile-panel">
+        <div className="panel-heading"><div><p className="eyebrow">人生時間</p><h2>出生年月日</h2></div></div>
+        {profile ? (
+          <div className="profile-settings-grid">
+            <form className="profile-date-form" onSubmit={saveProfile}>
+              <label>出生年月日<input name="birthDate" type="date" defaultValue={profile.birthDate ?? ""} max={today} /></label>
+              <button className="crayon-button" disabled={busy}>儲存</button>
+            </form>
+            <div className="life-stat-pair" aria-label="年齡與生日倒數">
+              <div><strong>{age ?? "—"}</strong><span>歲</span></div>
+              <div><strong>{birthdayDays ?? "—"}</strong><span>天後生日</span></div>
+            </div>
+          </div>
+        ) : <div className="empty-note">缺少個人設定資料列，請先套用最新資料庫 migration。</div>}
+      </section>
 
       <section className="crayon-panel">
         <div className="panel-heading"><div><p className="eyebrow">目標</p><h2>財務目標</h2></div></div>
