@@ -5,6 +5,7 @@ import { AppShell } from "@/app/layouts/AppShell";
 import { HomePage } from "@/app/pages/HomePage";
 import { SettingsPage } from "@/app/pages/SettingsPage";
 import { TasksPage } from "@/app/pages/TasksPage";
+import "@/app/pages/FeatureEnhancements.css";
 import { PwaUpdate } from "@/app/providers/PwaUpdate";
 import { SyncProvider } from "@/app/providers/SyncProvider";
 
