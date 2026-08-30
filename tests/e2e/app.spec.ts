@@ -124,9 +124,10 @@ test("離線新增分類與每日任務後恢復連線可同步到 D1", async ({
 
 test("首頁只呈現三個核心入口與三種成果區塊", async ({ page }) => {
   await openAndRegister(page, "/");
-  await expect(page.getByRole("navigation", { name: /主要導覽/ }).getByText("首頁", { exact: true })).toBeVisible();
-  await expect(page.getByRole("navigation", { name: /主要導覽/ }).getByText("每日任務", { exact: true })).toBeVisible();
-  await expect(page.getByRole("navigation", { name: /主要導覽/ }).getByText("設定", { exact: true })).toBeVisible();
+  const mainNavigation = page.getByRole("navigation", { name: "主要導覽", exact: true });
+  await expect(mainNavigation.getByRole("link", { name: "首頁", exact: true })).toBeVisible();
+  await expect(mainNavigation.getByRole("link", { name: "每日任務", exact: true })).toBeVisible();
+  await expect(mainNavigation.getByRole("link", { name: "設定", exact: true })).toBeVisible();
   for (const retired of ["領域／事業", "社群", "重要期限", "指標／事件", "外部連線"]) {
     await expect(page.getByText(retired, { exact: true })).toHaveCount(0);
   }
