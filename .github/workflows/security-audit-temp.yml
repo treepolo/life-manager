@@ -29,6 +29,8 @@ jobs:
         run: npm ci
       - name: Require clean npm audit
         run: npm audit --audit-level=moderate
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
       - name: Full regression verification
         run: npm run verify
       - name: Commit repaired dependency graph
