@@ -1,3 +1,4 @@
+import { useId } from "react";
 import {
   CartesianGrid,
   Legend,
@@ -8,6 +9,8 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+
+import "./CrayonLineChart.css";
 
 interface SeriesDefinition {
   key: string;
@@ -38,6 +41,8 @@ export function CrayonLineChart({
   curve = "monotone",
   emptyText = "還沒有足夠的紀錄可以畫圖。",
 }: CrayonLineChartProps) {
+  const filterId = `crayon-wobble-${useId().replaceAll(":", "")}`;
+
   return (
     <section className="crayon-panel chart-panel" aria-label={title}>
       <header className="panel-heading">
@@ -51,53 +56,57 @@ export function CrayonLineChart({
         <div className="chart-empty">{emptyText}</div>
       ) : (
         <div className="chart-frame">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={data} margin={{ top: 16, right: 18, left: 36, bottom: 18 }}>
-              <defs>
-                <filter id="crayon-wobble" x="-4%" y="-4%" width="108%" height="108%">
-                  <feTurbulence type="fractalNoise" baseFrequency="0.012" numOctaves="1" seed="8" result="noise" />
-                  <feDisplacementMap in="SourceGraphic" in2="noise" scale="0.8" />
-                </filter>
-              </defs>
-              <CartesianGrid stroke="#c8bda7" strokeDasharray="2 5" vertical={false} />
-              <XAxis
-                dataKey="date"
-                tick={{ fontSize: 12, fill: "#51483d" }}
-                tickLine={false}
-                axisLine={{ stroke: "#6d6254", strokeWidth: 2 }}
-                minTickGap={28}
-              />
-              <YAxis
-                tick={{ fontSize: 12, fill: "#51483d" }}
-                tickLine={false}
-                axisLine={{ stroke: "#6d6254", strokeWidth: 2 }}
-                width={82}
-                label={{ value: yLabel, angle: -90, position: "insideLeft", offset: 8, fill: "#51483d" }}
-              />
-              <Tooltip
-                labelFormatter={(label) => `日期 ${String(label)}`}
-                formatter={(value, name) => [valueFormatter(Number(value)), String(name)]}
-                contentStyle={{ border: "2px solid #51483d", borderRadius: 4, background: "#fffaf0" }}
-              />
-              {series.length > 1 ? <Legend /> : null}
-              {series.map((item, index) => (
-                <Line
-                  key={item.key}
-                  type={curve}
-                  dataKey={item.key}
-                  name={item.name}
-                  stroke={palette[index % palette.length]}
-                  strokeWidth={4}
-                  strokeDasharray={dashes[index % dashes.length]}
-                  dot={{ r: 3, strokeWidth: 2, fill: "#fffaf0" }}
-                  activeDot={{ r: 5, strokeWidth: 2 }}
-                  isAnimationActive={false}
-                  filter="url(#crayon-wobble)"
-                  connectNulls
+          <div className="chart-y-label" data-testid="chart-y-label">
+            <span>{yLabel}</span>
+          </div>
+          <div className="chart-canvas" data-testid="chart-canvas">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={data} margin={{ top: 16, right: 18, left: 0, bottom: 18 }}>
+                <defs>
+                  <filter id={filterId} x="-4%" y="-4%" width="108%" height="108%">
+                    <feTurbulence type="fractalNoise" baseFrequency="0.012" numOctaves="1" seed="8" result="noise" />
+                    <feDisplacementMap in="SourceGraphic" in2="noise" scale="0.8" />
+                  </filter>
+                </defs>
+                <CartesianGrid stroke="#c8bda7" strokeDasharray="2 5" vertical={false} />
+                <XAxis
+                  dataKey="date"
+                  tick={{ fontSize: 12, fill: "#51483d" }}
+                  tickLine={false}
+                  axisLine={{ stroke: "#6d6254", strokeWidth: 2 }}
+                  minTickGap={28}
                 />
-              ))}
-            </LineChart>
-          </ResponsiveContainer>
+                <YAxis
+                  tick={{ fontSize: 12, fill: "#51483d" }}
+                  tickLine={false}
+                  axisLine={{ stroke: "#6d6254", strokeWidth: 2 }}
+                  width={58}
+                />
+                <Tooltip
+                  labelFormatter={(label) => `日期 ${String(label)}`}
+                  formatter={(value, name) => [valueFormatter(Number(value)), String(name)]}
+                  contentStyle={{ border: "2px solid #51483d", borderRadius: 4, background: "#fffaf0" }}
+                />
+                {series.length > 1 ? <Legend /> : null}
+                {series.map((item, index) => (
+                  <Line
+                    key={item.key}
+                    type={curve}
+                    dataKey={item.key}
+                    name={item.name}
+                    stroke={palette[index % palette.length]}
+                    strokeWidth={4}
+                    strokeDasharray={dashes[index % dashes.length]}
+                    dot={{ r: 3, strokeWidth: 2, fill: "#fffaf0" }}
+                    activeDot={{ r: 5, strokeWidth: 2 }}
+                    isAnimationActive={false}
+                    filter={`url(#${filterId})`}
+                    connectNulls
+                  />
+                ))}
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
         </div>
       )}
     </section>
