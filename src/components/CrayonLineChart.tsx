@@ -17,7 +17,7 @@ interface SeriesDefinition {
 interface CrayonLineChartProps {
   title: string;
   description: string;
-  data: Array<Record<string, string | number>>;
+  data: object[];
   series: SeriesDefinition[];
   yLabel: string;
   valueFormatter?: (value: number) => string;
