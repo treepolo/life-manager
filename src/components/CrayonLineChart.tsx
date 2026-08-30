@@ -1,4 +1,4 @@
-import { useId, useMemo } from "react";
+import { useId, useMemo, useState } from "react";
 import {
   CartesianGrid,
   Legend,
@@ -10,7 +10,7 @@ import {
   YAxis,
 } from "recharts";
 
-import { ageOnDate, localDateTimestamp } from "@/modules/simple/date";
+import { ageOnDate, localDateTimestamp, shiftMonths, taipeiDate } from "@/modules/simple/date";
 
 import "./CrayonLineChart.css";
 
@@ -32,12 +32,35 @@ interface CrayonLineChartProps {
   birthDate?: string | null;
 }
 
+type TimeRange = "all" | "lastYear" | "thisYear" | "thisMonth";
+
+const rangeOptions: Array<{ key: TimeRange; label: string }> = [
+  { key: "all", label: "全部" },
+  { key: "lastYear", label: "近一年" },
+  { key: "thisYear", label: "今年" },
+  { key: "thisMonth", label: "本月" },
+];
+
 const palette = ["#d94b37", "#2d6fb7", "#3f8a58", "#d58a22", "#7a56a6", "#9c5140", "#277f86"];
 const dashes = [undefined, "9 4", "3 3", "12 4 3 4", "2 5", "8 3 2 3", "14 5"];
 
 function timestampDate(value: number): string {
   const date = new Date(value);
   return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-${String(date.getUTCDate()).padStart(2, "0")}`;
+}
+
+function rangeStartDate(range: TimeRange, today: string): string | null {
+  if (range === "all") return null;
+  if (range === "lastYear") return shiftMonths(today, -12);
+  const [year, month] = today.split("-");
+  if (range === "thisYear") return `${year}-01-01`;
+  return `${year}-${month}-01`;
+}
+
+function rangeTickCount(range: TimeRange): number {
+  if (range === "all") return 6;
+  if (range === "thisMonth") return 5;
+  return 7;
 }
 
 export function CrayonLineChart({
@@ -53,29 +76,65 @@ export function CrayonLineChart({
   birthDate = null,
 }: CrayonLineChartProps) {
   const filterId = `crayon-wobble-${useId().replaceAll(":", "")}`;
+  const today = taipeiDate();
+  const [range, setRange] = useState<TimeRange>("all");
   const timedData = useMemo(() => data.map((row) => {
     const record = row as Record<string, unknown>;
     const date = String(record.date ?? "");
     return { ...record, __time: localDateTimestamp(date) };
-  }), [data]);
-  const timelineStart = timelineStartDate ? localDateTimestamp(timelineStartDate) : "dataMin";
+  }).sort((a, b) => Number(a.__time) - Number(b.__time)), [data]);
+
+  const startDate = rangeStartDate(range, today);
+  const startTime = startDate ? localDateTimestamp(startDate) : null;
+  const todayTime = localDateTimestamp(today);
+  const displayData = useMemo(() => {
+    if (startTime === null) return timedData;
+    const before = timedData.filter((row) => Number(row.__time) < startTime).at(-1);
+    const within = timedData.filter((row) => Number(row.__time) >= startTime);
+    if (!before) return within;
+    const synthetic = { ...before, date: startDate, __time: startTime };
+    if (within[0] && Number(within[0].__time) === startTime) return within;
+    return [synthetic, ...within];
+  }, [startDate, startTime, timedData]);
+
+  const timelineStart = range === "all"
+    ? (timelineStartDate ? localDateTimestamp(timelineStartDate) : "dataMin")
+    : (startTime ?? "dataMin");
 
   const formatTick = (value: number): string => {
     const date = timestampDate(Number(value));
-    if (!birthDate) return `${date.slice(2, 4)}/${date.slice(5, 7)}`;
+    const [, month, day] = date.split("-");
+    if (range === "thisMonth") return `${Number(month)}/${Number(day)}`;
+    if (range === "lastYear" || range === "thisYear") return `${Number(month)}月`;
     const year = date.slice(0, 4);
+    if (!birthDate) return year;
     const age = ageOnDate(birthDate, date);
     return age === null ? year : `${year} · ${age}歲`;
   };
 
   return (
     <section className="crayon-panel chart-panel" aria-label={title}>
-      <header className="panel-heading">
+      <header className="panel-heading chart-heading">
         <div>
           <p className="eyebrow">成果軌跡</p>
           <h2>{title}</h2>
         </div>
-        <p>{description}</p>
+        <div className="chart-heading-side">
+          <p>{description}</p>
+          <div className="chart-range-control" role="group" aria-label={`${title}時間尺度`}>
+            {rangeOptions.map((option) => (
+              <button
+                key={option.key}
+                type="button"
+                className={range === option.key ? "is-active" : ""}
+                aria-pressed={range === option.key}
+                onClick={() => setRange(option.key)}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </div>
       </header>
       {!data.length || !series.length ? (
         <div className="chart-empty">{emptyText}</div>
@@ -86,7 +145,7 @@ export function CrayonLineChart({
           </div>
           <div className="chart-canvas" data-testid="chart-canvas">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={timedData} margin={{ top: 16, right: 18, left: 0, bottom: 18 }}>
+              <LineChart data={displayData} margin={{ top: 16, right: 18, left: 0, bottom: 18 }}>
                 <defs>
                   <filter id={filterId} x="-4%" y="-4%" width="108%" height="108%">
                     <feTurbulence type="fractalNoise" baseFrequency="0.012" numOctaves="1" seed="8" result="noise" />
@@ -98,12 +157,13 @@ export function CrayonLineChart({
                   dataKey="__time"
                   type="number"
                   scale="time"
-                  domain={[timelineStart, "dataMax"]}
+                  domain={[timelineStart, todayTime]}
                   tick={{ fontSize: 12, fill: "#51483d" }}
                   tickFormatter={formatTick}
                   tickLine={false}
                   axisLine={{ stroke: "#6d6254", strokeWidth: 2 }}
-                  minTickGap={42}
+                  minTickGap={34}
+                  tickCount={rangeTickCount(range)}
                 />
                 <YAxis
                   tick={{ fontSize: 12, fill: "#51483d" }}
@@ -113,8 +173,7 @@ export function CrayonLineChart({
                 />
                 <Tooltip
                   labelFormatter={(label) => `日期 ${timestampDate(Number(label)).replaceAll("-", "/")}`}
-                  formatter={(value, name) => [valueFormatter(Number(value)), String(name)]
-                  }
+                  formatter={(value, name) => [valueFormatter(Number(value)), String(name)]}
                   contentStyle={{ border: "2px solid #51483d", borderRadius: 4, background: "#fffaf0" }}
                 />
                 {series.length > 1 ? <Legend /> : null}
