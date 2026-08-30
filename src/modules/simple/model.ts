@@ -19,12 +19,18 @@ export interface DailyTask extends VersionedRecord {
   categoryId: string;
   name: string;
   description: string;
+  achievementName: string;
+  achievementUnit: string;
 }
 
 export interface DailyTaskCompletion extends VersionedRecord {
   taskId: string;
   completedLocalDate: string;
   completedAt: string;
+}
+
+export interface UserProfile extends VersionedRecord {
+  birthDate: string | null;
 }
 
 export interface FinancialGoal extends VersionedRecord {
