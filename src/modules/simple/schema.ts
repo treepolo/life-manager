@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { identifierSchema, isoInstantSchema, localDateSchema } from "@/core/validation/common";
+import { taipeiDate } from "@/modules/simple/date";
 
 export const taskCategoryInputSchema = z.object({
   id: identifierSchema,
@@ -13,6 +14,8 @@ export const dailyTaskInputSchema = z.object({
   categoryId: identifierSchema,
   name: z.string().trim().min(1).max(180),
   description: z.string().trim().max(2000).default(""),
+  achievementName: z.string().trim().max(120).default(""),
+  achievementUnit: z.string().trim().max(24).default(""),
 });
 
 export const dailyTaskCompletionInputSchema = z.object({
@@ -20,6 +23,19 @@ export const dailyTaskCompletionInputSchema = z.object({
   taskId: identifierSchema,
   completedLocalDate: localDateSchema,
   completedAt: isoInstantSchema,
+}).superRefine((value, context) => {
+  if (value.completedLocalDate > taipeiDate()) {
+    context.addIssue({ code: "custom", path: ["completedLocalDate"], message: "不能登記未來日期的完成紀錄。" });
+  }
+});
+
+export const userProfileInputSchema = z.object({
+  id: identifierSchema,
+  birthDate: localDateSchema.nullable(),
+}).superRefine((value, context) => {
+  if (value.birthDate && value.birthDate > taipeiDate()) {
+    context.addIssue({ code: "custom", path: ["birthDate"], message: "出生年月日不能在未來。" });
+  }
 });
 
 export const financialGoalKindSchema = z.enum(["MONTHLY_INCOME", "SAVINGS"]);
@@ -44,6 +60,9 @@ export const financialHistoryInputSchema = z.object({
 }).superRefine((value, context) => {
   if (value.metricKind === "MONTHLY_INCOME" && value.amountMinor < 0) {
     context.addIssue({ code: "custom", path: ["amountMinor"], message: "固定月收入不可為負數。" });
+  }
+  if (value.effectiveLocalDate > taipeiDate()) {
+    context.addIssue({ code: "custom", path: ["effectiveLocalDate"], message: "財務紀錄日期不能在未來。" });
   }
 });
 
