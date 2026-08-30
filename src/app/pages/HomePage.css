@@ -21,7 +21,7 @@
 .life-ribbon strong { font-size: 18px; white-space: nowrap; }
 .life-ribbon i { width: 18px; border-top: 2px dashed #9b907e; }
 .life-ribbon b { font-size: 11px; white-space: nowrap; }
-.achievement-grid { position: relative; z-index: 1; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 9px; }
+.achievement-grid { position: relative; z-index: 1; display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 9px; }
 .achievement-card { position: relative; min-height: 142px; padding: 12px 12px 10px; border: 2px solid #6e6355; background: rgba(255,253,246,.94); box-shadow: 2px 2px 0 rgba(93,81,66,.22); }
 .achievement-card:nth-child(2n) { transform: rotate(.25deg); }
 .achievement-card:nth-child(2n + 1) { transform: rotate(-.18deg); }
@@ -59,7 +59,7 @@
 @keyframes done-pop { 0% { transform: rotate(1.4deg) scale(.9); } 70% { transform: rotate(2.1deg) scale(1.05); } 100% { transform: rotate(1.4deg) scale(1); } }
 
 @media (max-width: 1080px) {
-  .achievement-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .achievement-grid { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
 }
 @media (max-width: 780px) {
   .achievement-board-head { align-items: flex-start; }
