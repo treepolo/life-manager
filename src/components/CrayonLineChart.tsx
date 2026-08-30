@@ -62,8 +62,9 @@ export function CrayonLineChart({
 
   const formatTick = (value: number): string => {
     const date = timestampDate(Number(value));
+    if (!birthDate) return `${date.slice(2, 4)}/${date.slice(5, 7)}`;
     const year = date.slice(0, 4);
-    const age = birthDate ? ageOnDate(birthDate, date) : null;
+    const age = ageOnDate(birthDate, date);
     return age === null ? year : `${year} · ${age}歲`;
   };
 
@@ -112,7 +113,8 @@ export function CrayonLineChart({
                 />
                 <Tooltip
                   labelFormatter={(label) => `日期 ${timestampDate(Number(label)).replaceAll("-", "/")}`}
-                  formatter={(value, name) => [valueFormatter(Number(value)), String(name)]}
+                  formatter={(value, name) => [valueFormatter(Number(value)), String(name)]
+                  }
                   contentStyle={{ border: "2px solid #51483d", borderRadius: 4, background: "#fffaf0" }}
                 />
                 {series.length > 1 ? <Legend /> : null}
