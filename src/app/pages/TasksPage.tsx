@@ -1,7 +1,8 @@
-import type { FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 
 import { useResource } from "@/app/hooks/use-resource";
-import type { DailyTask, TaskCategory } from "@/modules/simple/model";
+import { taipeiDate } from "@/modules/simple/date";
+import type { DailyTask, DailyTaskCompletion, TaskCategory } from "@/modules/simple/model";
 
 function formValue(form: FormData, key: string): string {
   return String(form.get(key) ?? "").trim();
@@ -11,11 +12,53 @@ function errorText(error: unknown): string | null {
   return error instanceof Error ? error.message : error ? "操作失敗。" : null;
 }
 
+function BackfillControl({
+  task,
+  completions,
+  busy,
+  onCreate,
+  onRemove,
+}: {
+  task: DailyTask;
+  completions: DailyTaskCompletion[];
+  busy: boolean;
+  onCreate: (task: DailyTask, date: string) => void;
+  onRemove: (completion: DailyTaskCompletion) => void;
+}) {
+  const today = taipeiDate();
+  const [date, setDate] = useState(today);
+  const existing = completions.find((completion) => completion.taskId === task.id && completion.completedLocalDate === date && !completion.deletedAt);
+  return (
+    <details className="paper-details backfill-details">
+      <summary>補登</summary>
+      <div className="backfill-control">
+        <input
+          aria-label={`${task.name}補登日期`}
+          type="date"
+          value={date}
+          max={today}
+          onChange={(event) => setDate(event.currentTarget.value)}
+        />
+        <button
+          className={existing ? "danger-pencil" : "paper-button"}
+          type="button"
+          disabled={busy || !date || date > today}
+          onClick={() => existing ? onRemove(existing) : onCreate(task, date)}
+        >
+          {existing ? "撤銷這天" : "補登完成"}
+        </button>
+      </div>
+    </details>
+  );
+}
+
 export function TasksPage() {
   const categoriesResource = useResource<TaskCategory>("task-categories", "?includeArchived=true");
   const tasksResource = useResource<DailyTask>("daily-tasks", "?includeArchived=true");
+  const completionsResource = useResource<DailyTaskCompletion>("daily-task-completions");
   const categories = categoriesResource.list.data ?? [];
   const tasks = tasksResource.list.data ?? [];
+  const completions = completionsResource.list.data ?? [];
   const activeCategories = categories.filter((category) => !category.archivedAt && !category.deletedAt);
   const activeTasks = tasks.filter((task) => !task.archivedAt && !task.deletedAt);
   const archivedTasks = tasks.filter((task) => task.archivedAt && !task.deletedAt);
@@ -34,6 +77,8 @@ export function TasksPage() {
       categoryId: formValue(form, "categoryId"),
       name: formValue(form, "name"),
       description: formValue(form, "description"),
+      achievementName: formValue(form, "achievementName"),
+      achievementUnit: formValue(form, "achievementUnit"),
     });
     event.currentTarget.reset();
   };
@@ -58,15 +103,33 @@ export function TasksPage() {
         categoryId: formValue(form, "categoryId"),
         name: formValue(form, "name"),
         description: formValue(form, "description"),
+        achievementName: formValue(form, "achievementName"),
+        achievementUnit: formValue(form, "achievementUnit"),
       },
     });
   };
 
+  const backfill = (task: DailyTask, completedLocalDate: string) => {
+    const today = taipeiDate();
+    if (!completedLocalDate || completedLocalDate > today) return;
+    completionsResource.create.mutate({
+      taskId: task.id,
+      completedLocalDate,
+      completedAt: new Date().toISOString(),
+    });
+  };
+
+  const removeCompletion = (completion: DailyTaskCompletion) => {
+    completionsResource.remove.mutate({ id: completion.id, version: completion.version });
+  };
+
   const busy = categoriesResource.create.isPending || categoriesResource.update.isPending || categoriesResource.archive.isPending
-    || tasksResource.create.isPending || tasksResource.update.isPending || tasksResource.archive.isPending;
-  const error = categoriesResource.list.error ?? tasksResource.list.error
+    || tasksResource.create.isPending || tasksResource.update.isPending || tasksResource.archive.isPending
+    || completionsResource.create.isPending || completionsResource.remove.isPending;
+  const error = categoriesResource.list.error ?? tasksResource.list.error ?? completionsResource.list.error
     ?? categoriesResource.create.error ?? categoriesResource.update.error ?? categoriesResource.archive.error
-    ?? tasksResource.create.error ?? tasksResource.update.error ?? tasksResource.archive.error;
+    ?? tasksResource.create.error ?? tasksResource.update.error ?? tasksResource.archive.error
+    ?? completionsResource.create.error ?? completionsResource.remove.error;
 
   return (
     <div className="page crayon-page">
@@ -74,7 +137,7 @@ export function TasksPage() {
         <div>
           <p className="eyebrow">每日任務</p>
           <h1>只留下每天真的要做的事</h1>
-          <p>每個任務只需要名稱、敘述與一個分類；沒有優先級、排程器、延期或其他額外欄位。</p>
+          <p>每天完成一次就累積一次；如果不小心跨夜，可以從任務旁邊補登過去日期。</p>
         </div>
       </header>
 
@@ -100,8 +163,12 @@ export function TasksPage() {
             <div className="empty-note">先建立至少一個任務分類。</div>
           ) : (
             <form className="crayon-form" onSubmit={createTask}>
-              <label>名稱<input name="name" maxLength={180} required placeholder="例如：投 30 球" /></label>
+              <label>名稱<input name="name" maxLength={180} required placeholder="例如：研讀撰寫一篇棒球運科文章" /></label>
               <label>敘述<textarea name="description" maxLength={2000} rows={3} placeholder="簡短說明今天要完成什麼" /></label>
+              <div className="achievement-fields">
+                <label>成果<input name="achievementName" maxLength={120} placeholder="例如：運科文章" /></label>
+                <label>單位<input name="achievementUnit" maxLength={24} placeholder="例如：篇" /></label>
+              </div>
               <label>分類
                 <select name="categoryId" required defaultValue="">
                   <option value="" disabled>選擇分類</option>
@@ -141,14 +208,21 @@ export function TasksPage() {
                     <div className="task-card-list">
                       {categoryTasks.map((task) => (
                         <article className="task-admin-row" key={task.id}>
-                          <div><strong>{task.name}</strong>{task.description ? <p>{task.description}</p> : null}</div>
+                          <div className="task-admin-copy">
+                            <strong>{task.name}</strong>
+                            {task.description ? <p>{task.description}</p> : null}
+                            {task.achievementName && task.achievementUnit ? <span className="achievement-preview">✓ 1 次 = 1 {task.achievementUnit}{task.achievementName}</span> : null}
+                          </div>
                           <div className="row-actions">
+                            <BackfillControl task={task} completions={completions} busy={busy} onCreate={backfill} onRemove={removeCompletion} />
                             <details className="paper-details">
                               <summary>編輯</summary>
-                              <form className="inline-edit-form" onSubmit={(event) => updateTask(event, task)}>
-                                <input name="name" defaultValue={task.name} required maxLength={180} />
-                                <textarea name="description" defaultValue={task.description} rows={2} maxLength={2000} />
-                                <select name="categoryId" defaultValue={task.categoryId} required>
+                              <form className="inline-edit-form task-edit-form" onSubmit={(event) => updateTask(event, task)}>
+                                <input name="name" defaultValue={task.name} required maxLength={180} aria-label={`${task.name}名稱`} />
+                                <textarea name="description" defaultValue={task.description} rows={2} maxLength={2000} aria-label={`${task.name}敘述`} />
+                                <input name="achievementName" defaultValue={task.achievementName ?? ""} maxLength={120} placeholder="成果，例如：運科文章" aria-label={`${task.name}成果`} />
+                                <input name="achievementUnit" defaultValue={task.achievementUnit ?? ""} maxLength={24} placeholder="單位，例如：篇" aria-label={`${task.name}單位`} />
+                                <select name="categoryId" defaultValue={task.categoryId} required aria-label={`${task.name}分類`}>
                                   {activeCategories.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
                                 </select>
                                 <button className="paper-button" disabled={busy}>儲存</button>
