@@ -27,13 +27,17 @@ function comparableDay(year: number, month: number, day: number): number {
   return Date.UTC(year, month - 1, day) / 86_400_000;
 }
 
+function birthdayDayFor(birthMonth: number, birthDay: number, targetYear: number): number {
+  return comparableDay(targetYear, birthMonth, Math.min(birthDay, daysInMonth(targetYear, birthMonth)));
+}
+
 export function ageOnDate(birthDate: string, onDate = taipeiDate()): number | null {
   if (!birthDate || birthDate > onDate) return null;
   const [birthYear, birthMonth, birthDay] = parts(birthDate);
   const [year, month, day] = parts(onDate);
-  let age = year - birthYear;
-  if (month < birthMonth || (month === birthMonth && day < birthDay)) age -= 1;
-  return Math.max(age, 0);
+  const todayDay = comparableDay(year, month, day);
+  const birthdayThisYear = birthdayDayFor(birthMonth, birthDay, year);
+  return Math.max(year - birthYear - (todayDay < birthdayThisYear ? 1 : 0), 0);
 }
 
 export function daysUntilNextBirthday(birthDate: string, onDate = taipeiDate()): number | null {
@@ -41,13 +45,8 @@ export function daysUntilNextBirthday(birthDate: string, onDate = taipeiDate()):
   const [, birthMonth, birthDay] = parts(birthDate);
   const [year, month, day] = parts(onDate);
   const todayDay = comparableDay(year, month, day);
-  const birthdayDayFor = (targetYear: number) => comparableDay(
-    targetYear,
-    birthMonth,
-    Math.min(birthDay, daysInMonth(targetYear, birthMonth)),
-  );
-  let next = birthdayDayFor(year);
-  if (next < todayDay) next = birthdayDayFor(year + 1);
+  let next = birthdayDayFor(birthMonth, birthDay, year);
+  if (next < todayDay) next = birthdayDayFor(birthMonth, birthDay, year + 1);
   return Math.round(next - todayDay);
 }
 
