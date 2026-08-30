@@ -10,21 +10,27 @@ vi.mock("recharts", () => ({
   Line: () => null,
   Tooltip: () => null,
   YAxis: () => null,
-  XAxis: (props: { domain: [number | string, number | string]; tickCount?: number; tickFormatter: (value: number) => string }) => (
+  XAxis: (props: {
+    domain: [number | string, number | string];
+    tickCount?: number;
+    ticks?: number[];
+    tickFormatter: (value: number) => string;
+  }) => (
     <foreignObject>
       <div
         data-testid="mock-x-axis"
         data-start={String(props.domain[0])}
         data-end={String(props.domain[1])}
         data-tick-count={String(props.tickCount ?? "")}
-        data-start-label={typeof props.domain[0] === "number" ? props.tickFormatter(props.domain[0]) : ""}
+        data-ticks={(props.ticks ?? []).join(",")}
+        data-tick-labels={(props.ticks ?? []).map((value) => props.tickFormatter(value)).join("|")}
       />
     </foreignObject>
   ),
 }));
 
 import { CrayonLineChart } from "@/components/CrayonLineChart";
-import { localDateTimestamp, shiftMonths, taipeiDate } from "@/modules/simple/date";
+import { ageOnDate, localDateTimestamp, shiftMonths, taipeiDate } from "@/modules/simple/date";
 
 afterEach(cleanup);
 
@@ -49,13 +55,20 @@ function chart() {
 }
 
 describe("圖表時間尺度", () => {
-  it("全部尺度從出生開始並以年份與年齡標示", () => {
+  it("全部尺度明確產生多個跨人生區間的年份與年齡刻度", () => {
     chart();
     const axis = screen.getByTestId("mock-x-axis");
+    const ticks = (axis.getAttribute("data-ticks") ?? "").split(",").filter(Boolean);
+    const labels = (axis.getAttribute("data-tick-labels") ?? "").split("|").filter(Boolean);
+    const currentAge = ageOnDate("2004-01-01", today);
+
     expect(axis).toHaveAttribute("data-start", String(localDateTimestamp("2004-01-01")));
-    expect(axis).toHaveAttribute("data-tick-count", "6");
-    expect(axis.getAttribute("data-start-label")).toContain("2004");
-    expect(axis.getAttribute("data-start-label")).toContain("0歲");
+    expect(ticks.length).toBeGreaterThanOrEqual(4);
+    expect(ticks[0]).toBe(String(localDateTimestamp("2004-01-01")));
+    expect(ticks.at(-1)).toBe(String(localDateTimestamp(today)));
+    expect(labels[0]).toContain("2004");
+    expect(labels[0]).toContain("0歲");
+    expect(labels.at(-1)).toContain(`${currentAge}歲`);
     expect(screen.getByRole("button", { name: "全部" })).toHaveAttribute("aria-pressed", "true");
   });
 
