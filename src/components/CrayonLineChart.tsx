@@ -58,9 +58,33 @@ function rangeStartDate(range: TimeRange, today: string): string | null {
 }
 
 function rangeTickCount(range: TimeRange): number {
-  if (range === "all") return 6;
   if (range === "thisMonth") return 5;
   return 7;
+}
+
+function allRangeTicks(timelineStartDate: string | null, birthDate: string | null, today: string): number[] | undefined {
+  const startDate = timelineStartDate ?? birthDate;
+  if (!startDate) return undefined;
+
+  const startTime = localDateTimestamp(startDate);
+  const todayTime = localDateTimestamp(today);
+  if (startTime >= todayTime) return [startTime];
+
+  if (birthDate && startDate === birthDate) {
+    const currentAge = ageOnDate(birthDate, today);
+    if (currentAge !== null) {
+      if (currentAge === 0) return [startTime, todayTime].filter((value, index, values) => index === 0 || value !== values[index - 1]);
+      const ageStep = Math.max(1, Math.ceil(currentAge / 4));
+      const ticks: number[] = [];
+      for (let age = 0; age < currentAge; age += ageStep) {
+        ticks.push(localDateTimestamp(shiftMonths(birthDate, age * 12)));
+      }
+      ticks.push(todayTime);
+      return [...new Set(ticks)];
+    }
+  }
+
+  return Array.from({ length: 5 }, (_, index) => Math.round(startTime + ((todayTime - startTime) * index) / 4));
 }
 
 export function CrayonLineChart({
@@ -100,6 +124,10 @@ export function CrayonLineChart({
   const timelineStart = range === "all"
     ? (timelineStartDate ? localDateTimestamp(timelineStartDate) : "dataMin")
     : (startTime ?? "dataMin");
+  const explicitAllTicks = useMemo(
+    () => allRangeTicks(timelineStartDate, birthDate, today),
+    [timelineStartDate, birthDate, today],
+  );
 
   const formatTick = (value: number): string => {
     const date = timestampDate(Number(value));
@@ -158,12 +186,14 @@ export function CrayonLineChart({
                   type="number"
                   scale="time"
                   domain={[timelineStart, todayTime]}
+                  ticks={range === "all" ? explicitAllTicks : undefined}
+                  interval={range === "all" ? 0 : "preserveEnd"}
                   tick={{ fontSize: 12, fill: "#51483d" }}
                   tickFormatter={formatTick}
                   tickLine={false}
                   axisLine={{ stroke: "#6d6254", strokeWidth: 2 }}
                   minTickGap={34}
-                  tickCount={rangeTickCount(range)}
+                  tickCount={range === "all" ? undefined : rangeTickCount(range)}
                 />
                 <YAxis
                   tick={{ fontSize: 12, fill: "#51483d" }}
@@ -173,7 +203,8 @@ export function CrayonLineChart({
                 />
                 <Tooltip
                   labelFormatter={(label) => `日期 ${timestampDate(Number(label)).replaceAll("-", "/")}`}
-                  formatter={(value, name) => [valueFormatter(Number(value)), String(name)]}
+                  formatter={(value, name) => [valueFormatter(Number(value)), String(name)]
+                  }
                   contentStyle={{ border: "2px solid #51483d", borderRadius: 4, background: "#fffaf0" }}
                 />
                 {series.length > 1 ? <Legend /> : null}
