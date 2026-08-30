@@ -28,11 +28,11 @@ describe("精簡版人生管理器 D1 與 API", () => {
     await applyD1Migrations(env.LIFE_DB, env.TEST_MIGRATIONS);
   });
 
-  it("完整 migration 到 schema 11 且不建立示範使用者資料", async () => {
+  it("完整 migration 到 schema 12，只建立結構性設定資料列", async () => {
     const version = await env.LIFE_DB.prepare(
       "SELECT value FROM schema_metadata WHERE key = 'application_schema_version'",
     ).first<{ value: string }>();
-    expect(version?.value).toBe("11");
+    expect(version?.value).toBe("12");
 
     for (const table of ["task_categories_v2", "daily_tasks_v2", "daily_task_completions_v2", "financial_history_v2"]) {
       const count = await env.LIFE_DB.prepare(`SELECT COUNT(*) AS count FROM ${table}`).first<{ count: number }>();
@@ -45,15 +45,31 @@ describe("精簡版人生管理器 D1 與 API", () => {
       { goal_kind: "MONTHLY_INCOME", amount_minor: null },
       { goal_kind: "SAVINGS", amount_minor: null },
     ]);
+    const profile = await env.LIFE_DB.prepare(
+      "SELECT id, birth_date FROM user_profile_v2",
+    ).first<{ id: string; birth_date: string | null }>();
+    expect(profile).toEqual({ id: "00000000-0000-7000-8000-000000000003", birth_date: null });
+
+    const columns = await env.LIFE_DB.prepare("PRAGMA table_info(daily_tasks_v2)").all<{ name: string }>();
+    expect(columns.results.map((column) => column.name)).toEqual(expect.arrayContaining(["achievement_name", "achievement_unit"]));
   });
 
-  it("每日任務只需要分類、名稱與敘述，完成紀錄可建立與撤銷", async () => {
+  it("每日任務可設定成果與單位，完成紀錄可建立與撤銷", async () => {
     const categoryId = uuidv7();
     const taskId = uuidv7();
     const completionId = uuidv7();
 
     await createResource("task-categories", { id: categoryId, name: "訓練", description: "每天累積訓練" });
-    await createResource("daily-tasks", { id: taskId, categoryId, name: "投球", description: "完成今天的投球" });
+    const task = await createResource("daily-tasks", {
+      id: taskId,
+      categoryId,
+      name: "投球",
+      description: "完成今天的投球",
+      achievementName: "投球訓練",
+      achievementUnit: "次",
+    });
+    expect(task).toEqual(expect.objectContaining({ achievementName: "投球訓練", achievementUnit: "次" }));
+
     const completion = await createResource("daily-task-completions", {
       id: completionId,
       taskId,
@@ -68,6 +84,12 @@ describe("精簡版人生管理器 D1 與 API", () => {
     });
     expect(duplicate.ok).toBe(false);
 
+    const future = await jsonRequest("/api/v1/daily-task-completions", "POST", {
+      operationId: uuidv7(),
+      data: { id: uuidv7(), taskId, completedLocalDate: "2099-01-01", completedAt: "2099-01-01T03:00:00.000Z" },
+    });
+    expect(future.status).toBe(400);
+
     const remove = await jsonRequest(`/api/v1/daily-task-completions/${completionId}`, "DELETE", {
       operationId: uuidv7(), baseVersion: 1, data: {},
     });
@@ -79,6 +101,19 @@ describe("精簡版人生管理器 D1 與 API", () => {
     ).bind(completionId).first<{ deleted_at: string | null; version: number }>();
     expect(tombstone?.deleted_at).toBeTruthy();
     expect(tombstone?.version).toBe(2);
+  });
+
+  it("個人設定可保存出生年月日", async () => {
+    const profile = await body<{ data: Array<Record<string, unknown>> }>(await jsonRequest("/api/v1/user-profile"));
+    expect(profile.data).toHaveLength(1);
+    const current = profile.data[0];
+    const update = await jsonRequest(`/api/v1/user-profile/${current.id}`, "PATCH", {
+      operationId: uuidv7(),
+      baseVersion: current.version,
+      data: { birthDate: "2000-01-01" },
+    });
+    expect(update.status).toBe(200);
+    expect((await body<{ data: Record<string, unknown> }>(update)).data).toEqual(expect.objectContaining({ birthDate: "2000-01-01" }));
   });
 
   it("財務目前值只有歷史來源，目標與歷史均可修改，歷史可刪除", async () => {
@@ -146,7 +181,9 @@ describe("精簡版人生管理器 D1 與 API", () => {
           },
           {
             operationId: uuidv7(), deviceId: deviceA, entityType: "daily-tasks", entityId: taskId,
-            kind: "UPSERT", baseVersion: null, payload: { id: taskId, categoryId, name: "寫作", description: "完成今日寫作" },
+            kind: "UPSERT", baseVersion: null, payload: {
+              id: taskId, categoryId, name: "寫作", description: "完成今日寫作", achievementName: "文章", achievementUnit: "篇",
+            },
             clientOccurredAt: "2026-08-30T01:00:01.000Z", schemaVersion: 1,
           },
         ],
