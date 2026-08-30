@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { archiveResource, createResource, deleteResource, listResource, updateResource } from "@/app/api/client";
 
-export function useResource<T extends Record<string, unknown>>(resource: string, query = "") {
+export function useResource<T extends { id: string }>(resource: string, query = "") {
   const queryClient = useQueryClient();
   const key = [resource, query];
   const invalidate = () => queryClient.invalidateQueries({ queryKey: [resource] });
