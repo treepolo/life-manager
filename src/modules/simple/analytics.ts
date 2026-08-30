@@ -38,21 +38,6 @@ export interface FinancialSeriesPoint {
   value: number;
 }
 
-function taipeiLocalDate(instant: string): string {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: "Asia/Taipei",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(new Date(instant));
-  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((item) => item.type === type)?.value ?? "";
-  return `${part("year")}-${part("month")}-${part("day")}`;
-}
-
-function minDate(values: string[]): string | null {
-  return values.length ? [...values].sort()[0] : null;
-}
-
 export function buildTaskCategorySeries(input: {
   categories: TaskCategoryRecord[];
   tasks: DailyTaskRecord[];
@@ -65,12 +50,10 @@ export function buildTaskCategorySeries(input: {
     const categoryId = taskCategory.get(completion.taskId);
     return Boolean(categoryId && validCategoryIds.has(categoryId) && completion.completedLocalDate <= input.today);
   });
-  const taskStartDates = input.tasks.flatMap((task) => task.createdAt ? [taipeiLocalDate(task.createdAt)] : []);
-  const completionDates = relevantCompletions.map((completion) => completion.completedLocalDate);
-  const firstDate = minDate([...taskStartDates, ...completionDates]);
-  if (!firstDate) return [];
+  if (!relevantCompletions.length) return [];
 
-  const eventDates = [...new Set([firstDate, ...completionDates.filter((date) => date >= firstDate), input.today])].sort();
+  const completionDates = relevantCompletions.map((completion) => completion.completedLocalDate);
+  const eventDates = [...new Set([...completionDates, input.today])].sort();
   const totals = new Map(input.categories.map((category) => [category.id, 0]));
   const byDate = new Map<string, DailyTaskCompletionRecord[]>();
   for (const completion of relevantCompletions) {
