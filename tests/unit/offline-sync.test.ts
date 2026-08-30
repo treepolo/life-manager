@@ -45,10 +45,10 @@ describe("新版 IndexedDB 離線同步", () => {
     const outbox = await listOutbox();
     expect(outbox.map((item) => item.entityType)).toEqual([
       "task-categories",
-      "daily-tasks",
-      "daily-task-completions",
       "financial-goals",
+      "daily-tasks",
       "financial-history",
+      "daily-task-completions",
     ]);
     expect((await cachedEntities("daily-tasks"))[0]).toMatchObject({ pending: true, data: { name: "投球" } });
   });
