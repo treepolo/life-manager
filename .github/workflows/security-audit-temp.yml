@@ -4,18 +4,38 @@ on:
   push:
     branches:
       - refactor/core-life-manager
-  workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
-  audit:
+  patch-and-verify:
+    if: github.event.head_commit.message != 'chore: patch dependency vulnerabilities'
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: refactor/core-life-manager
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
           cache: npm
-      - run: npm ci
-      - name: npm audit report
-        run: npm audit --json || true
+      - name: Update direct Cloudflare toolchain dependencies
+        run: npm install --save-dev --save-exact @cloudflare/vite-plugin@1.54.2 @cloudflare/vitest-pool-workers@0.20.3 wrangler@4.120.1 --package-lock-only
+      - name: Apply compatible transitive security fixes
+        run: npm audit fix --package-lock-only
+      - name: Reinstall from repaired lockfile
+        run: npm ci
+      - name: Require clean npm audit
+        run: npm audit --audit-level=moderate
+      - name: Full regression verification
+        run: npm run verify
+      - name: Commit repaired dependency graph
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json package-lock.json
+          git diff --cached --exit-code && exit 0
+          git commit -m "chore: patch dependency vulnerabilities"
+          git push origin HEAD:refactor/core-life-manager
