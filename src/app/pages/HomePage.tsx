@@ -57,11 +57,11 @@ export function HomePage() {
   const goalsResource = useResource<FinancialGoal>("financial-goals");
   const historyResource = useResource<FinancialHistory>("financial-history");
 
-  const categories = categoriesResource.list.data ?? [];
-  const tasks = tasksResource.list.data ?? [];
-  const completions = completionsResource.list.data ?? [];
-  const goals = goalsResource.list.data ?? [];
-  const history = historyResource.list.data ?? [];
+  const categories = useMemo(() => categoriesResource.list.data ?? [], [categoriesResource.list.data]);
+  const tasks = useMemo(() => tasksResource.list.data ?? [], [tasksResource.list.data]);
+  const completions = useMemo(() => completionsResource.list.data ?? [], [completionsResource.list.data]);
+  const goals = useMemo(() => goalsResource.list.data ?? [], [goalsResource.list.data]);
+  const history = useMemo(() => historyResource.list.data ?? [], [historyResource.list.data]);
 
   const activeCategoryIds = useMemo(
     () => new Set(categories.filter((category) => !category.archivedAt && !category.deletedAt).map((category) => category.id)),
