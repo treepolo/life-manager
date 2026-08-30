@@ -218,13 +218,23 @@ export function TasksPage() {
                             <details className="paper-details">
                               <summary>編輯</summary>
                               <form className="inline-edit-form task-edit-form" onSubmit={(event) => updateTask(event, task)}>
-                                <input name="name" defaultValue={task.name} required maxLength={180} aria-label={`${task.name}名稱`} />
-                                <textarea name="description" defaultValue={task.description} rows={2} maxLength={2000} aria-label={`${task.name}敘述`} />
-                                <input name="achievementName" defaultValue={task.achievementName ?? ""} maxLength={120} placeholder="成果，例如：運科文章" aria-label={`${task.name}成果`} />
-                                <input name="achievementUnit" defaultValue={task.achievementUnit ?? ""} maxLength={24} placeholder="單位，例如：篇" aria-label={`${task.name}單位`} />
-                                <select name="categoryId" defaultValue={task.categoryId} required aria-label={`${task.name}分類`}>
-                                  {activeCategories.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-                                </select>
+                                <label className="task-edit-name">名稱
+                                  <input name="name" defaultValue={task.name} required maxLength={180} aria-label={`${task.name}名稱`} />
+                                </label>
+                                <label className="task-edit-description">敘述
+                                  <textarea name="description" defaultValue={task.description} rows={2} maxLength={2000} aria-label={`${task.name}敘述`} />
+                                </label>
+                                <label>成果
+                                  <input name="achievementName" defaultValue={task.achievementName ?? ""} maxLength={120} placeholder="例如：運科文章" aria-label={`${task.name}成果`} />
+                                </label>
+                                <label>單位
+                                  <input name="achievementUnit" defaultValue={task.achievementUnit ?? ""} maxLength={24} placeholder="例如：篇" aria-label={`${task.name}單位`} />
+                                </label>
+                                <label>分類
+                                  <select name="categoryId" defaultValue={task.categoryId} required aria-label={`${task.name}分類`}>
+                                    {activeCategories.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+                                  </select>
+                                </label>
                                 <button className="paper-button" disabled={busy}>儲存</button>
                               </form>
                             </details>
