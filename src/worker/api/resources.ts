@@ -6,6 +6,7 @@ import {
   financialGoalInputSchema,
   financialHistoryInputSchema,
   taskCategoryInputSchema,
+  userProfileInputSchema,
 } from "@/modules/simple/schema";
 
 export interface ResourceDefinition {
@@ -58,6 +59,8 @@ export const resourceDefinitions: Record<string, ResourceDefinition> = {
       categoryId: "category_id",
       name: "name",
       description: "description",
+      achievementName: "achievement_name",
+      achievementUnit: "achievement_unit",
     },
     filterFields: new Set(["categoryId"]),
     defaultSourceType: "MANUAL",
@@ -78,6 +81,19 @@ export const resourceDefinitions: Record<string, ResourceDefinition> = {
     filterFields: new Set(["taskId"]),
     dateColumn: "completed_local_date",
     defaultSourceType: "MANUAL",
+    archivable: false,
+    ...editable,
+  },
+  "user-profile": {
+    key: "user-profile",
+    table: "user_profile_v2",
+    label: "個人設定",
+    inputSchema: userProfileInputSchema,
+    columns: {
+      id: "id",
+      birthDate: "birth_date",
+    },
+    defaultSourceType: "SYSTEM",
     archivable: false,
     ...editable,
   },
