@@ -39,7 +39,7 @@ Token 只授予部署 Worker 所需權限，不得把 token 寫入 repo、Wrangl
 3. Verify 成功後，部署 job 重新安裝鎖定依賴並產生 production client build。
 4. Wrangler 使用 GitHub Secrets 直接部署 `--env staging`。
 
-因此正常開發不再需要在 Windows 本機 `git pull` 後手動執行 `npm run deploy:staging`。本機部署腳本保留作緊急備援。
+因此正常開發不再需要在 Windows 本機 `git pull` 後手動執行 `npm run deploy:staging`。本機部署腳本保留作緊急備援。首次啟用自動部署時，以純文件 commit 執行一次 smoke test，確認 Verify 成功後確實能部署到既有 staging Worker。
 
 ### production
 
