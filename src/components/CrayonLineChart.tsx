@@ -52,7 +52,7 @@ export function CrayonLineChart({
       ) : (
         <div className="chart-frame">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={data} margin={{ top: 16, right: 18, left: 12, bottom: 18 }}>
+            <LineChart data={data} margin={{ top: 16, right: 18, left: 36, bottom: 18 }}>
               <defs>
                 <filter id="crayon-wobble" x="-4%" y="-4%" width="108%" height="108%">
                   <feTurbulence type="fractalNoise" baseFrequency="0.012" numOctaves="1" seed="8" result="noise" />
@@ -71,7 +71,7 @@ export function CrayonLineChart({
                 tick={{ fontSize: 12, fill: "#51483d" }}
                 tickLine={false}
                 axisLine={{ stroke: "#6d6254", strokeWidth: 2 }}
-                width={74}
+                width={82}
                 label={{ value: yLabel, angle: -90, position: "insideLeft", offset: 8, fill: "#51483d" }}
               />
               <Tooltip
