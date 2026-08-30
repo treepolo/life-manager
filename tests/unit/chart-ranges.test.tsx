@@ -1,28 +1,32 @@
 import React from "react";
-import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("recharts", () => ({
   ResponsiveContainer: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  LineChart: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  LineChart: ({ children }: { children: React.ReactNode }) => <svg>{children}</svg>,
   CartesianGrid: () => null,
   Legend: () => null,
   Line: () => null,
   Tooltip: () => null,
   YAxis: () => null,
   XAxis: (props: { domain: [number | string, number | string]; tickCount?: number; tickFormatter: (value: number) => string }) => (
-    <div
-      data-testid="mock-x-axis"
-      data-start={String(props.domain[0])}
-      data-end={String(props.domain[1])}
-      data-tick-count={String(props.tickCount ?? "")}
-      data-start-label={typeof props.domain[0] === "number" ? props.tickFormatter(props.domain[0]) : ""}
-    />
+    <foreignObject>
+      <div
+        data-testid="mock-x-axis"
+        data-start={String(props.domain[0])}
+        data-end={String(props.domain[1])}
+        data-tick-count={String(props.tickCount ?? "")}
+        data-start-label={typeof props.domain[0] === "number" ? props.tickFormatter(props.domain[0]) : ""}
+      />
+    </foreignObject>
   ),
 }));
 
 import { CrayonLineChart } from "@/components/CrayonLineChart";
 import { localDateTimestamp, shiftMonths, taipeiDate } from "@/modules/simple/date";
+
+afterEach(cleanup);
 
 const today = taipeiDate();
 const [year, month] = today.split("-");
