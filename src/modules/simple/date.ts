@@ -63,3 +63,54 @@ export function localDateTimestamp(localDate: string): number {
   const [year, month, day] = parts(localDate);
   return Date.UTC(year, month - 1, day);
 }
+
+export interface BirthdayMonthTick {
+  date: string;
+  label: string;
+  progress: number;
+}
+
+export interface BirthdayYearProgress {
+  previousBirthday: string;
+  nextBirthday: string;
+  currentAge: number;
+  nextAge: number;
+  progress: number;
+  monthTicks: BirthdayMonthTick[];
+}
+
+export function birthdayYearProgress(birthDate: string, onDate = taipeiDate()): BirthdayYearProgress | null {
+  const currentAge = ageOnDate(birthDate, onDate);
+  if (currentAge === null) return null;
+
+  const previousBirthday = shiftMonths(birthDate, currentAge * 12);
+  const nextBirthday = shiftMonths(birthDate, (currentAge + 1) * 12);
+  const start = localDateTimestamp(previousBirthday);
+  const end = localDateTimestamp(nextBirthday);
+  const now = localDateTimestamp(onDate);
+  const span = Math.max(end - start, 1);
+  const progress = Math.max(0, Math.min(1, (now - start) / span));
+
+  const [startYear, startMonth] = previousBirthday.split("-").map(Number);
+  let cursor = shiftMonths(`${startYear}-${String(startMonth).padStart(2, "0")}-01`, 1);
+  const monthTicks: BirthdayMonthTick[] = [];
+  while (cursor < nextBirthday) {
+    const timestamp = localDateTimestamp(cursor);
+    const month = Number(cursor.slice(5, 7));
+    monthTicks.push({
+      date: cursor,
+      label: `${month}月`,
+      progress: Math.max(0, Math.min(1, (timestamp - start) / span)),
+    });
+    cursor = shiftMonths(cursor, 1);
+  }
+
+  return {
+    previousBirthday,
+    nextBirthday,
+    currentAge,
+    nextAge: currentAge + 1,
+    progress,
+    monthTicks,
+  };
+}
