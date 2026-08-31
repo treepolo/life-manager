@@ -1,0 +1,13 @@
+.brand > img.brand-mark {
+  display: block;
+  object-fit: contain;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  transform: none;
+}
+
+.hero-scribble.hero-with-tasks .hero-task-area {
+  border-style: solid;
+}

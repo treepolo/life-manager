@@ -15,7 +15,7 @@ export function AppShell() {
     <div className="app-shell">
       <aside className="side-rail">
         <div className="brand">
-          <span className="brand-mark">LM</span>
+          <img className="brand-mark" src="/icon.svg" alt="" aria-hidden="true" />
           <div><strong>人生管理器</strong><small>每天畫一點進度</small></div>
         </div>
         <nav aria-label="主要導覽" className="main-nav">
