@@ -43,6 +43,12 @@ export async function apiPostLongRunning<T>(path: string, body: unknown, signal?
   }));
 }
 
+function normalizeLegacyFinancialData(resource: string, data: Record<string, unknown>): Record<string, unknown> {
+  if (resource === "financial-history" && data.metricKind === "SAVINGS") return { ...data, metricKind: "NET_WORTH" };
+  if (resource === "financial-goals" && data.goalKind === "SAVINGS") return { ...data, goalKind: "NET_WORTH" };
+  return data;
+}
+
 function resourceQuery(query: string, cursor?: string): string {
   const params = new URLSearchParams(query.startsWith("?") ? query.slice(1) : query);
   params.set("limit", "100");
@@ -61,7 +67,7 @@ export async function listResource<T extends { id: string }>(resource: string, q
         `/api/v1/${resource}${resourceQuery(query, cursor)}`,
         signal,
       );
-      items.push(...response.data);
+      items.push(...response.data.map((item) => normalizeLegacyFinancialData(resource, item as unknown as Record<string, unknown>) as unknown as T));
       cursor = response.meta?.nextCursor ?? undefined;
     } while (cursor);
     await cacheServerEntities(resource, items as unknown as Array<Record<string, unknown>>);
@@ -71,7 +77,7 @@ export async function listResource<T extends { id: string }>(resource: string, q
       const includeArchived = new URLSearchParams(query.startsWith("?") ? query.slice(1) : query).get("includeArchived") === "true";
       return (await cachedEntities(resource))
         .filter((entry) => !entry.data.deletedAt && (includeArchived || !entry.data.archivedAt))
-        .map((entry) => entry.data as unknown as T);
+        .map((entry) => normalizeLegacyFinancialData(resource, entry.data) as unknown as T);
     }
     throw error;
   }
@@ -90,8 +96,9 @@ export async function createResource<T extends Record<string, unknown>>(
   }
   try {
     const response = await apiPost<{ data: Record<string, unknown> }>(`/api/v1/${resource}`, { operationId, data: full });
-    await cacheServerEntities(resource, [response.data]);
-    return response.data;
+    const normalized = normalizeLegacyFinancialData(resource, response.data);
+    await cacheServerEntities(resource, [normalized]);
+    return normalized;
   } catch (error) {
     if (error instanceof TypeError) {
       await commitOfflineMutation({ entityType: resource, entityId, kind: "UPSERT", baseVersion: null, payload: full });
@@ -118,8 +125,9 @@ export async function updateResource(
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ operationId, baseVersion, data: patch }),
     }));
-    await cacheServerEntities(resource, [response.data]);
-    return response.data;
+    const normalized = normalizeLegacyFinancialData(resource, response.data);
+    await cacheServerEntities(resource, [normalized]);
+    return normalized;
   } catch (error) {
     if (error instanceof TypeError) {
       await commitOfflineMutation({ entityType: resource, entityId, kind: "UPSERT", baseVersion, payload: patch });
@@ -141,8 +149,9 @@ export async function archiveResource(resource: string, entityId: string, baseVe
       `/api/v1/${resource}/${entityId}/${restore ? "restore" : "archive"}`,
       { operationId, baseVersion, data: {} },
     );
-    await cacheServerEntities(resource, [response.data]);
-    return response.data;
+    const normalized = normalizeLegacyFinancialData(resource, response.data);
+    await cacheServerEntities(resource, [normalized]);
+    return normalized;
   } catch (error) {
     if (error instanceof TypeError) {
       await commitOfflineMutation({ entityType: resource, entityId, kind, baseVersion, payload: {} });
@@ -164,8 +173,9 @@ export async function deleteResource(resource: string, entityId: string, baseVer
       headers: { "content-type": "application/json", accept: "application/json" },
       body: JSON.stringify({ operationId, baseVersion, data: {} }),
     }));
-    await cacheServerEntities(resource, [response.data]);
-    return response.data;
+    const normalized = normalizeLegacyFinancialData(resource, response.data);
+    await cacheServerEntities(resource, [normalized]);
+    return normalized;
   } catch (error) {
     if (error instanceof TypeError) {
       await commitOfflineMutation({ entityType: resource, entityId, kind: "DELETE", baseVersion, payload: {} });

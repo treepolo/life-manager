@@ -7,6 +7,12 @@ const SYNC_PASS_TIMEOUT_MS = 30_000;
 const SYNC_BATCH_SIZE = 100;
 const SYNC_PULL_LIMIT = 200;
 
+function normalizeLegacyFinancialPayload(entityType: string, payload: Record<string, unknown>): Record<string, unknown> {
+  if (entityType === "financial-history" && payload.metricKind === "SAVINGS") return { ...payload, metricKind: "NET_WORTH" };
+  if (entityType === "financial-goals" && payload.goalKind === "SAVINGS") return { ...payload, goalKind: "NET_WORTH" };
+  return payload;
+}
+
 export function createSyncPassSignal(parent?: AbortSignal): { signal: AbortSignal; dispose: () => void } {
   const controller = new AbortController();
   const abortFromParent = () => controller.abort(parent?.reason);
@@ -45,7 +51,7 @@ async function runSyncPass(signal?: AbortSignal): Promise<void> {
           entityId: operation.entityId,
           kind: operation.kind,
           baseVersion: operation.baseVersion,
-          payload: operation.payload,
+          payload: normalizeLegacyFinancialPayload(operation.entityType, operation.payload),
           clientOccurredAt: operation.clientOccurredAt,
           schemaVersion: operation.schemaVersion,
         })) }),

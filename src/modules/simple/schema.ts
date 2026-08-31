@@ -48,7 +48,14 @@ export const userProfileInputSchema = z.object({
   }
 });
 
-export const financialGoalKindSchema = z.enum(["MONTHLY_INCOME", "SAVINGS"]);
+function normalizeLegacyFinancialKind(value: unknown): unknown {
+  return value === "SAVINGS" ? "NET_WORTH" : value;
+}
+
+export const financialGoalKindSchema = z.preprocess(
+  normalizeLegacyFinancialKind,
+  z.enum(["MONTHLY_INCOME", "NET_WORTH"]),
+);
 
 export const financialGoalInputSchema = z.object({
   id: identifierSchema,
@@ -58,7 +65,10 @@ export const financialGoalInputSchema = z.object({
   minorUnitScale: z.literal(0).default(0),
 });
 
-export const financialMetricKindSchema = z.enum(["MONTHLY_INCOME", "SAVINGS"]);
+export const financialMetricKindSchema = z.preprocess(
+  normalizeLegacyFinancialKind,
+  z.enum(["MONTHLY_INCOME", "NET_WORTH"]),
+);
 
 export const financialHistoryInputSchema = z.object({
   id: identifierSchema,

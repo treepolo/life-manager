@@ -32,18 +32,27 @@ describe("新版人生管理器成果計算", () => {
 
   it("同日多筆財務紀錄只採該日最後建立的一筆，並延伸到今天", () => {
     const history = [
-      { id: "a", metricKind: "SAVINGS" as const, effectiveLocalDate: "2026-08-01", amountMinor: 10000, createdAt: "2026-08-01T01:00:00.000Z" },
-      { id: "b", metricKind: "SAVINGS" as const, effectiveLocalDate: "2026-08-01", amountMinor: 12000, createdAt: "2026-08-01T02:00:00.000Z" },
-      { id: "c", metricKind: "SAVINGS" as const, effectiveLocalDate: "2026-08-15", amountMinor: 18000, createdAt: "2026-08-15T01:00:00.000Z" },
+      { id: "a", metricKind: "NET_WORTH" as const, effectiveLocalDate: "2026-08-01", amountMinor: 10000, createdAt: "2026-08-01T01:00:00.000Z" },
+      { id: "b", metricKind: "NET_WORTH" as const, effectiveLocalDate: "2026-08-01", amountMinor: 12000, createdAt: "2026-08-01T02:00:00.000Z" },
+      { id: "c", metricKind: "NET_WORTH" as const, effectiveLocalDate: "2026-08-15", amountMinor: 18000, createdAt: "2026-08-15T01:00:00.000Z" },
       { id: "d", metricKind: "MONTHLY_INCOME" as const, effectiveLocalDate: "2026-08-01", amountMinor: 30000, createdAt: "2026-08-01T01:00:00.000Z" },
     ];
 
-    expect(buildFinancialSeries(history, "SAVINGS", "2026-08-30")).toEqual([
+    expect(buildFinancialSeries(history, "NET_WORTH", "2026-08-30")).toEqual([
       { date: "2026-08-01", value: 12000 },
       { date: "2026-08-15", value: 18000 },
       { date: "2026-08-30", value: 18000 },
     ]);
-    expect(currentFinancialValue(history, "SAVINGS", "2026-08-30")?.id).toBe("c");
+    expect(currentFinancialValue(history, "NET_WORTH", "2026-08-30")?.id).toBe("c");
+  });
+
+  it("淨資產允許負值並能自然回到最新有效紀錄", () => {
+    const history = [
+      { id: "debt", metricKind: "NET_WORTH" as const, effectiveLocalDate: "2026-07-01", amountMinor: -25000, createdAt: "2026-07-01T01:00:00.000Z" },
+      { id: "now", metricKind: "NET_WORTH" as const, effectiveLocalDate: "2026-08-01", amountMinor: 5000, createdAt: "2026-08-01T01:00:00.000Z" },
+    ];
+    expect(currentFinancialValue(history, "NET_WORTH", "2026-08-30")?.amountMinor).toBe(5000);
+    expect(buildFinancialSeries(history, "NET_WORTH", "2026-08-30")[0]?.value).toBe(-25000);
   });
 
   it("忽略未來紀錄，刪除後由呼叫端移除即可自然回退目前值", () => {

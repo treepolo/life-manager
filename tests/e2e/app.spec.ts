@@ -143,9 +143,9 @@ test("財務目標與歷史可新增、修正、刪除並回到首頁反映", as
   const incomeGoal = page.locator(".goal-editor").filter({ hasText: "固定月收入" });
   await incomeGoal.locator('input[name="amount"]').fill("50000");
   await incomeGoal.getByRole("button", { name: "儲存目標" }).click();
-  const savingsGoal = page.locator(".goal-editor").filter({ hasText: "積蓄" });
-  await savingsGoal.locator('input[name="amount"]').fill("500000");
-  await savingsGoal.getByRole("button", { name: "儲存目標" }).click();
+  const netWorthGoal = page.locator(".goal-editor").filter({ hasText: "淨資產" });
+  await netWorthGoal.locator('input[name="amount"]').fill("500000");
+  await netWorthGoal.getByRole("button", { name: "儲存目標" }).click();
 
   const add = page.locator(".history-add-form");
   await add.getByLabel("項目").selectOption("MONTHLY_INCOME");
@@ -174,13 +174,26 @@ test("財務目標與歷史可新增、修正、刪除並回到首頁反映", as
   await latestRow.getByRole("button", { name: "刪除" }).click();
   await expect.poll(async () => (await apiList(page, "financial-history")).length).toBe(1);
 
+  await add.getByLabel("項目").selectOption("NET_WORTH");
+  await add.getByLabel("日期").fill("2026-08-20");
+  await add.getByLabel("金額").fill("-100000");
+  await add.getByRole("button", { name: "新增紀錄" }).click();
+  await expect(page.locator(".history-section").filter({ hasText: "淨資產歷史" }).getByText("1 筆")).toBeVisible();
+  await expect.poll(async () => (await apiList(page, "financial-history")).some((item) => item.metricKind === "NET_WORTH" && item.amountMinor === -100000)).toBe(true);
+
   await navigate(page, "/");
   const incomeCard = page.locator(".money-card").filter({ hasText: "固定月收入" });
   await expect(incomeCard).toContainText("NT$ 32,000");
   await expect(incomeCard).toContainText("NT$ 50,000");
-  await expect(page.locator(".percentile-card").filter({ hasText: "你的月收入贏過" })).toBeVisible();
+  const incomeComparison = page.locator(".percentile-card").filter({ hasText: "你的月收入贏過" });
+  await expect(incomeComparison).toContainText("個臺灣人");
+  const netWorthComparison = page.locator(".percentile-card").filter({ hasText: "你的淨資產贏過" });
+  await expect(netWorthComparison).toContainText("個臺灣人");
+  await expect(page.getByText(/%/, { exact: false })).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "固定月收入變化" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "淨資產變化" })).toBeVisible();
   await expectChartAxisInsideFrame(page, "固定月收入變化");
+  await expectChartAxisInsideFrame(page, "淨資產變化");
 });
 
 test("離線新增分類與每日任務後恢復連線可同步到 D1", async ({ page, context }, testInfo) => {
@@ -212,7 +225,7 @@ test("首頁只呈現三個核心入口與三種成果區塊", async ({ page }) 
   await expect(page.getByText("今天把這些完成就好", { exact: true })).toBeVisible();
   await expect(page.getByText("固定任務每天重新開始，完成紀錄會留在你的累積曲線裡。", { exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "每日任務累積完成次數" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "積蓄變化" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "淨資產變化" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "固定月收入變化" })).toBeVisible();
 });
 

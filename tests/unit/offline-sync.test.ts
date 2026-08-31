@@ -39,8 +39,8 @@ describe("新版 IndexedDB 離線同步", () => {
     await commitOfflineMutation({ entityType: "task-categories", entityId: ids.category, kind: "UPSERT", baseVersion: null, payload: { id: ids.category, name: "訓練", description: "" } });
     await commitOfflineMutation({ entityType: "daily-tasks", entityId: ids.task, kind: "UPSERT", baseVersion: null, payload: { id: ids.task, categoryId: ids.category, name: "投球", description: "" } });
     await commitOfflineMutation({ entityType: "daily-task-completions", entityId: ids.completion, kind: "UPSERT", baseVersion: null, payload: { id: ids.completion, taskId: ids.task, completedLocalDate: "2026-08-30", completedAt: "2026-08-30T00:00:00.000Z" } });
-    await commitOfflineMutation({ entityType: "financial-goals", entityId: ids.goal, kind: "UPSERT", baseVersion: null, payload: { id: ids.goal, goalKind: "SAVINGS", amountMinor: 100000, currencyCode: "TWD", minorUnitScale: 0 } });
-    await commitOfflineMutation({ entityType: "financial-history", entityId: ids.history, kind: "UPSERT", baseVersion: null, payload: { id: ids.history, metricKind: "SAVINGS", effectiveLocalDate: "2026-08-30", amountMinor: 20000, currencyCode: "TWD", minorUnitScale: 0 } });
+    await commitOfflineMutation({ entityType: "financial-goals", entityId: ids.goal, kind: "UPSERT", baseVersion: null, payload: { id: ids.goal, goalKind: "NET_WORTH", amountMinor: 100000, currencyCode: "TWD", minorUnitScale: 0 } });
+    await commitOfflineMutation({ entityType: "financial-history", entityId: ids.history, kind: "UPSERT", baseVersion: null, payload: { id: ids.history, metricKind: "NET_WORTH", effectiveLocalDate: "2026-08-30", amountMinor: -20000, currencyCode: "TWD", minorUnitScale: 0 } });
 
     const outbox = await listOutbox();
     expect(outbox.map((item) => item.entityType)).toEqual([
@@ -65,7 +65,7 @@ describe("新版 IndexedDB 離線同步", () => {
 
   it("尚未同步的新資料離線刪除會直接取消建立，不留下無效 outbox", async () => {
     const id = "019fc1d9-d4e7-7c11-94e2-198d9fcd7211";
-    await commitOfflineMutation({ entityType: "financial-history", entityId: id, kind: "UPSERT", baseVersion: null, payload: { id, metricKind: "SAVINGS", effectiveLocalDate: "2026-08-30", amountMinor: 1 } });
+    await commitOfflineMutation({ entityType: "financial-history", entityId: id, kind: "UPSERT", baseVersion: null, payload: { id, metricKind: "NET_WORTH", effectiveLocalDate: "2026-08-30", amountMinor: 1 } });
     await commitOfflineMutation({ entityType: "financial-history", entityId: id, kind: "DELETE", baseVersion: 0, payload: {} });
     expect(await listOutbox()).toEqual([]);
     expect(await cachedEntities("financial-history")).toEqual([]);
@@ -73,7 +73,7 @@ describe("新版 IndexedDB 離線同步", () => {
 
   it("已存在資料離線刪除使用 deletedAt，不會誤標成 archivedAt", async () => {
     const id = "019fc1d9-d4e7-7c11-94e2-198d9fcd7212";
-    await cacheServerEntities("financial-history", [{ id, metricKind: "SAVINGS", amountMinor: 10, version: 4, deletedAt: null }]);
+    await cacheServerEntities("financial-history", [{ id, metricKind: "NET_WORTH", amountMinor: 10, version: 4, deletedAt: null }]);
     await commitOfflineMutation({ entityType: "financial-history", entityId: id, kind: "DELETE", baseVersion: 4, payload: {} });
     const cached = (await cachedEntities("financial-history"))[0];
     expect(cached.data.deletedAt).toEqual(expect.any(String));
@@ -98,6 +98,31 @@ describe("新版 IndexedDB 離線同步", () => {
     });
     expect(await listOutbox()).toEqual([]);
     expect(await cachedEntities("task-categories")).toEqual([expect.objectContaining({ entityId: id, version: 1, pending: false })]);
+  });
+
+  it("舊版尚未送出的 SAVINGS 操作會在送出時升級成 NET_WORTH", async () => {
+    await getOrCreateSyncMeta();
+    const id = "019fc1d9-d4e7-7c11-94e2-198d9fcd7216";
+    await commitOfflineMutation({
+      entityType: "financial-history",
+      entityId: id,
+      kind: "UPSERT",
+      baseVersion: null,
+      payload: { id, metricKind: "SAVINGS", effectiveLocalDate: "2026-08-30", amountMinor: 12345 },
+    });
+    let uploadedMetricKind: unknown;
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.includes("/sync/batch")) {
+        const requestBody = JSON.parse(String(init?.body)) as { operations: Array<{ operationId: string; entityType: string; entityId: string; payload: Record<string, unknown> }> };
+        uploadedMetricKind = requestBody.operations[0]?.payload.metricKind;
+        return Response.json({ data: { results: requestBody.operations.map((operation) => ({ ...operation, status: "APPLIED", resultVersion: 1 })) } });
+      }
+      return Response.json({ data: { changes: [], nextCursor: 0 } });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    await syncNow();
+    expect(uploadedMetricKind).toBe("NET_WORTH");
   });
 
   it("同步進行中再次觸發會補跑一輪並上傳稍後加入的操作", async () => {

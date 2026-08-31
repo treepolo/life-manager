@@ -3,8 +3,6 @@ import { describe, expect, it } from "vitest";
 import {
   buildFinancialAchievement,
   buildTaskAchievements,
-  estimatePercentile,
-  TAIWAN_MONTHLY_INCOME_BENCHMARK,
 } from "@/modules/simple/achievements";
 import { ageOnDate, daysUntilNextBirthday } from "@/modules/simple/date";
 import { dailyTaskCompletionInputSchema, userProfileInputSchema } from "@/modules/simple/schema";
@@ -53,12 +51,6 @@ describe("成就與人生時間", () => {
     );
     expect(achievements).toHaveLength(1);
     expect(achievements[0].count).toBe(1);
-  });
-
-  it("收入百分位只在官方十分位範圍內插值，不假造尾端精度", () => {
-    expect(estimatePercentile(28000, TAIWAN_MONTHLY_INCOME_BENCHMARK).display).toBe("<10%");
-    expect(estimatePercentile(38406, TAIWAN_MONTHLY_INCOME_BENCHMARK).display).toBe("50%");
-    expect(estimatePercentile(79053, TAIWAN_MONTHLY_INCOME_BENCHMARK).display).toBe("90%+");
   });
 
   it("計算財務相對起點、六個月變化與當前歷史新高", () => {

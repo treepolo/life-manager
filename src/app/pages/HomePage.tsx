@@ -5,10 +5,7 @@ import { CrayonLineChart } from "@/components/CrayonLineChart";
 import {
   buildFinancialAchievement,
   buildTaskAchievements,
-  estimatePercentile,
-  TAIWAN_MONTHLY_INCOME_BENCHMARK,
   type FinancialAchievement,
-  type PercentileEstimate,
   type TaskAchievement,
 } from "@/modules/simple/achievements";
 import {
@@ -26,10 +23,20 @@ import type {
   UserProfile,
 } from "@/modules/simple/model";
 import type { FinancialMetricKind } from "@/modules/simple/schema";
+import {
+  estimatedPeopleBeaten,
+  TAIWAN_MONTHLY_INCOME_INFO,
+  TAIWAN_MONTHLY_INCOME_MODEL,
+  TAIWAN_NET_WORTH_INFO,
+  TAIWAN_NET_WORTH_MODEL,
+  type TaiwanDistributionInfo,
+  type TaiwanDistributionModel,
+} from "@/modules/simple/taiwan-distributions";
 
 import "./HomePage.css";
 
 const money = new Intl.NumberFormat("zh-TW", { maximumFractionDigits: 0 });
+const people = new Intl.NumberFormat("zh-TW", { maximumFractionDigits: 0 });
 
 function moneyText(value: number | null | undefined): string {
   return value === null || value === undefined ? "尚未設定" : `NT$ ${money.format(value)}`;
@@ -76,42 +83,32 @@ function TaskAchievementCard({ achievement }: { achievement: TaskAchievement }) 
   );
 }
 
-function PercentileBand({ estimate }: { estimate: PercentileEstimate }) {
-  const filled = estimate.percent === null ? 0 : Math.max(0, Math.min(10, Math.ceil(estimate.percent / 10)));
+function PopulationComparisonCard({
+  label,
+  current,
+  model,
+  info,
+}: {
+  label: string;
+  current: number | null;
+  model: TaiwanDistributionModel;
+  info: TaiwanDistributionInfo;
+}) {
+  const beaten = estimatedPeopleBeaten(model, current);
   return (
-    <div className="percentile-band" aria-hidden="true">
-      {Array.from({ length: 10 }, (_, index) => <i className={index < filled ? "is-filled" : ""} key={index} />)}
-    </div>
-  );
-}
-
-function IncomePercentileCard({ current }: { current: number | null }) {
-  const estimate = estimatePercentile(current, TAIWAN_MONTHLY_INCOME_BENCHMARK);
-  return (
-    <article className="achievement-card percentile-card">
-      <p className="achievement-kicker">你的月收入贏過</p>
-      <div className="achievement-number-row"><strong>{estimate.display}</strong></div>
-      <span className="achievement-name">臺灣受僱員工了</span>
-      <PercentileBand estimate={estimate} />
+    <article className={beaten === null ? "achievement-card percentile-card is-unavailable" : "achievement-card percentile-card"}>
+      <p className="achievement-kicker">你的{label}贏過</p>
+      <div className="achievement-number-row">
+        <strong>{beaten === null ? "—" : people.format(beaten)}</strong>
+        {beaten === null ? null : <b>個臺灣人</b>}
+      </div>
       <details className="achievement-info">
-        <summary aria-label="月收入百分位資料說明">ⓘ</summary>
-        <p>{TAIWAN_MONTHLY_INCOME_BENCHMARK.note}</p>
-        <a href={TAIWAN_MONTHLY_INCOME_BENCHMARK.sourceUrl} target="_blank" rel="noreferrer">{TAIWAN_MONTHLY_INCOME_BENCHMARK.sourceLabel}</a>
-      </details>
-    </article>
-  );
-}
-
-function SavingsPercentileCard() {
-  return (
-    <article className="achievement-card percentile-card is-unavailable">
-      <p className="achievement-kicker">你的儲蓄贏過</p>
-      <div className="achievement-number-row"><strong>—</strong></div>
-      <span className="achievement-name">多少台灣人了</span>
-      <PercentileBand estimate={{ percent: null, display: "—", bounded: "unavailable" }} />
-      <details className="achievement-info">
-        <summary aria-label="儲蓄百分位資料說明">ⓘ</summary>
-        <p>官方目前找到的是家庭財富、家戶儲蓄率或單一存保門檻，不能誠實換算成個人積蓄百分位，所以暫不硬算。</p>
+        <summary aria-label={`${label}臺灣人口比較資料說明`}>ⓘ</summary>
+        <p>{info.note}</p>
+        <p>比較母體固定為 {people.format(info.comparisonPopulation)} 人；相同金額不計入「贏過」人數。</p>
+        {info.sources.map((source) => (
+          <a href={source.url} target="_blank" rel="noreferrer" key={`${label}-${source.label}`}>{source.label}</a>
+        ))}
       </details>
     </article>
   );
@@ -165,11 +162,13 @@ function LifeRibbon({ birthDate, today }: { birthDate: string | null; today: str
 function AchievementBoard({
   taskAchievements,
   currentIncome,
+  currentNetWorth,
   birthDate,
   today,
 }: {
   taskAchievements: TaskAchievement[];
   currentIncome: number | null;
+  currentNetWorth: number | null;
   birthDate: string | null;
   today: string;
 }) {
@@ -181,8 +180,8 @@ function AchievementBoard({
       </div>
       <div className="achievement-grid">
         {taskAchievements.slice(0, 2).map((achievement) => <TaskAchievementCard achievement={achievement} key={achievement.taskId} />)}
-        <IncomePercentileCard current={currentIncome} />
-        <SavingsPercentileCard />
+        <PopulationComparisonCard label="月收入" current={currentIncome} model={TAIWAN_MONTHLY_INCOME_MODEL} info={TAIWAN_MONTHLY_INCOME_INFO} />
+        <PopulationComparisonCard label="淨資產" current={currentNetWorth} model={TAIWAN_NET_WORTH_MODEL} info={TAIWAN_NET_WORTH_INFO} />
       </div>
     </section>
   );
@@ -260,19 +259,19 @@ export function HomePage() {
     () => buildTaskCategorySeries({ categories: chartCategories, tasks, completions, today }),
     [chartCategories, tasks, completions, today],
   );
-  const savingsSeries = useMemo(() => buildFinancialSeries(history, "SAVINGS", today), [history, today]);
+  const netWorthSeries = useMemo(() => buildFinancialSeries(history, "NET_WORTH", today), [history, today]);
   const incomeSeries = useMemo(() => buildFinancialSeries(history, "MONTHLY_INCOME", today), [history, today]);
-  const currentSavingsRecord = currentFinancialValue(history, "SAVINGS", today);
+  const currentNetWorthRecord = currentFinancialValue(history, "NET_WORTH", today);
   const currentIncomeRecord = currentFinancialValue(history, "MONTHLY_INCOME", today);
-  const currentSavings = currentSavingsRecord?.amountMinor ?? null;
+  const currentNetWorth = currentNetWorthRecord?.amountMinor ?? null;
   const currentIncome = currentIncomeRecord?.amountMinor ?? null;
-  const savingsGoal = goals.find((goal) => goal.goalKind === "SAVINGS")?.amountMinor ?? null;
+  const netWorthGoal = goals.find((goal) => goal.goalKind === "NET_WORTH")?.amountMinor ?? null;
   const incomeGoal = goals.find((goal) => goal.goalKind === "MONTHLY_INCOME")?.amountMinor ?? null;
   const completedCount = activeTasks.filter((task) => todayCompletionByTask.has(task.id)).length;
   const allDone = activeTasks.length > 0 && completedCount === activeTasks.length;
   const taskAchievements = useMemo(() => buildTaskAchievements(tasks, completions, today), [tasks, completions, today]);
   const incomeAchievement = useMemo(() => buildFinancialAchievement(history, "MONTHLY_INCOME", today), [history, today]);
-  const savingsAchievement = useMemo(() => buildFinancialAchievement(history, "SAVINGS", today), [history, today]);
+  const netWorthAchievement = useMemo(() => buildFinancialAchievement(history, "NET_WORTH", today), [history, today]);
 
   const toggleTask = (task: DailyTask) => {
     const existing = todayCompletionByTask.get(task.id);
@@ -311,7 +310,7 @@ export function HomePage() {
 
   return (
     <div className="page crayon-page">
-      <AchievementBoard taskAchievements={taskAchievements} currentIncome={currentIncome} birthDate={birthDate} today={today} />
+      <AchievementBoard taskAchievements={taskAchievements} currentIncome={currentIncome} currentNetWorth={currentNetWorth} birthDate={birthDate} today={today} />
 
       <header className={allDone ? "hero-scribble is-all-done" : "hero-scribble"}>
         <div>
@@ -367,7 +366,7 @@ export function HomePage() {
 
       <section className="money-overview" aria-label="財務進度">
         <FinancialSummaryCard label="固定月收入" current={currentIncome} goal={incomeGoal} achievement={incomeAchievement} today={today} currentRecordDate={currentIncomeRecord?.effectiveLocalDate ?? null} />
-        <FinancialSummaryCard label="積蓄" current={currentSavings} goal={savingsGoal} achievement={savingsAchievement} today={today} currentRecordDate={currentSavingsRecord?.effectiveLocalDate ?? null} />
+        <FinancialSummaryCard label="淨資產" current={currentNetWorth} goal={netWorthGoal} achievement={netWorthAchievement} today={today} currentRecordDate={currentNetWorthRecord?.effectiveLocalDate ?? null} />
         <article className="crayon-panel quick-record-card">
           <p className="eyebrow">快速記錄</p>
           <h2>更新今天的數字</h2>
@@ -377,10 +376,10 @@ export function HomePage() {
               <input name="date" type="date" defaultValue={today} max={today} required />
               <button className="crayon-button" disabled={historyResource.create.isPending}>記一筆收入</button>
             </form>
-            <form onSubmit={(event) => addFinancialRecord(event, "SAVINGS")}>
-              <label>目前積蓄<input name="amount" type="number" step="1" required placeholder="例如 120000" /></label>
+            <form onSubmit={(event) => addFinancialRecord(event, "NET_WORTH")}>
+              <label>目前淨資產<input name="amount" type="number" step="1" required placeholder="例如 120000" /></label>
               <input name="date" type="date" defaultValue={today} max={today} required />
-              <button className="crayon-button" disabled={historyResource.create.isPending}>記一筆積蓄</button>
+              <button className="crayon-button" disabled={historyResource.create.isPending}>記一筆淨資產</button>
             </form>
           </div>
         </article>
@@ -409,11 +408,11 @@ export function HomePage() {
           birthDate={birthDate}
         />
         <CrayonLineChart
-          title="積蓄變化"
-          description="使用你手動記錄的有效歷史；同一天多筆紀錄以最後一筆為準。"
-          data={savingsSeries}
-          series={[{ key: "value", name: "積蓄" }]}
-          yLabel="積蓄（新台幣）"
+          title="淨資產變化"
+          description="使用你手動記錄的淨資產歷史；同一天多筆紀錄以最後一筆為準。"
+          data={netWorthSeries}
+          series={[{ key: "value", name: "淨資產" }]}
+          yLabel="淨資產（新台幣）"
           valueFormatter={(value) => `NT$ ${money.format(value)}`}
           curve="stepAfter"
           timelineStartDate={birthDate}

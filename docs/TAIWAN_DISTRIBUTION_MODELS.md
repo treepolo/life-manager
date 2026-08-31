@@ -1,8 +1,8 @@
-# E2-2 臺灣人口金額分布模型
+# 臺灣人口金額分布模型與 Life Manager 整合
 
 ## 範圍
 
-E2-2 只建立可重建的統計模型與 generated model，不修改 Life Manager 首頁、財務欄位、同步資料或 D1 schema；E2-3 才把模型接進產品。固定比較母體為 23,299,132 人。`peopleBelow(x)` 使用嚴格小於語意；`estimatedPeopleAtIntegerAmount(x)` 回傳估計落在該 1 元區間的人數。
+E2-2 建立可重建的統計模型與 generated model；E2-3 把這些固定產物接進 Life Manager。固定比較母體為 23,299,132 人。`peopleBelow(x)` 使用嚴格小於語意；`estimatedPeopleAtIntegerAmount(x)` 回傳估計落在該 1 元區間的人數。首頁直接顯示「贏過 X 個臺灣人」，不再先換算百分位。
 
 ```text
 來源資料
@@ -10,10 +10,11 @@ E2-2 只建立可重建的統計模型與 generated model，不修改 Life Manag
   -> scripts/taiwan-distributions/model.mjs
   -> npm run model:taiwan
   -> data/taiwan-distributions/generated/*.json
-  -> E2-3 runtime
+  -> src/modules/simple/taiwan-distributions.ts
+  -> Life Manager 首頁人口比較卡
 ```
 
-App runtime 不連線抓政府或 Forbes 網頁，也不在執行時重新擬合。
+App runtime 不連線抓政府或 Forbes 網頁，也不在執行時重新擬合。runtime 只載入 repository 內已提交的 generated JSON，使用與建模工具相同的分段累積分布公式計算具體人口數；單元測試會逐點比較 runtime 與 E2-2 builder 的結果，避免兩套公式漂移。
 
 ## 月收入
 
@@ -43,9 +44,17 @@ Forbes 2026 Taiwan's 50 Richest 用於極高端約束。名單估值基準日為
 
 模型同時計算由轉換後 D5-D9 survival anchors 擬合出的 Pareto alpha，作為尾端形狀診斷；它不被當成 D9 以上的硬外推條件。原因是若把該 alpha 直接延伸到高額區間，會與主計總處最高 20% 平均及 Forbes 端點產生無法同時滿足的數學衝突。實際 D9 以上尾端因此採三段 capped survival power law，數值校準優先滿足直接來源硬錨點：D9 人口、轉換後最高 20% 平均、Forbes 50-entry cutoff、最大個人等值錨點。
 
+## E2-3 產品整合
+
+首頁的月收入與淨資產成就卡直接讀取 generated models，將目前有效紀錄丟給 `peopleBelow`，再顯示四捨五入後的具體人口數。相同金額的人不計入「贏過」人數；尚未建立該財務紀錄時顯示 `—`。資訊說明會列出模型口徑、固定比較母體與來源連結，不再使用舊的「臺灣受僱員工薪資百分位」條帶。
+
+財務第二指標的正式資料語意為 `NET_WORTH`，畫面名稱為「淨資產」。淨資產定義與比較模型一致，可輸入負值；收入仍不得為負。`migrations/0013_net_worth.sql` 將既有 D1 的 `SAVINGS` 目標與歷史紀錄無損轉成 `NET_WORTH`，保留原 ID、金額、日期、版本與刪除狀態。
+
+版本交界仍可能存在舊 PWA、舊 IndexedDB 快取或尚未上傳的 outbox。新版客戶端讀取舊快取時會把 `SAVINGS` 正規化為 `NET_WORTH`；同步送出舊 outbox 時也會在 wire payload 正規化。Worker 輸入 schema 暫時接受 `SAVINGS` 作為相容別名，但解析後立即變成 `NET_WORTH`，因此新版 D1 只保存新判別值。
+
 ## 驗證
 
-`npm run model:taiwan:check` 與單元測試會驗證：
+`npm run model:taiwan:check`、單元測試、Worker 測試與 E2E 會驗證：
 
 - 兩個模型人口總數精確等於 23,299,132。
 - 收入所得收入者精確等於 16,753,266；0 元質量精確等於 6,545,866。
@@ -56,6 +65,10 @@ Forbes 2026 Taiwan's 50 Richest 用於極高端約束。名單估值基準日為
 - 負淨資產左尾存在，0 元以下估計人口為正且低於全體 10%。
 - Forbes cutoff 處約剩 50 人；最大個人等值錨點處剩 1 人。
 - committed generated JSON 必須和 raw data + model code 的重建結果完全一致。
+- App runtime 在低端、中段與極端尾端的 `peopleBelow` 都與 E2-2 builder 一致。
+- migration 13 完成後 D1 只使用 `NET_WORTH`；負淨資產可新增、修改、刪除。
+- 舊 `SAVINGS` API 輸入、IndexedDB 快取與待同步 outbox 都能在升級期間正規化成 `NET_WORTH`。
+- 首頁實際顯示具體臺灣人數，固定月收入與淨資產圖表、設定與歷史紀錄都使用新語意。
 
 ## 已知限制
 

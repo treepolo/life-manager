@@ -10,7 +10,7 @@ const money = new Intl.NumberFormat("zh-TW", { maximumFractionDigits: 0 });
 
 const labels: Record<FinancialMetricKind, string> = {
   MONTHLY_INCOME: "固定月收入",
-  SAVINGS: "積蓄",
+  NET_WORTH: "淨資產",
 };
 
 function parseAmount(value: FormDataEntryValue | null, nullable = false): number | null {
@@ -143,7 +143,7 @@ export function SettingsPage() {
         <div>
           <p className="eyebrow">設定</p>
           <h1>目標、歷史與維護</h1>
-          <p>目標只保存目前設定；實際固定月收入與積蓄則以每一筆歷史紀錄為準。</p>
+          <p>目標只保存目前設定；實際固定月收入與淨資產則以每一筆歷史紀錄為準。</p>
         </div>
       </header>
 
@@ -168,7 +168,7 @@ export function SettingsPage() {
       <section className="crayon-panel">
         <div className="panel-heading"><div><p className="eyebrow">目標</p><h2>財務目標</h2></div></div>
         <div className="goal-grid">
-          {(["MONTHLY_INCOME", "SAVINGS"] as FinancialGoalKind[]).map((kind) => {
+          {(["MONTHLY_INCOME", "NET_WORTH"] as FinancialGoalKind[]).map((kind) => {
             const goal = goals.find((item) => item.goalKind === kind);
             return goal ? <GoalEditor key={kind} goal={goal} onSave={saveGoal} busy={busy} /> : <div className="empty-note" key={kind}>缺少 {labels[kind]} 目標資料列，請先套用最新資料庫 migration。</div>;
           })}
@@ -177,18 +177,19 @@ export function SettingsPage() {
 
       <section className="crayon-panel">
         <div className="panel-heading">
-          <div><p className="eyebrow">實際紀錄</p><h2>新增收入或積蓄紀錄</h2></div>
+          <div><p className="eyebrow">實際紀錄</p><h2>新增收入或淨資產紀錄</h2></div>
           <span className="tiny-note">首頁的「目前值」永遠取日期最新的一筆有效紀錄。</span>
         </div>
+        <p className="tiny-note">淨資產請填你名下資產總值減去負債後的估計金額，可為負數；首頁會用這個口徑與臺灣個人等值淨資產模型比較。</p>
         <form className="history-add-form" onSubmit={addHistory}>
-          <label>項目<select name="metricKind" defaultValue="MONTHLY_INCOME"><option value="MONTHLY_INCOME">固定月收入</option><option value="SAVINGS">積蓄</option></select></label>
+          <label>項目<select name="metricKind" defaultValue="MONTHLY_INCOME"><option value="MONTHLY_INCOME">固定月收入</option><option value="NET_WORTH">淨資產</option></select></label>
           <label>日期<input name="date" type="date" defaultValue={today} max={today} required /></label>
           <label>金額<span className="money-input"><b>NT$</b><input name="amount" type="number" step="1" required /></span></label>
           <button className="crayon-button" disabled={busy}>新增紀錄</button>
         </form>
         <div className="history-columns">
           <HistorySection metricKind="MONTHLY_INCOME" history={history} busy={busy} onUpdate={updateHistory} onDelete={deleteHistory} />
-          <HistorySection metricKind="SAVINGS" history={history} busy={busy} onUpdate={updateHistory} onDelete={deleteHistory} />
+          <HistorySection metricKind="NET_WORTH" history={history} busy={busy} onUpdate={updateHistory} onDelete={deleteHistory} />
         </div>
       </section>
 

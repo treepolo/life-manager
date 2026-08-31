@@ -28,11 +28,11 @@ describe("精簡版人生管理器 D1 與 API", () => {
     await applyD1Migrations(env.LIFE_DB, env.TEST_MIGRATIONS);
   });
 
-  it("完整 migration 到 schema 12，只建立結構性設定資料列", async () => {
+  it("完整 migration 到 schema 13，只建立結構性設定資料列", async () => {
     const version = await env.LIFE_DB.prepare(
       "SELECT value FROM schema_metadata WHERE key = 'application_schema_version'",
     ).first<{ value: string }>();
-    expect(version?.value).toBe("12");
+    expect(version?.value).toBe("13");
 
     for (const table of ["task_categories_v2", "daily_tasks_v2", "daily_task_completions_v2", "financial_history_v2"]) {
       const count = await env.LIFE_DB.prepare(`SELECT COUNT(*) AS count FROM ${table}`).first<{ count: number }>();
@@ -43,7 +43,7 @@ describe("精簡版人生管理器 D1 與 API", () => {
     ).all<{ goal_kind: string; amount_minor: number | null }>();
     expect(goals.results).toEqual([
       { goal_kind: "MONTHLY_INCOME", amount_minor: null },
-      { goal_kind: "SAVINGS", amount_minor: null },
+      { goal_kind: "NET_WORTH", amount_minor: null },
     ]);
     const profile = await env.LIFE_DB.prepare(
       "SELECT id, birth_date FROM user_profile_v2",
@@ -156,6 +156,34 @@ describe("精簡版人生管理器 D1 與 API", () => {
     expect(remaining.data).toEqual([
       expect.objectContaining({ id: firstId, amountMinor: 32000, version: 2 }),
     ]);
+  });
+
+  it("淨資產可為負值且舊 SAVINGS 輸入會升級成 NET_WORTH", async () => {
+    const netWorthGoal = await env.LIFE_DB.prepare(
+      "SELECT id, goal_kind FROM financial_goals_v2 WHERE goal_kind = 'NET_WORTH'",
+    ).first<{ id: string; goal_kind: string }>();
+    expect(netWorthGoal?.goal_kind).toBe("NET_WORTH");
+
+    const netWorthId = uuidv7();
+    const record = await createResource("financial-history", {
+      id: netWorthId,
+      metricKind: "NET_WORTH",
+      effectiveLocalDate: "2026-08-15",
+      amountMinor: -100000,
+      currencyCode: "TWD",
+      minorUnitScale: 0,
+    });
+    expect(record).toEqual(expect.objectContaining({ metricKind: "NET_WORTH", amountMinor: -100000 }));
+
+    const oldMetric = await jsonRequest("/api/v1/financial-history", "POST", {
+      operationId: uuidv7(),
+      data: {
+        id: uuidv7(), metricKind: "SAVINGS", effectiveLocalDate: "2026-08-16",
+        amountMinor: 1000, currencyCode: "TWD", minorUnitScale: 0,
+      },
+    });
+    expect(oldMetric.status).toBe(201);
+    expect((await body<{ data: Record<string, unknown> }>(oldMetric)).data.metricKind).toBe("NET_WORTH");
   });
 
   it("新版資源可經通用離線同步寫入並由另一裝置拉取", async () => {
