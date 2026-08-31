@@ -2,6 +2,7 @@ import { useMemo, type CSSProperties, type FormEvent } from "react";
 
 import { useResource } from "@/app/hooks/use-resource";
 import { CrayonLineChart } from "@/components/CrayonLineChart";
+import { PopulationComparisonCard } from "@/components/PopulationComparisonCard";
 import {
   buildFinancialAchievement,
   buildTaskAchievements,
@@ -24,19 +25,15 @@ import type {
 } from "@/modules/simple/model";
 import type { FinancialMetricKind } from "@/modules/simple/schema";
 import {
-  estimatedPeopleBeaten,
   TAIWAN_MONTHLY_INCOME_INFO,
   TAIWAN_MONTHLY_INCOME_MODEL,
   TAIWAN_NET_WORTH_INFO,
   TAIWAN_NET_WORTH_MODEL,
-  type TaiwanDistributionInfo,
-  type TaiwanDistributionModel,
 } from "@/modules/simple/taiwan-distributions";
 
 import "./HomePage.css";
 
 const money = new Intl.NumberFormat("zh-TW", { maximumFractionDigits: 0 });
-const people = new Intl.NumberFormat("zh-TW", { maximumFractionDigits: 0 });
 
 function moneyText(value: number | null | undefined): string {
   return value === null || value === undefined ? "尚未設定" : `NT$ ${money.format(value)}`;
@@ -79,37 +76,6 @@ function TaskAchievementCard({ achievement }: { achievement: TaskAchievement }) 
       {achievement.isExactMilestone && achievement.count >= 5 ? (
         <div className="milestone-note">欸幹，{achievement.count}{achievement.achievementUnit}了欸。</div>
       ) : null}
-    </article>
-  );
-}
-
-function PopulationComparisonCard({
-  label,
-  current,
-  model,
-  info,
-}: {
-  label: string;
-  current: number | null;
-  model: TaiwanDistributionModel;
-  info: TaiwanDistributionInfo;
-}) {
-  const beaten = estimatedPeopleBeaten(model, current);
-  return (
-    <article className={beaten === null ? "achievement-card percentile-card is-unavailable" : "achievement-card percentile-card"}>
-      <p className="achievement-kicker">你的{label}贏過</p>
-      <div className="achievement-number-row">
-        <strong>{beaten === null ? "—" : people.format(beaten)}</strong>
-        {beaten === null ? null : <b>個臺灣人</b>}
-      </div>
-      <details className="achievement-info">
-        <summary aria-label={`${label}臺灣人口比較資料說明`}>ⓘ</summary>
-        <p>{info.note}</p>
-        <p>比較母體固定為 {people.format(info.comparisonPopulation)} 人；相同金額不計入「贏過」人數。</p>
-        {info.sources.map((source) => (
-          <a href={source.url} target="_blank" rel="noreferrer" key={`${label}-${source.label}`}>{source.label}</a>
-        ))}
-      </details>
     </article>
   );
 }
@@ -161,14 +127,16 @@ function LifeRibbon({ birthDate, today }: { birthDate: string | null; today: str
 
 function AchievementBoard({
   taskAchievements,
-  currentIncome,
-  currentNetWorth,
+  history,
+  incomeGoal,
+  netWorthGoal,
   birthDate,
   today,
 }: {
   taskAchievements: TaskAchievement[];
-  currentIncome: number | null;
-  currentNetWorth: number | null;
+  history: FinancialHistory[];
+  incomeGoal: number | null;
+  netWorthGoal: number | null;
   birthDate: string | null;
   today: string;
 }) {
@@ -180,8 +148,24 @@ function AchievementBoard({
       </div>
       <div className="achievement-grid">
         {taskAchievements.slice(0, 2).map((achievement) => <TaskAchievementCard achievement={achievement} key={achievement.taskId} />)}
-        <PopulationComparisonCard label="月收入" current={currentIncome} model={TAIWAN_MONTHLY_INCOME_MODEL} info={TAIWAN_MONTHLY_INCOME_INFO} />
-        <PopulationComparisonCard label="淨資產" current={currentNetWorth} model={TAIWAN_NET_WORTH_MODEL} info={TAIWAN_NET_WORTH_INFO} />
+        <PopulationComparisonCard
+          label="月收入"
+          metricKind="MONTHLY_INCOME"
+          history={history}
+          goal={incomeGoal}
+          today={today}
+          model={TAIWAN_MONTHLY_INCOME_MODEL}
+          info={TAIWAN_MONTHLY_INCOME_INFO}
+        />
+        <PopulationComparisonCard
+          label="淨資產"
+          metricKind="NET_WORTH"
+          history={history}
+          goal={netWorthGoal}
+          today={today}
+          model={TAIWAN_NET_WORTH_MODEL}
+          info={TAIWAN_NET_WORTH_INFO}
+        />
       </div>
     </section>
   );
@@ -310,7 +294,14 @@ export function HomePage() {
 
   return (
     <div className="page crayon-page">
-      <AchievementBoard taskAchievements={taskAchievements} currentIncome={currentIncome} currentNetWorth={currentNetWorth} birthDate={birthDate} today={today} />
+      <AchievementBoard
+        taskAchievements={taskAchievements}
+        history={history}
+        incomeGoal={incomeGoal}
+        netWorthGoal={netWorthGoal}
+        birthDate={birthDate}
+        today={today}
+      />
 
       <header className={allDone ? "hero-scribble is-all-done" : "hero-scribble"}>
         <div>

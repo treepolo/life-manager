@@ -1,0 +1,69 @@
+.population-comparison-card {
+  min-height: 184px;
+  padding-bottom: 30px;
+}
+
+.population-insight {
+  display: grid;
+  gap: 2px;
+}
+
+.population-insight + .population-insight {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed rgba(109, 98, 84, .42);
+}
+
+.population-insight-label {
+  margin: 0;
+  color: #7c6f60;
+  font-size: 9px;
+  font-weight: 950;
+  letter-spacing: .05em;
+}
+
+.population-insight strong {
+  color: #3f3932;
+  font-size: 14px;
+  line-height: 1.28;
+}
+
+.population-next-step strong {
+  font-size: 16px;
+}
+
+.population-insight span {
+  color: #5d5449;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.population-total {
+  margin: 10px 26px 0 0;
+  color: #766b5d;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.population-total strong {
+  color: #51483d;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.population-comparison-card.is-unavailable .population-insight,
+.population-comparison-card.is-unavailable .population-total {
+  opacity: .65;
+}
+
+@media (max-width: 520px) {
+  .population-comparison-card {
+    min-height: 180px;
+  }
+
+  .population-next-step strong {
+    font-size: 15px;
+  }
+}
