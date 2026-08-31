@@ -143,7 +143,7 @@ function AchievementBoard({
   return (
     <section className="achievement-board" aria-label="成就">
       <div className="achievement-board-head">
-        <div><p className="eyebrow">成就</p><h1>你已經累積到這裡</h1></div>
+        <div className="achievement-title-copy"><p className="eyebrow">成就</p><h1>你已經累積到這裡</h1></div>
         <LifeRibbon birthDate={birthDate} today={today} />
       </div>
       <div className="achievement-grid">
@@ -303,8 +303,8 @@ export function HomePage() {
         today={today}
       />
 
-      <header className={allDone ? "hero-scribble is-all-done" : "hero-scribble"}>
-        <div>
+      <section className={allDone ? "hero-scribble hero-with-tasks is-all-done" : "hero-scribble hero-with-tasks"}>
+        <div className="hero-main-copy">
           <p className="eyebrow">今天 · {today}</p>
           <h1>今天把這些完成就好</h1>
           <p>固定任務每天重新開始，完成紀錄會留在你的累積曲線裡。</p>
@@ -313,47 +313,39 @@ export function HomePage() {
           <strong>{completedCount}/{activeTasks.length}</strong>
           <span>{allDone ? "收工" : "今日完成"}</span>
         </div>
-      </header>
+        <div className="hero-task-area" aria-label="今天的每日任務清單">
+          {!activeTasks.length ? (
+            <div className="empty-note">還沒有每日任務。到「每日任務」頁新增第一個分類與任務。</div>
+          ) : (
+            <div className="daily-list">
+              {activeTasks.map((task) => {
+                const category = categories.find((item) => item.id === task.categoryId);
+                const done = todayCompletionByTask.has(task.id);
+                return (
+                  <button
+                    className={done ? "daily-task is-done" : "daily-task"}
+                    type="button"
+                    key={task.id}
+                    onClick={() => toggleTask(task)}
+                    disabled={completionsResource.create.isPending || completionsResource.remove.isPending}
+                  >
+                    <span className="crayon-checkbox" aria-hidden="true">{done ? "✓" : ""}</span>
+                    <span className="daily-task-copy">
+                      <strong>{task.name}</strong>
+                      {task.description ? <small>{task.description}</small> : null}
+                    </span>
+                    <span className="category-chip">{category?.name ?? "未分類"}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </section>
 
       {loading ? <p className="notice-strip">正在讀取今天的資料…</p> : null}
       {loadError ? <p className="notice-strip notice-strip--danger">{errorText(loadError)}</p> : null}
       {actionError ? <p className="notice-strip notice-strip--danger">{errorText(actionError)}</p> : null}
-
-      <section className="crayon-panel today-panel">
-        <div className="panel-heading">
-          <div>
-            <p className="eyebrow">每日任務</p>
-            <h2>今天的清單</h2>
-          </div>
-          <span className="tiny-note">明天會重新變成未完成</span>
-        </div>
-        {!activeTasks.length ? (
-          <div className="empty-note">還沒有每日任務。到「每日任務」頁新增第一個分類與任務。</div>
-        ) : (
-          <div className="daily-list">
-            {activeTasks.map((task) => {
-              const category = categories.find((item) => item.id === task.categoryId);
-              const done = todayCompletionByTask.has(task.id);
-              return (
-                <button
-                  className={done ? "daily-task is-done" : "daily-task"}
-                  type="button"
-                  key={task.id}
-                  onClick={() => toggleTask(task)}
-                  disabled={completionsResource.create.isPending || completionsResource.remove.isPending}
-                >
-                  <span className="crayon-checkbox" aria-hidden="true">{done ? "✓" : ""}</span>
-                  <span className="daily-task-copy">
-                    <strong>{task.name}</strong>
-                    {task.description ? <small>{task.description}</small> : null}
-                  </span>
-                  <span className="category-chip">{category?.name ?? "未分類"}</span>
-                </button>
-              );
-            })}
-          </div>
-        )}
-      </section>
 
       <section className="money-overview" aria-label="財務進度">
         <FinancialSummaryCard label="固定月收入" current={currentIncome} goal={incomeGoal} achievement={incomeAchievement} today={today} currentRecordDate={currentIncomeRecord?.effectiveLocalDate ?? null} />
