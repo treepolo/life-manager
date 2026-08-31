@@ -58,6 +58,125 @@
   opacity: .65;
 }
 
+.achievement-info-trigger {
+  position: absolute;
+  right: 8px;
+  bottom: 6px;
+  z-index: 3;
+  display: grid;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #655b4e;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 900;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.achievement-info-trigger:hover,
+.achievement-info-trigger:focus-visible {
+  background: rgba(247, 217, 95, .42);
+  outline: 2px solid rgba(101, 91, 78, .5);
+  outline-offset: 1px;
+}
+
+.population-info-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(54, 47, 38, .24);
+}
+
+.population-info-dialog {
+  width: min(440px, calc(100vw - 32px));
+  max-height: min(72vh, 560px);
+  overflow: auto;
+  border: 2px solid #716657;
+  border-radius: 7px 10px 6px 9px;
+  background: #fffdf5;
+  box-shadow: 5px 5px 0 #b9aa91;
+  color: #51483d;
+}
+
+.population-info-dialog-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 14px 10px;
+  border-bottom: 1px dashed rgba(109, 98, 84, .4);
+  background: #fffdf5;
+}
+
+.population-info-eyebrow {
+  margin: 0 0 2px;
+  color: #8c563f;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: .08em;
+}
+
+.population-info-dialog h2 {
+  margin: 0;
+  font-size: 20px;
+  line-height: 1.2;
+}
+
+.population-info-close {
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 2px solid #776b59;
+  border-radius: 50%;
+  background: #fff8d8;
+  color: #51483d;
+  font: inherit;
+  font-size: 20px;
+  font-weight: 900;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.population-info-dialog-body {
+  display: grid;
+  gap: 10px;
+  padding: 13px 14px 16px;
+}
+
+.population-info-dialog-body p {
+  margin: 0;
+  color: #62594c;
+  font-size: 13px;
+  line-height: 1.62;
+}
+
+.population-info-sources {
+  display: grid;
+  gap: 6px;
+  padding-top: 2px;
+}
+
+.population-info-sources a {
+  color: #5b5144;
+  font-size: 12px;
+  font-weight: 850;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
 @media (max-width: 520px) {
   .population-comparison-card {
     min-height: 180px;
@@ -65,5 +184,20 @@
 
   .population-next-step strong {
     font-size: 15px;
+  }
+
+  .population-info-backdrop {
+    align-items: end;
+    padding: 12px 12px max(18px, env(safe-area-inset-bottom));
+  }
+
+  .population-info-dialog {
+    width: 100%;
+    max-height: min(78vh, 620px);
+    border-radius: 10px 10px 6px 6px;
+  }
+
+  .population-info-dialog-body p {
+    font-size: 12px;
   }
 }

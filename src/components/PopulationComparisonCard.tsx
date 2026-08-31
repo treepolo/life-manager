@@ -1,4 +1,5 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 
 import type { FinancialHistory } from "@/modules/simple/model";
 import { buildPopulationComparisonInsight } from "@/modules/simple/population-comparison";
@@ -21,6 +22,55 @@ function milestonePeople(value: number): string {
   return `${people.format(rounded)} 萬`;
 }
 
+function PopulationInfoDialog({
+  label,
+  info,
+  onClose,
+}: {
+  label: string;
+  info: TaiwanDistributionInfo;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [onClose]);
+
+  const titleId = `population-info-title-${info.label}`;
+  return createPortal(
+    <div
+      className="population-info-backdrop"
+      data-testid="population-info-backdrop"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <section className="population-info-dialog" role="dialog" aria-modal="true" aria-labelledby={titleId}>
+        <div className="population-info-dialog-head">
+          <div>
+            <p className="population-info-eyebrow">臺灣人口比較資料說明</p>
+            <h2 id={titleId}>{label}</h2>
+          </div>
+          <button type="button" className="population-info-close" onClick={onClose} aria-label="關閉資料說明">×</button>
+        </div>
+        <div className="population-info-dialog-body">
+          <p>{info.note}</p>
+          <p>比較母體固定為 {people.format(info.comparisonPopulation)} 人；相同金額不計入「贏過」人數。</p>
+          <div className="population-info-sources">
+            {info.sources.map((source) => (
+              <a href={source.url} target="_blank" rel="noreferrer" key={`${label}-${source.label}`}>{source.label}</a>
+            ))}
+          </div>
+        </div>
+      </section>
+    </div>,
+    document.body,
+  );
+}
+
 export function PopulationComparisonCard({
   label,
   metricKind,
@@ -38,6 +88,7 @@ export function PopulationComparisonCard({
   model: TaiwanDistributionModel;
   info: TaiwanDistributionInfo;
 }) {
+  const [infoOpen, setInfoOpen] = useState(false);
   const insight = useMemo(
     () => buildPopulationComparisonInsight({ model, metricKind, history, goal, today }),
     [goal, history, metricKind, model, today],
@@ -83,14 +134,17 @@ export function PopulationComparisonCard({
         {insight.currentPeople === null ? `目前還沒有${label}紀錄` : <>目前共贏過 <strong>{people.format(insight.currentPeople)}</strong> 個臺灣人</>}
       </p>
 
-      <details className="achievement-info">
-        <summary aria-label={`${label}臺灣人口比較資料說明`}>ⓘ</summary>
-        <p>{info.note}</p>
-        <p>比較母體固定為 {people.format(info.comparisonPopulation)} 人；相同金額不計入「贏過」人數。</p>
-        {info.sources.map((source) => (
-          <a href={source.url} target="_blank" rel="noreferrer" key={`${label}-${source.label}`}>{source.label}</a>
-        ))}
-      </details>
+      <button
+        type="button"
+        className="achievement-info-trigger"
+        aria-label={`${label}臺灣人口比較資料說明`}
+        aria-haspopup="dialog"
+        aria-expanded={infoOpen}
+        onClick={() => setInfoOpen(true)}
+      >
+        ⓘ
+      </button>
+      {infoOpen ? <PopulationInfoDialog label={label} info={info} onClose={() => setInfoOpen(false)} /> : null}
     </article>
   );
 }
