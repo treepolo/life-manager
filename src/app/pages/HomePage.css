@@ -104,6 +104,9 @@
 .achievement-number-row { display: flex; align-items: baseline; gap: 5px; margin-top: 2px; min-width: 0; }
 .achievement-number-row strong { font-size: clamp(31px, 4vw, 47px); line-height: 1; letter-spacing: -.045em; }
 .achievement-number-row b { font-size: 16px; }
+.percentile-card .achievement-number-row { gap: 4px; }
+.percentile-card .achievement-number-row strong { font-size: clamp(28px, 2.5vw, 35px); }
+.percentile-card .achievement-number-row b { flex: 0 0 auto; font-size: 11px; white-space: nowrap; }
 .achievement-name { display: block; margin-top: 1px; font-size: 12px; font-weight: 900; color: #51483d; }
 .milestone-track { display: grid; grid-template-columns: auto 1fr auto; gap: 7px; align-items: center; margin-top: 13px; color: #766b5c; font-size: 9px; font-weight: 900; }
 .milestone-track i { position: relative; height: 7px; border: 2px solid #6c6255; background: #eee4cf; transform: rotate(-.4deg); }
@@ -152,4 +155,5 @@
   .achievement-grid { display: flex; gap: 8px; overflow-x: auto; scroll-snap-type: x mandatory; padding: 1px 2px 7px; scrollbar-width: thin; }
   .achievement-card { flex: 0 0 min(238px, calc(100vw - 58px)); min-height: 136px; scroll-snap-align: start; }
   .achievement-number-row strong { font-size: 38px; }
+  .percentile-card .achievement-number-row strong { font-size: 28px; }
 }

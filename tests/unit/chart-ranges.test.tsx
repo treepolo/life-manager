@@ -30,12 +30,12 @@ vi.mock("recharts", () => ({
 }));
 
 import { CrayonLineChart } from "@/components/CrayonLineChart";
-import { ageOnDate, localDateTimestamp, shiftMonths, taipeiDate } from "@/modules/simple/date";
+import { ageOnDate, localDateTimestamp, shiftDays, shiftMonths, taipeiDate } from "@/modules/simple/date";
 
 afterEach(cleanup);
 
 const today = taipeiDate();
-const [year, month] = today.split("-");
+const [year] = today.split("-");
 
 function chart() {
   return render(
@@ -72,7 +72,7 @@ describe("圖表時間尺度", () => {
     expect(screen.getByRole("button", { name: "全部" })).toHaveAttribute("aria-pressed", "true");
   });
 
-  it("可切到近一年、今年與本月", () => {
+  it("可切到近一年、今年與近30天", () => {
     chart();
     const axis = () => screen.getByTestId("mock-x-axis");
 
@@ -82,9 +82,16 @@ describe("圖表時間尺度", () => {
     fireEvent.click(screen.getByRole("button", { name: "今年" }));
     expect(axis()).toHaveAttribute("data-start", String(localDateTimestamp(`${year}-01-01`)));
 
-    fireEvent.click(screen.getByRole("button", { name: "本月" }));
-    expect(axis()).toHaveAttribute("data-start", String(localDateTimestamp(`${year}-${month}-01`)));
+    fireEvent.click(screen.getByRole("button", { name: "近30天" }));
+    expect(axis()).toHaveAttribute("data-start", String(localDateTimestamp(shiftDays(today, -29))));
     expect(axis()).toHaveAttribute("data-tick-count", "5");
-    expect(screen.getByRole("button", { name: "本月" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "近30天" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.queryByRole("button", { name: "本月" })).not.toBeInTheDocument();
+  });
+
+  it("近30天起點可正確跨月、跨年與閏年", () => {
+    expect(shiftDays("2026-03-01", -29)).toBe("2026-01-31");
+    expect(shiftDays("2024-03-01", -29)).toBe("2024-02-01");
+    expect(shiftDays("2026-01-10", -29)).toBe("2025-12-12");
   });
 });

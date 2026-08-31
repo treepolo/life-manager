@@ -10,7 +10,7 @@ import {
   YAxis,
 } from "recharts";
 
-import { ageOnDate, localDateTimestamp, shiftMonths, taipeiDate } from "@/modules/simple/date";
+import { ageOnDate, localDateTimestamp, shiftDays, shiftMonths, taipeiDate } from "@/modules/simple/date";
 
 import "./CrayonLineChart.css";
 
@@ -32,13 +32,13 @@ interface CrayonLineChartProps {
   birthDate?: string | null;
 }
 
-type TimeRange = "all" | "lastYear" | "thisYear" | "thisMonth";
+type TimeRange = "all" | "lastYear" | "thisYear" | "last30Days";
 
 const rangeOptions: Array<{ key: TimeRange; label: string }> = [
   { key: "all", label: "全部" },
   { key: "lastYear", label: "近一年" },
   { key: "thisYear", label: "今年" },
-  { key: "thisMonth", label: "本月" },
+  { key: "last30Days", label: "近30天" },
 ];
 
 const palette = ["#d94b37", "#2d6fb7", "#3f8a58", "#d58a22", "#7a56a6", "#9c5140", "#277f86"];
@@ -52,13 +52,13 @@ function timestampDate(value: number): string {
 function rangeStartDate(range: TimeRange, today: string): string | null {
   if (range === "all") return null;
   if (range === "lastYear") return shiftMonths(today, -12);
-  const [year, month] = today.split("-");
-  if (range === "thisYear") return `${year}-01-01`;
-  return `${year}-${month}-01`;
+  if (range === "last30Days") return shiftDays(today, -29);
+  const [year] = today.split("-");
+  return `${year}-01-01`;
 }
 
 function rangeTickCount(range: TimeRange): number {
-  if (range === "thisMonth") return 5;
+  if (range === "last30Days") return 5;
   return 7;
 }
 
@@ -132,7 +132,7 @@ export function CrayonLineChart({
   const formatTick = (value: number): string => {
     const date = timestampDate(Number(value));
     const [, month, day] = date.split("-");
-    if (range === "thisMonth") return `${Number(month)}/${Number(day)}`;
+    if (range === "last30Days") return `${Number(month)}/${Number(day)}`;
     if (range === "lastYear" || range === "thisYear") return `${Number(month)}月`;
     const year = date.slice(0, 4);
     if (!birthDate) return year;

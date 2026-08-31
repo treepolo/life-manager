@@ -59,6 +59,12 @@ export function shiftMonths(localDate: string, months: number): string {
   return `${targetYear}-${String(targetMonth).padStart(2, "0")}-${String(targetDay).padStart(2, "0")}`;
 }
 
+export function shiftDays(localDate: string, days: number): string {
+  const [year, month, day] = parts(localDate);
+  const target = new Date(Date.UTC(year, month - 1, day + days));
+  return `${target.getUTCFullYear()}-${String(target.getUTCMonth() + 1).padStart(2, "0")}-${String(target.getUTCDate()).padStart(2, "0")}`;
+}
+
 export function localDateTimestamp(localDate: string): number {
   const [year, month, day] = parts(localDate);
   return Date.UTC(year, month - 1, day);
