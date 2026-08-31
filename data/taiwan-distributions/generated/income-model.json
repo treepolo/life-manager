@@ -1,0 +1,294 @@
+{
+  "schemaVersion": 1,
+  "kind": "taiwan-population-amount-distribution",
+  "metric": "monthlyIncomeNtd",
+  "label": "本人平均每月可支配所得",
+  "sourceYear": 2024,
+  "comparisonPopulation": 23299132,
+  "zeroMassPeople": 6545866,
+  "finiteBands": [
+    {
+      "minNtd": 0,
+      "maxNtd": 13333.333333333334,
+      "people": 493602,
+      "logSlopePerNtd": 0.00007543768967221906
+    },
+    {
+      "minNtd": 13333.333333333334,
+      "maxNtd": 15000,
+      "people": 461259,
+      "logSlopePerNtd": 0.0006185656950397345
+    },
+    {
+      "minNtd": 15000,
+      "maxNtd": 16666.666666666668,
+      "people": 485012,
+      "logSlopePerNtd": -0.000029649003398375284
+    },
+    {
+      "minNtd": 16666.666666666668,
+      "maxNtd": 18333.333333333332,
+      "people": 417853,
+      "logSlopePerNtd": -0.00009320970535482753
+    },
+    {
+      "minNtd": 18333.333333333332,
+      "maxNtd": 20000,
+      "people": 355482,
+      "logSlopePerNtd": -0.000033870004192304015
+    },
+    {
+      "minNtd": 20000,
+      "maxNtd": 21666.666666666668,
+      "people": 373243,
+      "logSlopePerNtd": -0.0000036510022349709434
+    },
+    {
+      "minNtd": 21666.666666666668,
+      "maxNtd": 23333.333333333332,
+      "people": 351182,
+      "logSlopePerNtd": 0.00003132775052075538
+    },
+    {
+      "minNtd": 23333.333333333332,
+      "maxNtd": 25000,
+      "people": 414327,
+      "logSlopePerNtd": 0.000021734617753027747
+    },
+    {
+      "minNtd": 25000,
+      "maxNtd": 26666.666666666668,
+      "people": 377569,
+      "logSlopePerNtd": 0.000028874188813284166
+    },
+    {
+      "minNtd": 26666.666666666668,
+      "maxNtd": 28333.333333333332,
+      "people": 456187,
+      "logSlopePerNtd": 0.00008849001638197182
+    },
+    {
+      "minNtd": 28333.333333333332,
+      "maxNtd": 30000,
+      "people": 507106,
+      "logSlopePerNtd": 0.00004537748227530184
+    },
+    {
+      "minNtd": 30000,
+      "maxNtd": 31666.666666666668,
+      "people": 530681,
+      "logSlopePerNtd": 0.00000682564081622043
+    },
+    {
+      "minNtd": 31666.666666666668,
+      "maxNtd": 33333.333333333336,
+      "people": 518776,
+      "logSlopePerNtd": 0.000010637689356478567
+    },
+    {
+      "minNtd": 33333.333333333336,
+      "maxNtd": 35000,
+      "people": 549836,
+      "logSlopePerNtd": 0.000015506628785929012
+    },
+    {
+      "minNtd": 35000,
+      "maxNtd": 36666.666666666664,
+      "people": 546296,
+      "logSlopePerNtd": -0.0000011660648152400217
+    },
+    {
+      "minNtd": 36666.666666666664,
+      "maxNtd": 38333.333333333336,
+      "people": 547703,
+      "logSlopePerNtd": -0.00002270520444972768
+    },
+    {
+      "minNtd": 38333.333333333336,
+      "maxNtd": 40000,
+      "people": 506476,
+      "logSlopePerNtd": -0.0000354366710515715
+    },
+    {
+      "minNtd": 40000,
+      "maxNtd": 41666.666666666664,
+      "people": 486682,
+      "logSlopePerNtd": -0.000006764258366247953
+    },
+    {
+      "minNtd": 41666.666666666664,
+      "maxNtd": 43333.333333333336,
+      "people": 495184,
+      "logSlopePerNtd": -0.000022446887264070915
+    },
+    {
+      "minNtd": 43333.333333333336,
+      "maxNtd": 45000,
+      "people": 451596,
+      "logSlopePerNtd": -0.00005176022248822328
+    },
+    {
+      "minNtd": 45000,
+      "maxNtd": 46666.666666666664,
+      "people": 416712,
+      "logSlopePerNtd": 0.0000018602688081516688
+    },
+    {
+      "minNtd": 46666.666666666664,
+      "maxNtd": 48333.333333333336,
+      "people": 454405,
+      "logSlopePerNtd": -0.000010066665791920897
+    },
+    {
+      "minNtd": 48333.333333333336,
+      "maxNtd": 50000,
+      "people": 402961,
+      "logSlopePerNtd": -0.000057673258401997616
+    },
+    {
+      "minNtd": 50000,
+      "maxNtd": 51666.666666666664,
+      "people": 374932,
+      "logSlopePerNtd": -0.00007141978366900271
+    },
+    {
+      "minNtd": 51666.666666666664,
+      "maxNtd": 53333.333333333336,
+      "people": 317594,
+      "logSlopePerNtd": -0.0000440448922076135
+    },
+    {
+      "minNtd": 53333.333333333336,
+      "maxNtd": 55000,
+      "people": 323736,
+      "logSlopePerNtd": -0.000023627976397145145
+    },
+    {
+      "minNtd": 55000,
+      "maxNtd": 57500,
+      "people": 440310,
+      "logSlopePerNtd": -0.000045100431934955764
+    },
+    {
+      "minNtd": 57500,
+      "maxNtd": 60000,
+      "people": 387568,
+      "logSlopePerNtd": -0.00006828392281100157
+    },
+    {
+      "minNtd": 60000,
+      "maxNtd": 62500,
+      "people": 312955,
+      "logSlopePerNtd": -0.0000555661120370381
+    },
+    {
+      "minNtd": 62500,
+      "maxNtd": 65833.33333333333,
+      "people": 391405,
+      "logSlopePerNtd": -0.00002034439247837468
+    },
+    {
+      "minNtd": 65833.33333333333,
+      "maxNtd": 69166.66666666667,
+      "people": 364349,
+      "logSlopePerNtd": -0.00002661295550726345
+    },
+    {
+      "minNtd": 69166.66666666667,
+      "maxNtd": 73333.33333333333,
+      "people": 409717,
+      "logSlopePerNtd": -0.00002328863763405968
+    },
+    {
+      "minNtd": 73333.33333333333,
+      "maxNtd": 78333.33333333333,
+      "people": 450116,
+      "logSlopePerNtd": -0.00002607112375018268
+    },
+    {
+      "minNtd": 78333.33333333333,
+      "maxNtd": 83333.33333333333,
+      "people": 378826,
+      "logSlopePerNtd": -0.000042876632583557314
+    },
+    {
+      "minNtd": 83333.33333333333,
+      "maxNtd": 89166.66666666667,
+      "people": 342027,
+      "logSlopePerNtd": -0.00005874985818440248
+    },
+    {
+      "minNtd": 89166.66666666667,
+      "maxNtd": 95833.33333333333,
+      "people": 254511,
+      "logSlopePerNtd": -0.00004164009458220288
+    },
+    {
+      "minNtd": 95833.33333333333,
+      "maxNtd": 104166.66666666667,
+      "people": 280441,
+      "logSlopePerNtd": -0.000022178167239221136
+    },
+    {
+      "minNtd": 104166.66666666667,
+      "maxNtd": 116666.66666666667,
+      "people": 329744,
+      "logSlopePerNtd": -0.00003955284742068727
+    },
+    {
+      "minNtd": 116666.66666666667,
+      "maxNtd": 150000,
+      "people": 417313,
+      "logSlopePerNtd": -0.000026726108152732573
+    },
+    {
+      "minNtd": 150000,
+      "maxNtd": 208333.33333333334,
+      "people": 259050,
+      "logSlopePerNtd": -0.000016276984628904782
+    }
+  ],
+  "tail": {
+    "type": "pareto",
+    "thresholdNtd": 208333.33333333334,
+    "people": 118542,
+    "alpha": 3.294219069994213,
+    "calibrationAnchors": [
+      {
+        "amountNtd": 116666.66666666667,
+        "survivalPeople": 794905
+      },
+      {
+        "amountNtd": 150000,
+        "survivalPeople": 377592
+      },
+      {
+        "amountNtd": 208333.33333333334,
+        "survivalPeople": 118542
+      }
+    ]
+  },
+  "diagnostics": {
+    "rawBracketPeople": 16753268,
+    "normalizedIncomeRecipients": 16753266,
+    "positiveMeanNtd": 50398.31121484179,
+    "officialIncomeRecipientMeanMonthlyNtd": 50490.75,
+    "officialIncomeRecipientMedianMonthlyNtd": 41657.583333333336,
+    "modelMeanNtd": 36238.96004937127
+  },
+  "provenance": {
+    "source": {
+      "publisher": "行政院主計總處",
+      "title": "113年家庭收支調查報告－第6表 所得收入者人數按性別及可支配所得組別分",
+      "url": "https://ws.dgbas.gov.tw/001/Upload/463/relfile/11503/235296/113.pdf"
+    },
+    "assumptions": {
+      "annualToMonthly": "divide-by-12",
+      "zeroIncome": "comparisonPopulation minus official incomeRecipients, held as a discrete zero-NTD mass",
+      "finiteBrackets": "official bracket headcounts are hard constraints; each bracket is represented by a normalized exponential density",
+      "openUpperBracket": "Pareto survival tail calibrated from the top three official survival anchors",
+      "peopleBeaten": "strictly fewer NTD than the queried amount; equal amounts do not count"
+    },
+    "extractionNote": "The extracted row totals sum to 16,753,268 while the official table total is 16,753,266. Build normalization preserves the official total exactly and adjusts row counts proportionally by deterministic largest remainder."
+  }
+}

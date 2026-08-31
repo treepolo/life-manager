@@ -1,0 +1,101 @@
+{
+  "schemaVersion": 1,
+  "metric": "individualEquivalentNetWorthNtd",
+  "label": "個人等值淨資產",
+  "comparisonPopulation": 23299132,
+  "wealthSourceYear": 2021,
+  "wealthSource": {
+    "publisher": "行政院主計總處",
+    "title": "111年國富統計報告－110年底家庭財富分配",
+    "url": "https://ws.dgbas.gov.tw/001/Upload/466/ebook/ebook_284392/pdf/full.pdf",
+    "definition": "家庭財富淨值＝非金融資產＋金融資產－金融性負債"
+  },
+  "householdDecileThresholdsNtd": [
+    1430000,
+    3190000,
+    4900000,
+    6770000,
+    8940000,
+    11710000,
+    15470000,
+    21340000,
+    33910000
+  ],
+  "householdQuintileMeansNtd": [
+    767000,
+    4927000,
+    9063000,
+    15807000,
+    51332000
+  ],
+  "householdDiagnostics": {
+    "meanNtd": 16380000,
+    "medianNtd": 8940000,
+    "gini": 0.606
+  },
+  "incomeQuintileHouseholdSizes": [
+    1.62,
+    2.3,
+    2.95,
+    3.52,
+    4.03
+  ],
+  "jointHouseholdCountsThousands": [
+    [270.6, 173.9, 113.8, 85.6, 58.9, 44.0, 47.1, 34.0, 26.6, 37.4],
+    [172.4, 167.4, 148.4, 138.0, 90.7, 62.9, 46.8, 35.0, 14.6, 15.7],
+    [117.6, 125.4, 136.3, 146.9, 103.7, 82.0, 70.0, 55.6, 37.7, 16.8],
+    [87.3, 102.5, 113.0, 112.0, 124.5, 108.9, 93.2, 68.8, 50.9, 31.0],
+    [68.1, 67.7, 93.9, 92.1, 124.1, 122.6, 108.9, 103.4, 70.5, 40.7],
+    [53.1, 55.2, 79.7, 82.4, 101.8, 114.5, 130.6, 111.8, 103.3, 59.6],
+    [32.5, 56.7, 57.3, 74.4, 89.5, 107.8, 112.4, 123.8, 145.8, 91.8],
+    [33.9, 54.6, 55.9, 52.3, 64.5, 84.6, 101.4, 143.4, 158.9, 142.7],
+    [36.0, 44.8, 51.3, 55.6, 70.3, 84.1, 95.3, 119.0, 145.5, 190.2],
+    [20.9, 43.4, 42.9, 52.5, 64.0, 80.5, 86.6, 97.2, 138.0, 266.1]
+  ],
+  "jointDistributionSource": {
+    "publisher": "行政院主計總處",
+    "title": "111年國富統計報告－表9 家庭財富按可支配所得十等分位分配",
+    "url": "https://ws.dgbas.gov.tw/001/Upload/466/ebook/ebook_284392/pdf/full.pdf"
+  },
+  "householdSizeSource": {
+    "publisher": "行政院主計總處",
+    "title": "110年家庭收支調查報告",
+    "url": "https://ws.dgbas.gov.tw/001/Upload/463/relfile/11503/229028/110.pdf"
+  },
+  "forbes2026": {
+    "publisher": "Forbes",
+    "title": "Taiwan's 50 Richest 2026",
+    "url": "https://www.forbes.com/sites/forbespr/2026/06/10/combined-wealth-of-taiwans-50-richest-on-forbes-list-surges-to-a-record-us308-billion/",
+    "valuationDate": "2026-05-22",
+    "ntdPerUsd": 31.568,
+    "fxSource": "https://www.cbc.gov.tw/tw/lp-645-1-2-60.html",
+    "listEntryCount": 50,
+    "combinedWealthUsd": 308000000000,
+    "entryCutoffUsd": 2200000000,
+    "topEntries": [
+      {"rank": 1, "names": ["Jason Chang", "Richard Chang"], "wealthUsd": 22400000000},
+      {"rank": 2, "names": ["Pierre Chen"], "wealthUsd": 18200000000},
+      {"rank": 3, "names": ["Daniel Tsai", "Richard Tsai"], "wealthUsd": 16700000000},
+      {"rank": 4, "names": ["Terry Gou"], "wealthUsd": 15500000000},
+      {"rank": 5, "names": ["Tsai Hong-tu", "Tsai Cheng-ta"], "wealthUsd": 15000000000},
+      {"rank": 6, "names": ["Barry Lam"], "wealthUsd": 14900000000},
+      {"rank": 7, "names": ["Bruce Cheng"], "wealthUsd": 14500000000},
+      {"rank": 8, "names": ["Tsai Ming-kai"], "wealthUsd": 10900000000},
+      {"rank": 9, "names": ["Morris Chang"], "wealthUsd": 9400000000},
+      {"rank": 10, "names": ["Wei Ing-Chou", "Wei Ying-Chiao", "Wei Yin-Chun", "Wei Yin-Heng"], "wealthUsd": 9000000000}
+    ],
+    "additionalPublishedAnchors": [
+      {"rank": 12, "names": ["Hsieh Wen-Ta"], "wealthUsd": 7100000000},
+      {"rank": 13, "names": ["Yang Chang-Chih"], "wealthUsd": 6800000000},
+      {"rank": 41, "names": ["Chin Jong Hwa"], "wealthUsd": 2510000000}
+    ]
+  },
+  "assumptions": {
+    "householdToIndividual": "use the official wealth-decile × income-decile household-count matrix and same-year income-quintile household sizes to estimate the average household size of each wealth decile; convert each wealth threshold with the adjacent wealth-decile household-size estimates and convert household counts to estimated people, then normalize to the fixed all-Taiwan population",
+    "quintileMeanCalibration": "convert each wealth quintile mean using the weighted household-size estimate for the corresponding two wealth deciles; calibrate lower and middle within-band shapes to those converted means",
+    "lowerTail": "retain negative net worth with a reverse-exponential lower tail calibrated to the first converted wealth-quintile mean",
+    "topTail": "retain the official D5-D9 survival fit as a diagnostic, then use a piecewise Pareto upper tail that preserves the converted top-quintile mean and connects to the Forbes top-50 cutoff and largest individual-equivalent Forbes anchor",
+    "forbesFamilySplit": "when a Forbes entry explicitly lists multiple named relatives, split the listed fortune equally only to derive individual-equivalent tail diagnostics/top anchor; the 50-entry cutoff remains an entry-count anchor",
+    "peopleBeaten": "strictly lower net worth than the queried amount"
+  }
+}

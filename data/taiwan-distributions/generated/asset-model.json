@@ -1,0 +1,101 @@
+{
+  "schemaVersion": 2,
+  "kind": "taiwan-population-amount-distribution",
+  "metric": "individualEquivalentNetWorthNtd",
+  "label": "個人等值淨資產",
+  "sourceYear": 2021,
+  "comparisonPopulation": 23299132,
+  "zeroMassPeople": 0,
+  "lowerTail": {
+    "type": "reverse-exponential",
+    "upperThresholdNtd": 622455.5382626432,
+    "people": 1834571,
+    "scaleNtd": 947079.9043960393
+  },
+  "finiteBands": [
+    {"minNtd":622455.5382626432,"maxNtd":1315164.3088434488,"people":1876870,"logSlopePerNtd":2.1763150169790784e-7},
+    {"minNtd":1315164.3088434488,"maxNtd":1872615.4762300022,"people":2041901,"logSlopePerNtd":1.0285561534483284e-7},
+    {"minNtd":1872615.4762300022,"maxNtd":2423039.3781410507,"people":2186103,"logSlopePerNtd":1.0285561534483284e-7},
+    {"minNtd":2423039.3781410507,"maxNtd":3028040.726101268,"people":2328465,"logSlopePerNtd":-1.3312486072033703e-7},
+    {"minNtd":3028040.726101268,"maxNtd":3788312.8778563114,"people":2441766,"logSlopePerNtd":-1.3312486072033703e-7},
+    {"minNtd":3788312.8778563114,"maxNtd":4819030.242928126,"people":2552534,"logSlopePerNtd":-4.342351097846289e-7},
+    {"minNtd":4819030.242928126,"maxNtd":6510360.300594733,"people":2634785,"logSlopePerNtd":-4.342351097846289e-7},
+    {"minNtd":6510360.300594733,"maxNtd":10143188.3950092,"people":2662167,"logSlopePerNtd":-4.342351097846289e-7}
+  ],
+  "tail": {
+    "type": "piecewise-pareto-capped",
+    "thresholdNtd": 10143188.3950092,
+    "people": 2739970,
+    "knotNtd": 50715941.975045994,
+    "knotSurvivalPeople": 27891.908600512692,
+    "forbesCutoffNtd": 69449600000,
+    "forbesCutoffSurvivalPeople": 50,
+    "maxAnchorNtd": 574537600000,
+    "maxAnchorSurvivalPeople": 1,
+    "alphaThresholdToKnot": 2.85029051604276,
+    "alphaKnotToCutoff": 0.8756531537285848,
+    "alphaCutoffToMax": 1.8514383457137893,
+    "targetMeanNtd": 22628448.29844562,
+    "calibratedMeanNtd": 22628448.29844562,
+    "officialD5D9ParetoAlpha": 1.2990416707932966,
+    "officialD5D9Anchors": [
+      {"amountNtd":3028040.726101268,"survivalPeople":13031222},
+      {"amountNtd":3788312.8778563114,"survivalPeople":10589456},
+      {"amountNtd":4819030.242928126,"survivalPeople":8036922},
+      {"amountNtd":6510360.300594733,"survivalPeople":5402137},
+      {"amountNtd":10143188.3950092,"survivalPeople":2739970}
+    ],
+    "forbesIndividualAnchors": [
+      {"name":"Pierre Chen","sourceRank":2,"amountUsd":18200000000,"amountNtd":574537600000},
+      {"name":"Terry Gou","sourceRank":4,"amountUsd":15500000000,"amountNtd":489304000000},
+      {"name":"Barry Lam","sourceRank":6,"amountUsd":14900000000,"amountNtd":470363200000},
+      {"name":"Bruce Cheng","sourceRank":7,"amountUsd":14500000000,"amountNtd":457736000000},
+      {"name":"Jason Chang","sourceRank":1,"amountUsd":11200000000,"amountNtd":353561600000},
+      {"name":"Richard Chang","sourceRank":1,"amountUsd":11200000000,"amountNtd":353561600000},
+      {"name":"Tsai Ming-kai","sourceRank":8,"amountUsd":10900000000,"amountNtd":344091200000},
+      {"name":"Morris Chang","sourceRank":9,"amountUsd":9400000000,"amountNtd":296739200000},
+      {"name":"Daniel Tsai","sourceRank":3,"amountUsd":8350000000,"amountNtd":263592800000},
+      {"name":"Richard Tsai","sourceRank":3,"amountUsd":8350000000,"amountNtd":263592800000},
+      {"name":"Tsai Cheng-ta","sourceRank":5,"amountUsd":7500000000,"amountNtd":236760000000},
+      {"name":"Tsai Hong-tu","sourceRank":5,"amountUsd":7500000000,"amountNtd":236760000000},
+      {"name":"Wei Ing-Chou","sourceRank":10,"amountUsd":2250000000,"amountNtd":71028000000},
+      {"name":"Wei Yin-Chun","sourceRank":10,"amountUsd":2250000000,"amountNtd":71028000000},
+      {"name":"Wei Yin-Heng","sourceRank":10,"amountUsd":2250000000,"amountNtd":71028000000},
+      {"name":"Wei Ying-Chiao","sourceRank":10,"amountUsd":2250000000,"amountNtd":71028000000}
+    ]
+  },
+  "diagnostics": {
+    "incomeDecileHouseholdSizes": [1.62,1.62,2.3,2.3,2.95,2.95,3.52,3.52,4.03,4.03],
+    "wealthDecileHouseholdsThousands": [891.9,891.9000000000001,892.0000000000001,892.0999999999999,892,891.9999999999999,892,892.1999999999998,892.1000000000001,892.1],
+    "wealthDecileEstimatedPeopleThousands": [2025.6570000000002,2072.3610000000003,2254.5820000000003,2413.803,2570.993,2696.0960000000005,2818.4010000000003,2909.2190000000005,2939.453,3025.36],
+    "wealthDecileAverageHouseholdSizes": [2.27117053481332,2.3235351496804575,2.5275582959641256,2.705753839255689,2.8822791479820626,3.0225291479820635,3.1596423766816146,3.260725173727865,3.294981504315659,3.3912790045958974],
+    "boundaryHouseholdSizes": [2.2973528422468883,2.4255524412803413,2.6166610615996864,2.7940115464379804,2.9524041479820626,3.091085762331839,3.210189440645668,3.277852379084235,3.343130254455778],
+    "wealthDecilePeople": [1834571,1876870,2041901,2186103,2328465,2441766,2552534,2634785,2662167,2739970],
+    "individualEquivalentDecileThresholdsNtd": [622455.5382626432,1315164.3088434488,1872615.4762300022,2423039.3781410507,3028040.726101268,3788312.8778563114,4819030.242928126,6510360.300594733,10143188.3950092],
+    "wealthQuintileAverageHouseholdSizes": [2.2973528422468883,2.6166610615996864,2.9524041479820626,3.210189440645668,3.343130254455778],
+    "sourceQuintileMeansIndividualEquivalentNtd": [333862.51597723586,1882933.9696704533,3069701.689111386,4924008.471232378,15354472.03458013],
+    "modeledQuintileMeansNtd": [333862.5159772359,1882933.9696704524,3069701.689111386,4924008.471232378,15354472.034580128],
+    "lowerTailMeanNtd": -324624.36613339616,
+    "estimatedPeopleBelowZero": 950824.388675205,
+    "topFiniteMeanNtd": 7867910.619122896,
+    "requiredTopDecileMeanNtd": 22628448.29844562,
+    "officialD5D9ParetoAlpha": 1.2990416707932966,
+    "forbesCutoffNtd": 69449600000,
+    "forbesMaxIndividualEquivalentNtd": 574537600000,
+    "modelMeanNtd": 5679727.199119279
+  },
+  "provenance": {
+    "wealthSource": {"publisher":"行政院主計總處","title":"111年國富統計報告－110年底家庭財富分配","url":"https://ws.dgbas.gov.tw/001/Upload/466/ebook/ebook_284392/pdf/full.pdf","definition":"家庭財富淨值＝非金融資產＋金融資產－金融性負債"},
+    "jointDistributionSource": {"publisher":"行政院主計總處","title":"111年國富統計報告－表9 家庭財富按可支配所得十等分位分配","url":"https://ws.dgbas.gov.tw/001/Upload/466/ebook/ebook_284392/pdf/full.pdf"},
+    "householdSizeSource": {"publisher":"行政院主計總處","title":"110年家庭收支調查報告","url":"https://ws.dgbas.gov.tw/001/Upload/463/relfile/11503/229028/110.pdf"},
+    "forbesSource": {"publisher":"Forbes","title":"Taiwan's 50 Richest 2026","url":"https://www.forbes.com/sites/forbespr/2026/06/10/combined-wealth-of-taiwans-50-richest-on-forbes-list-surges-to-a-record-us308-billion/","valuationDate":"2026-05-22","ntdPerUsd":31.568,"fxSource":"https://www.cbc.gov.tw/tw/lp-645-1-2-60.html","combinedWealthUsd":308000000000},
+    "assumptions": {
+      "householdToIndividual": "use the official wealth-decile × income-decile household-count matrix and same-year income-quintile household sizes to estimate the average household size of each wealth decile; convert each wealth threshold with the adjacent wealth-decile household-size estimates and convert household counts to estimated people, then normalize to the fixed all-Taiwan population",
+      "quintileMeanCalibration": "convert each wealth quintile mean using the weighted household-size estimate for the corresponding two wealth deciles; calibrate lower and middle within-band shapes to those converted means",
+      "lowerTail": "retain negative net worth with a reverse-exponential lower tail calibrated to the first converted wealth-quintile mean",
+      "topTail": "retain the official D5-D9 survival fit as a diagnostic, then use a piecewise Pareto upper tail that preserves the converted top-quintile mean and connects to the Forbes top-50 cutoff and largest individual-equivalent Forbes anchor",
+      "forbesFamilySplit": "when a Forbes entry explicitly lists multiple named relatives, split the listed fortune equally only to derive individual-equivalent tail diagnostics/top anchor; the 50-entry cutoff remains an entry-count anchor",
+      "peopleBeaten": "strictly lower net worth than the queried amount"
+    }
+  }
+}
