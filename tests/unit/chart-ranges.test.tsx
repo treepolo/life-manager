@@ -12,18 +12,19 @@ vi.mock("recharts", () => ({
   YAxis: () => null,
   XAxis: (props: {
     domain: [number | string, number | string];
-    tickCount?: number;
     ticks?: number[];
     tickFormatter: (value: number) => string;
+    padding?: { left?: number; right?: number };
   }) => (
     <foreignObject>
       <div
         data-testid="mock-x-axis"
         data-start={String(props.domain[0])}
         data-end={String(props.domain[1])}
-        data-tick-count={String(props.tickCount ?? "")}
         data-ticks={(props.ticks ?? []).join(",")}
         data-tick-labels={(props.ticks ?? []).map((value) => props.tickFormatter(value)).join("|")}
+        data-padding-left={String(props.padding?.left ?? "")}
+        data-padding-right={String(props.padding?.right ?? "")}
       />
     </foreignObject>
   ),
@@ -54,37 +55,51 @@ function chart() {
   );
 }
 
+function ticksOf(axis: HTMLElement): string[] {
+  return (axis.getAttribute("data-ticks") ?? "").split(",").filter(Boolean);
+}
+
+function labelsOf(axis: HTMLElement): string[] {
+  return (axis.getAttribute("data-tick-labels") ?? "").split("|").filter(Boolean);
+}
+
 describe("圖表時間尺度", () => {
-  it("全部尺度明確產生多個跨人生區間的年份與年齡刻度", () => {
+  it("全部尺度明確產生多個跨人生區間刻度，年份與年齡分成兩行且左右保留安全距離", () => {
     chart();
     const axis = screen.getByTestId("mock-x-axis");
-    const ticks = (axis.getAttribute("data-ticks") ?? "").split(",").filter(Boolean);
-    const labels = (axis.getAttribute("data-tick-labels") ?? "").split("|").filter(Boolean);
+    const ticks = ticksOf(axis);
+    const labels = labelsOf(axis);
     const currentAge = ageOnDate("2004-01-01", today);
 
     expect(axis).toHaveAttribute("data-start", String(localDateTimestamp("2004-01-01")));
-    expect(ticks.length).toBeGreaterThanOrEqual(4);
+    expect(ticks.length).toBeGreaterThanOrEqual(5);
     expect(ticks[0]).toBe(String(localDateTimestamp("2004-01-01")));
     expect(ticks.at(-1)).toBe(String(localDateTimestamp(today)));
-    expect(labels[0]).toContain("2004");
-    expect(labels[0]).toContain("0歲");
-    expect(labels.at(-1)).toContain(`${currentAge}歲`);
+    expect(labels[0]).toBe("2004\n0歲");
+    expect(labels.at(-1)).toBe(`${year}\n${currentAge}歲`);
+    expect(axis).toHaveAttribute("data-padding-left", "26");
+    expect(axis).toHaveAttribute("data-padding-right", "26");
     expect(screen.getByRole("button", { name: "全部" })).toHaveAttribute("aria-pressed", "true");
   });
 
-  it("可切到近一年、今年與近30天", () => {
+  it("近一年、今年與近30天都有多個明確刻度而不是只顯示最右端", () => {
     chart();
     const axis = () => screen.getByTestId("mock-x-axis");
 
     fireEvent.click(screen.getByRole("button", { name: "近一年" }));
     expect(axis()).toHaveAttribute("data-start", String(localDateTimestamp(shiftMonths(today, -12))));
+    expect(ticksOf(axis()).length).toBeGreaterThanOrEqual(5);
+    expect(labelsOf(axis()).every((label) => label.endsWith("月"))).toBe(true);
 
     fireEvent.click(screen.getByRole("button", { name: "今年" }));
     expect(axis()).toHaveAttribute("data-start", String(localDateTimestamp(`${year}-01-01`)));
+    expect(ticksOf(axis()).length).toBeGreaterThanOrEqual(5);
+    expect(labelsOf(axis()).every((label) => label.endsWith("月"))).toBe(true);
 
     fireEvent.click(screen.getByRole("button", { name: "近30天" }));
     expect(axis()).toHaveAttribute("data-start", String(localDateTimestamp(shiftDays(today, -29))));
-    expect(axis()).toHaveAttribute("data-tick-count", "5");
+    expect(ticksOf(axis()).length).toBeGreaterThanOrEqual(5);
+    expect(labelsOf(axis()).every((label) => /^\d{1,2}\/\d{1,2}$/.test(label))).toBe(true);
     expect(screen.getByRole("button", { name: "近30天" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.queryByRole("button", { name: "本月" })).not.toBeInTheDocument();
   });
