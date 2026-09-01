@@ -40,6 +40,14 @@ ACCESS_AUD = "0cc6ca1ed73a340419af9e457ce44f52c7b2d67e04272440c223ce6610e1feca"
 name = "life-manager"
 workers_dev = true
 
+[[env.production.d1_databases]]
+binding = "LIFE_DB"
+database_name = "life-manager"
+database_id = "36e56073-507b-4622-8247-8ee0f0b7ce7e"
+migrations_dir = "migrations"
+
 [env.production.vars]
 ENVIRONMENT = "production"
 APP_TIMEZONE = "Asia/Taipei"
+ACCESS_TEAM_DOMAIN = "life-manager.cloudflareaccess.com"
+ACCESS_AUD = "8744d36b8d42aade7a7a06a5db214c51cad369badacd1720ea30a27f91af3410"
