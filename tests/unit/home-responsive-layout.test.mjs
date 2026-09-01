@@ -17,14 +17,22 @@ describe("首頁響應式版面", () => {
     expect(responsiveStyles).not.toMatch(/\n\s*\.page\.crayon-page\s*\{/);
   });
 
-  it("手機把無外框生日進度放回成就區最上方", () => {
-    expect(responsiveStyles).toMatch(/\.achievement-board \.life-ribbon \{[\s\S]*grid-row: 1;[\s\S]*border: 0;[\s\S]*box-shadow: none;/);
+  it("生日進度在所有尺寸都使用無外框樣式", () => {
+    expect(responsiveStyles).toMatch(/\.page\.crayon-page:has\(> \.achievement-board\) \.life-ribbon \{[\s\S]*border: 0;[\s\S]*background: transparent;[\s\S]*box-shadow: none;[\s\S]*transform: none;/);
+  });
+
+  it("手機把生日進度放在成就區最上方", () => {
+    expect(responsiveStyles).toMatch(/\.achievement-board \.life-ribbon \{[\s\S]*grid-row: 1;/);
     expect(responsiveStyles).toMatch(/\.achievement-title-copy \{[\s\S]*grid-row: 2;/);
     expect(responsiveStyles).toMatch(/\.achievement-grid \{[\s\S]*grid-row: 3;/);
   });
 
   it("手機成就橫向卡片保留左右 gutter", () => {
     expect(responsiveStyles).toMatch(/\.achievement-grid \{[\s\S]*padding: 4px 16px 15px;[\s\S]*scroll-padding-inline: 16px;/);
+  });
+
+  it("手機成就大框右側與底部陰影連續", () => {
+    expect(responsiveStyles).toMatch(/\.achievement-grid \{[\s\S]*box-shadow: 4px 0 0 #b6a78c, 4px 4px 0 #b6a78c;/);
   });
 
   it("任務成就卡與進度條不再刻意旋轉", () => {

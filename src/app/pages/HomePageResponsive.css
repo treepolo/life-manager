@@ -6,6 +6,14 @@
   background: #fff8d8;
 }
 
+/* Birthday progress is intentionally frameless on every viewport. */
+.page.crayon-page:has(> .achievement-board) .life-ribbon {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  transform: none;
+}
+
 /* Keep task achievement typography and progress graphics visually level. */
 .page.crayon-page:has(> .achievement-board) .achievement-card.task-achievement {
   transform: none;
@@ -44,10 +52,6 @@
     min-width: 0;
     margin: 0 0 12px;
     padding: 5px 8px 8px;
-    border: 0;
-    background: transparent;
-    box-shadow: none;
-    transform: none;
     z-index: 2;
   }
 
@@ -75,7 +79,7 @@
     border-top: 0;
     border-radius: 0 0 9px 6px;
     background: #fff8d8;
-    box-shadow: 4px 4px 0 #b6a78c;
+    box-shadow: 4px 0 0 #b6a78c, 4px 4px 0 #b6a78c;
   }
 
   .page.crayon-page:has(> .achievement-board) .achievement-title-copy h1 { margin-bottom: 0; }
