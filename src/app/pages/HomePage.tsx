@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, type CSSProperties, type FormEvent } from "react";
+import { useMemo, type CSSProperties, type FormEvent } from "react";
 
 import { useResource } from "@/app/hooks/use-resource";
 import { CrayonLineChart } from "@/components/CrayonLineChart";
@@ -142,55 +142,36 @@ function AchievementBoard({
   today: string;
   achievementCardsReady: boolean;
 }) {
-  const achievementGridRef = useRef<HTMLDivElement>(null);
-  const didResetInitialScroll = useRef(false);
-
-  useEffect(() => {
-    if (!achievementCardsReady || didResetInitialScroll.current) return;
-    const grid = achievementGridRef.current;
-    if (!grid) return;
-
-    let secondFrame = 0;
-    const firstFrame = requestAnimationFrame(() => {
-      grid.scrollLeft = 0;
-      secondFrame = requestAnimationFrame(() => {
-        grid.scrollLeft = 0;
-        didResetInitialScroll.current = true;
-      });
-    });
-
-    return () => {
-      cancelAnimationFrame(firstFrame);
-      if (secondFrame) cancelAnimationFrame(secondFrame);
-    };
-  }, [achievementCardsReady]);
-
   return (
     <section className="achievement-board" aria-label="成就">
       <div className="achievement-board-head">
         <div className="achievement-title-copy"><p className="eyebrow">成就</p><h1>你已經累積到這裡</h1></div>
         <LifeRibbon birthDate={birthDate} today={today} />
       </div>
-      <div className="achievement-grid" ref={achievementGridRef}>
-        {taskAchievements.slice(0, 2).map((achievement) => <TaskAchievementCard achievement={achievement} key={achievement.taskId} />)}
-        <PopulationComparisonCard
-          label="月收入"
-          metricKind="MONTHLY_INCOME"
-          history={history}
-          goal={incomeGoal}
-          today={today}
-          model={TAIWAN_MONTHLY_INCOME_MODEL}
-          info={TAIWAN_MONTHLY_INCOME_INFO}
-        />
-        <PopulationComparisonCard
-          label="淨資產"
-          metricKind="NET_WORTH"
-          history={history}
-          goal={netWorthGoal}
-          today={today}
-          model={TAIWAN_NET_WORTH_MODEL}
-          info={TAIWAN_NET_WORTH_INFO}
-        />
+      <div className="achievement-grid" aria-busy={!achievementCardsReady}>
+        {achievementCardsReady ? (
+          <>
+            {taskAchievements.slice(0, 2).map((achievement) => <TaskAchievementCard achievement={achievement} key={achievement.taskId} />)}
+            <PopulationComparisonCard
+              label="月收入"
+              metricKind="MONTHLY_INCOME"
+              history={history}
+              goal={incomeGoal}
+              today={today}
+              model={TAIWAN_MONTHLY_INCOME_MODEL}
+              info={TAIWAN_MONTHLY_INCOME_INFO}
+            />
+            <PopulationComparisonCard
+              label="淨資產"
+              metricKind="NET_WORTH"
+              history={history}
+              goal={netWorthGoal}
+              today={today}
+              model={TAIWAN_NET_WORTH_MODEL}
+              info={TAIWAN_NET_WORTH_INFO}
+            />
+          </>
+        ) : null}
       </div>
     </section>
   );
