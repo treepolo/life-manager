@@ -6,6 +6,12 @@
   background: #fff8d8;
 }
 
+/* Keep the achievement scroller anchored to its logical start while async
+   achievement cards are inserted before the financial cards. */
+.page.crayon-page:has(> .achievement-board) .achievement-grid {
+  overflow-anchor: none;
+}
+
 /* Birthday progress is intentionally frameless on every viewport. */
 .page.crayon-page:has(> .achievement-board) .life-ribbon {
   border: 0;

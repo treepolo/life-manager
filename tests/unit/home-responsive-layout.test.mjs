@@ -17,6 +17,10 @@ describe("首頁響應式版面", () => {
     expect(responsiveStyles).not.toMatch(/\n\s*\.page\.crayon-page\s*\{/);
   });
 
+  it("成就卡非同步插入時不讓瀏覽器把橫向位置錨定到右側", () => {
+    expect(responsiveStyles).toMatch(/\.page\.crayon-page:has\(> \.achievement-board\) \.achievement-grid \{\s*overflow-anchor: none;/);
+  });
+
   it("生日進度在所有尺寸都使用無外框樣式", () => {
     expect(responsiveStyles).toMatch(/\.page\.crayon-page:has\(> \.achievement-board\) \.life-ribbon \{[\s\S]*border: 0;[\s\S]*background: transparent;[\s\S]*box-shadow: none;[\s\S]*transform: none;/);
   });
