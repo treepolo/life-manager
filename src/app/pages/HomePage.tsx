@@ -91,7 +91,7 @@ function TaskAchievementCard({ achievement }: { achievement: TaskAchievement }) 
       <span className="achievement-name">{achievement.achievementName}</span>
       <MilestoneTrack achievement={achievement} />
       {achievement.milestoneTier ? (
-        <div className="milestone-note">幹得漂亮啊我自己，有認真地活著吧</div>
+        <div className="milestone-note">幹得漂亮啊我自己!!想必這段時間有認真地活著吧......</div>
       ) : null}
     </article>
   );
