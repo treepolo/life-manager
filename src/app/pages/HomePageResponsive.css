@@ -6,6 +6,22 @@
   background: #fff8d8;
 }
 
+/* Keep task achievement typography and progress graphics visually level. */
+.page.crayon-page:has(> .achievement-board) .achievement-card.task-achievement {
+  transform: none;
+}
+.page.crayon-page:has(> .achievement-board) .task-achievement .achievement-number-row {
+  align-items: baseline;
+  gap: 6px;
+}
+.page.crayon-page:has(> .achievement-board) .task-achievement .achievement-number-row strong,
+.page.crayon-page:has(> .achievement-board) .task-achievement .achievement-number-row b {
+  line-height: 1;
+}
+.page.crayon-page:has(> .achievement-board) .task-achievement .milestone-track i {
+  transform: none;
+}
+
 @media (max-width: 780px) {
   .page.crayon-page:has(> .achievement-board) .achievement-board {
     display: grid;
@@ -21,8 +37,22 @@
   .page.crayon-page:has(> .achievement-board) .achievement-board::after { display: none; }
   .page.crayon-page:has(> .achievement-board) .achievement-board-head { display: contents; }
 
-  .page.crayon-page:has(> .achievement-board) .achievement-title-copy {
+  .page.crayon-page:has(> .achievement-board) .achievement-board .life-ribbon {
     grid-row: 1;
+    justify-self: center;
+    width: 100%;
+    min-width: 0;
+    margin: 0 0 12px;
+    padding: 5px 8px 8px;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    transform: none;
+    z-index: 2;
+  }
+
+  .page.crayon-page:has(> .achievement-board) .achievement-title-copy {
+    grid-row: 2;
     position: relative;
     z-index: 1;
     margin: 0;
@@ -35,30 +65,17 @@
   }
 
   .page.crayon-page:has(> .achievement-board) .achievement-grid {
-    grid-row: 2;
+    grid-row: 3;
     position: relative;
     z-index: 1;
     margin: 0;
-    padding: 2px 12px 15px;
+    padding: 4px 16px 15px;
+    scroll-padding-inline: 16px;
     border: 3px solid var(--ink);
     border-top: 0;
     border-radius: 0 0 9px 6px;
     background: #fff8d8;
     box-shadow: 4px 4px 0 #b6a78c;
-  }
-
-  .page.crayon-page:has(> .achievement-board) .achievement-board .life-ribbon {
-    grid-row: 3;
-    justify-self: center;
-    width: 100%;
-    min-width: 0;
-    margin: 14px 0 0;
-    padding: 10px 12px 9px;
-    border: 2px solid #776b59;
-    background: #fffdf4;
-    box-shadow: 3px 3px 0 rgba(93, 81, 66, .18);
-    transform: none;
-    z-index: 2;
   }
 
   .page.crayon-page:has(> .achievement-board) .achievement-title-copy h1 { margin-bottom: 0; }

@@ -17,15 +17,23 @@ describe("首頁響應式版面", () => {
     expect(responsiveStyles).not.toMatch(/\n\s*\.page\.crayon-page\s*\{/);
   });
 
-  it("手機先顯示成就卡，再把生日進度獨立放在下方", () => {
-    expect(responsiveStyles).toMatch(/\.achievement-title-copy \{[\s\S]*grid-row: 1;/);
-    expect(responsiveStyles).toMatch(/\.achievement-grid \{[\s\S]*grid-row: 2;/);
-    expect(responsiveStyles).toMatch(/\.achievement-board \.life-ribbon \{[\s\S]*grid-row: 3;[\s\S]*width: 100%;/);
+  it("手機把無外框生日進度放回成就區最上方", () => {
+    expect(responsiveStyles).toMatch(/\.achievement-board \.life-ribbon \{[\s\S]*grid-row: 1;[\s\S]*border: 0;[\s\S]*box-shadow: none;/);
+    expect(responsiveStyles).toMatch(/\.achievement-title-copy \{[\s\S]*grid-row: 2;/);
+    expect(responsiveStyles).toMatch(/\.achievement-grid \{[\s\S]*grid-row: 3;/);
   });
 
-  it("不再覆寫桌機成十二欄儀表板，並移除成就底紙的尺寸相依裝飾點", () => {
+  it("手機成就橫向卡片保留左右 gutter", () => {
+    expect(responsiveStyles).toMatch(/\.achievement-grid \{[\s\S]*padding: 4px 16px 15px;[\s\S]*scroll-padding-inline: 16px;/);
+  });
+
+  it("任務成就卡與進度條不再刻意旋轉", () => {
+    expect(responsiveStyles).toMatch(/\.achievement-card\.task-achievement \{\s*transform: none;/);
+    expect(responsiveStyles).toMatch(/\.task-achievement \.milestone-track i \{\s*transform: none;/);
+  });
+
+  it("不覆寫桌機成十二欄儀表板", () => {
     expect(responsiveStyles).not.toContain("@media (min-width: 1180px)");
     expect(responsiveStyles).not.toContain("repeat(12, minmax(0, 1fr))");
-    expect(responsiveStyles).toMatch(/\.achievement-board \{\s*background: #fff8d8;/);
   });
 });
