@@ -1,5 +1,10 @@
-/* Homepage-only responsive overrides. The :has() guard prevents these
-   dashboard rules from leaking into Settings/Tasks, which share .crayon-page. */
+/* Homepage-only responsive overrides. Keep desktop on the original layout;
+   only the mobile achievement composition is rearranged here. */
+
+/* Remove the size-dependent decorative dots from the achievement sheet. */
+.page.crayon-page:has(> .achievement-board) .achievement-board {
+  background: #fff8d8;
+}
 
 @media (max-width: 780px) {
   .page.crayon-page:has(> .achievement-board) .achievement-board {
@@ -16,12 +21,38 @@
   .page.crayon-page:has(> .achievement-board) .achievement-board::after { display: none; }
   .page.crayon-page:has(> .achievement-board) .achievement-board-head { display: contents; }
 
-  .page.crayon-page:has(> .achievement-board) .achievement-board .life-ribbon {
+  .page.crayon-page:has(> .achievement-board) .achievement-title-copy {
     grid-row: 1;
+    position: relative;
+    z-index: 1;
+    margin: 0;
+    padding: 17px 18px 10px;
+    border: 3px solid var(--ink);
+    border-bottom: 0;
+    border-radius: 10px 5px 0 0;
+    background: #fff8d8;
+    box-shadow: 4px 0 0 #b6a78c;
+  }
+
+  .page.crayon-page:has(> .achievement-board) .achievement-grid {
+    grid-row: 2;
+    position: relative;
+    z-index: 1;
+    margin: 0;
+    padding: 2px 12px 15px;
+    border: 3px solid var(--ink);
+    border-top: 0;
+    border-radius: 0 0 9px 6px;
+    background: #fff8d8;
+    box-shadow: 4px 4px 0 #b6a78c;
+  }
+
+  .page.crayon-page:has(> .achievement-board) .achievement-board .life-ribbon {
+    grid-row: 3;
     justify-self: center;
     width: 100%;
     min-width: 0;
-    margin: 0 0 14px;
+    margin: 14px 0 0;
     padding: 10px 12px 9px;
     border: 2px solid #776b59;
     background: #fffdf4;
@@ -30,145 +61,5 @@
     z-index: 2;
   }
 
-  .page.crayon-page:has(> .achievement-board) .achievement-title-copy {
-    grid-row: 2;
-    position: relative;
-    z-index: 1;
-    margin: 0;
-    padding: 17px 18px 10px;
-    border: 3px solid var(--ink);
-    border-bottom: 0;
-    border-radius: 10px 5px 0 0;
-    background: radial-gradient(circle at 9% 14%, rgba(217,75,55,.12) 0 4px, transparent 5px), #fff8d8;
-    box-shadow: 4px 0 0 #b6a78c;
-  }
-
-  .page.crayon-page:has(> .achievement-board) .achievement-grid {
-    grid-row: 3;
-    position: relative;
-    z-index: 1;
-    margin: 0;
-    padding: 2px 12px 15px;
-    border: 3px solid var(--ink);
-    border-top: 0;
-    border-radius: 0 0 9px 6px;
-    background: radial-gradient(circle at 89% 80%, rgba(63,138,88,.12) 0 5px, transparent 6px), #fff8d8;
-    box-shadow: 4px 4px 0 #b6a78c;
-  }
-
   .page.crayon-page:has(> .achievement-board) .achievement-title-copy h1 { margin-bottom: 0; }
-}
-
-@media (min-width: 1180px) {
-  .main-stage:has(> .page.crayon-page > .achievement-board) {
-    padding: 12px clamp(16px, 2vw, 30px) 18px;
-  }
-
-  .page.crayon-page:has(> .achievement-board) {
-    width: min(1600px, 100%);
-    grid-template-columns: repeat(12, minmax(0, 1fr));
-    grid-auto-flow: row dense;
-    gap: 10px;
-  }
-
-  .page.crayon-page:has(> .achievement-board) > .achievement-board {
-    grid-column: 1 / -1;
-    grid-row: 1;
-    padding: 12px 15px 11px;
-  }
-
-  .page.crayon-page:has(> .achievement-board) > .hero-scribble.hero-with-tasks {
-    grid-column: 1 / 8;
-    grid-row: 2;
-    align-self: stretch;
-    padding: 13px 15px;
-    column-gap: 14px;
-  }
-
-  .page.crayon-page:has(> .achievement-board) > .money-overview {
-    grid-column: 8 / -1;
-    grid-row: 2;
-    align-self: stretch;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 8px;
-  }
-
-  .page.crayon-page:has(> .achievement-board) > .chart-stack {
-    grid-column: 1 / -1;
-    grid-row: 3;
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 8px;
-  }
-
-  .page.crayon-page:has(> .achievement-board) > .notice-strip { grid-column: 1 / -1; }
-
-  .page.crayon-page:has(> .achievement-board) .achievement-board-head {
-    grid-template-columns: minmax(180px, .72fr) minmax(350px, 440px);
-    align-items: center;
-    gap: 14px;
-    margin: 0 6px 8px;
-  }
-
-  .page.crayon-page:has(> .achievement-board) .achievement-title-copy { padding: 2px 0 3px 5px; }
-  .page.crayon-page:has(> .achievement-board) .achievement-board-head h1 { margin-top: 1px; font-size: clamp(20px, 1.55vw, 25px); }
-  .page.crayon-page:has(> .achievement-board) .life-ribbon { padding: 6px 10px 7px; }
-  .page.crayon-page:has(> .achievement-board) .life-ribbon-summary { gap: 6px; }
-  .page.crayon-page:has(> .achievement-board) .life-ribbon-summary strong { font-size: 16px; }
-  .page.crayon-page:has(> .achievement-board) .life-ribbon-summary b { font-size: 10px; }
-  .page.crayon-page:has(> .achievement-board) .birthday-year-axis { margin-top: 3px; }
-  .page.crayon-page:has(> .achievement-board) .birthday-year-line { height: 23px; }
-
-  .page.crayon-page:has(> .achievement-board) .achievement-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 7px;
-  }
-
-  .page.crayon-page:has(> .achievement-board) .achievement-card { min-height: 145px; padding: 9px 10px 8px; }
-  .page.crayon-page:has(> .achievement-board) .achievement-number-row strong { font-size: clamp(30px, 2.4vw, 39px); }
-  .page.crayon-page:has(> .achievement-board) .population-comparison-card { min-height: 145px; padding-bottom: 25px; }
-  .page.crayon-page:has(> .achievement-board) .population-next-step strong { font-size: 14px; }
-  .page.crayon-page:has(> .achievement-board) .population-insight strong { font-size: 12px; }
-  .page.crayon-page:has(> .achievement-board) .population-insight span { font-size: 10px; }
-  .page.crayon-page:has(> .achievement-board) .population-insight + .population-insight { margin-top: 7px; padding-top: 6px; }
-  .page.crayon-page:has(> .achievement-board) .population-total { margin-top: 7px; }
-
-  .page.crayon-page:has(> .achievement-board) .hero-main-copy h1 { margin: 2px 0 5px; font-size: clamp(25px, 2vw, 31px); }
-  .page.crayon-page:has(> .achievement-board) .hero-main-copy > p:last-child { font-size: 11px; line-height: 1.35; }
-  .page.crayon-page:has(> .achievement-board) .today-score { min-width: 96px; padding: 8px 11px; }
-  .page.crayon-page:has(> .achievement-board) .today-score strong { font-size: 24px; }
-  .page.crayon-page:has(> .achievement-board) .today-score span { margin-top: 3px; font-size: 10px; }
-  .page.crayon-page:has(> .achievement-board) .hero-task-area { margin-top: 9px; padding: 7px; }
-  .page.crayon-page:has(> .achievement-board) .hero-task-area .daily-list { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
-  .page.crayon-page:has(> .achievement-board) .hero-task-area .daily-task { grid-template-columns: 25px minmax(0, 1fr) auto; gap: 7px; padding: 7px 8px; }
-  .page.crayon-page:has(> .achievement-board) .hero-task-area .crayon-checkbox { width: 23px; height: 23px; border-width: 2px; font-size: 17px; }
-  .page.crayon-page:has(> .achievement-board) .hero-task-area .daily-task-copy strong { font-size: 13px; }
-  .page.crayon-page:has(> .achievement-board) .hero-task-area .daily-task-copy small { margin-top: 1px; font-size: 10px; line-height: 1.25; }
-  .page.crayon-page:has(> .achievement-board) .hero-task-area .category-chip { padding: 3px 5px; font-size: 9px; }
-
-  .page.crayon-page:has(> .achievement-board) .money-overview .money-card { min-height: 105px; padding: 10px; }
-  .page.crayon-page:has(> .achievement-board) .money-overview .money-card > strong { margin-top: 5px; font-size: clamp(21px, 1.8vw, 28px); }
-  .page.crayon-page:has(> .achievement-board) .money-overview .money-card > span { margin-top: 5px; font-size: 10px; }
-  .page.crayon-page:has(> .achievement-board) .money-overview .money-deltas { margin-top: 5px; gap: 4px; }
-  .page.crayon-page:has(> .achievement-board) .money-overview .money-deltas > b { padding: 3px 4px; font-size: 9px; }
-  .page.crayon-page:has(> .achievement-board) .money-overview .scribble-progress { height: 9px; }
-  .page.crayon-page:has(> .achievement-board) .quick-record-card { grid-column: 1 / -1; padding: 10px; }
-  .page.crayon-page:has(> .achievement-board) .quick-record-card h2 { margin: 2px 0 6px; font-size: 15px; }
-  .page.crayon-page:has(> .achievement-board) .quick-record-grid { gap: 7px; }
-  .page.crayon-page:has(> .achievement-board) .quick-record-grid form { gap: 5px; }
-  .page.crayon-page:has(> .achievement-board) .quick-record-grid label { gap: 3px; font-size: 10px; }
-  .page.crayon-page:has(> .achievement-board) .quick-record-grid input { padding: 5px 6px; font-size: 10px; }
-  .page.crayon-page:has(> .achievement-board) .quick-record-grid .crayon-button { padding: 5px 7px; font-size: 10px; }
-
-  .page.crayon-page:has(> .achievement-board) .chart-stack .chart-panel { min-width: 0; padding: 9px 9px 7px; }
-  .page.crayon-page:has(> .achievement-board) .chart-stack .chart-heading { display: grid; grid-template-columns: minmax(0, 1fr); gap: 3px; margin-bottom: 5px; }
-  .page.crayon-page:has(> .achievement-board) .chart-stack .chart-heading h2 { margin-top: 1px; font-size: 15px; }
-  .page.crayon-page:has(> .achievement-board) .chart-stack .chart-heading-side { width: 100%; max-width: none; grid-template-columns: minmax(0, 1fr) auto; align-items: center; justify-items: stretch; gap: 5px; }
-  .page.crayon-page:has(> .achievement-board) .chart-stack .chart-heading-side > p { min-width: 0; overflow: hidden; margin: 0; color: var(--muted); font-size: 9px; line-height: 1.2; text-align: left; text-overflow: ellipsis; white-space: nowrap; }
-  .page.crayon-page:has(> .achievement-board) .chart-stack .chart-range-control { justify-self: end; gap: 2px; padding: 2px; }
-  .page.crayon-page:has(> .achievement-board) .chart-stack .chart-range-control button { padding: 3px 5px; font-size: 9px; }
-  .page.crayon-page:has(> .achievement-board) .chart-stack .chart-panel .chart-frame { height: clamp(165px, 22vh, 220px); grid-template-columns: 28px minmax(0, 1fr); column-gap: 2px; }
-  .page.crayon-page:has(> .achievement-board) .chart-stack .chart-y-label { font-size: 9px; }
-  .page.crayon-page:has(> .achievement-board) .chart-stack .chart-x-tick text { font-size: 9px; }
-  .page.crayon-page:has(> .achievement-board) .chart-stack .chart-x-tick-secondary { font-size: 8px; }
 }
