@@ -1,4 +1,4 @@
-import { expect, test, type Page, type TestInfo } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 async function openAndRegister(page: Page, path: string): Promise<void> {
   const registered = page.waitForResponse((response) => response.url().includes("/api/v1/sync/devices") && response.ok());
@@ -26,9 +26,7 @@ async function createCategoryWithTwoTasks(page: Page): Promise<void> {
   }
 }
 
-test("手機首頁成就列載入完成後預設停在最左側", async ({ page }, testInfo: TestInfo) => {
-  test.skip(!testInfo.project.name.startsWith("mobile"), "桌機目前沒有成就橫向滑動列");
-
+test("首頁成就列載入完成後預設停在最左側", async ({ page }) => {
   await openAndRegister(page, "/tasks");
   await createCategoryWithTwoTasks(page);
   await page.locator('a[href="/"]').first().click();
