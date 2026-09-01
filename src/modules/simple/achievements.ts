@@ -3,7 +3,28 @@ import { shiftMonths } from "@/modules/simple/date";
 import type { DailyTask, DailyTaskCompletion } from "@/modules/simple/model";
 import type { FinancialMetricKind } from "@/modules/simple/schema";
 
-export const TASK_MILESTONES = [1, 5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000] as const;
+export const TASK_MILESTONE_INTERVAL = 25;
+
+export type TaskMilestoneTier = "small" | "medium" | "large" | "major" | "huge" | "highest";
+
+export function taskMilestoneTier(count: number): TaskMilestoneTier | null {
+  if (count <= 0 || count % TASK_MILESTONE_INTERVAL !== 0) return null;
+  if (count % 1000 === 0) return "highest";
+  if (count % 500 === 0 || count % 700 === 0) return "huge";
+  if (count % 200 === 0 || count % 300 === 0) return "major";
+  if (count % 100 === 0) return "large";
+  if (count % 50 === 0) return "medium";
+  return "small";
+}
+
+function reachedTaskMilestone(count: number): number | null {
+  if (count < TASK_MILESTONE_INTERVAL) return null;
+  return Math.floor(count / TASK_MILESTONE_INTERVAL) * TASK_MILESTONE_INTERVAL;
+}
+
+function nextTaskMilestone(count: number): number {
+  return (Math.floor(count / TASK_MILESTONE_INTERVAL) + 1) * TASK_MILESTONE_INTERVAL;
+}
 
 export interface TaskAchievement {
   taskId: string;
@@ -12,8 +33,9 @@ export interface TaskAchievement {
   count: number;
   latestCompletionDate: string | null;
   reachedMilestone: number | null;
-  nextMilestone: number | null;
+  nextMilestone: number;
   isExactMilestone: boolean;
+  milestoneTier: TaskMilestoneTier | null;
   milestoneProgress: number;
 }
 
@@ -30,11 +52,11 @@ export function buildTaskAchievements(
         .filter((completion) => completion.taskId === task.id)
         .sort((a, b) => a.completedLocalDate.localeCompare(b.completedLocalDate));
       const count = taskCompletions.length;
-      const reachedMilestone = [...TASK_MILESTONES].reverse().find((milestone) => milestone <= count) ?? null;
-      const nextMilestone = TASK_MILESTONES.find((milestone) => milestone > count) ?? null;
+      const reachedMilestone = reachedTaskMilestone(count);
+      const nextMilestone = nextTaskMilestone(count);
       const lower = reachedMilestone ?? 0;
-      const upper = nextMilestone ?? Math.max(count, 1);
-      const milestoneProgress = upper === lower ? 1 : Math.max(0, Math.min((count - lower) / (upper - lower), 1));
+      const milestoneProgress = Math.max(0, Math.min((count - lower) / (nextMilestone - lower), 1));
+      const milestoneTier = taskMilestoneTier(count);
       return {
         taskId: task.id,
         achievementName: task.achievementName,
@@ -43,7 +65,8 @@ export function buildTaskAchievements(
         latestCompletionDate: taskCompletions.at(-1)?.completedLocalDate ?? null,
         reachedMilestone,
         nextMilestone,
-        isExactMilestone: TASK_MILESTONES.includes(count as (typeof TASK_MILESTONES)[number]),
+        isExactMilestone: milestoneTier !== null,
+        milestoneTier,
         milestoneProgress,
       };
     })

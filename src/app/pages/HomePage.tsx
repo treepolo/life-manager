@@ -65,16 +65,17 @@ function MilestoneTrack({ achievement }: { achievement: TaskAchievement }) {
 }
 
 function TaskAchievementCard({ achievement }: { achievement: TaskAchievement }) {
+  const milestoneClass = achievement.milestoneTier ? ` is-milestone milestone-${achievement.milestoneTier}` : "";
   return (
-    <article className={achievement.isExactMilestone ? "achievement-card task-achievement is-milestone" : "achievement-card task-achievement"}>
+    <article className={`achievement-card task-achievement${milestoneClass}`}>
       <p className="achievement-kicker">你完成了</p>
       <div className="achievement-number-row">
         <strong>{achievement.count}</strong><b>{achievement.achievementUnit}</b>
       </div>
       <span className="achievement-name">{achievement.achievementName}</span>
       <MilestoneTrack achievement={achievement} />
-      {achievement.isExactMilestone && achievement.count >= 5 ? (
-        <div className="milestone-note">欸幹，{achievement.count}{achievement.achievementUnit}了欸。</div>
+      {achievement.milestoneTier ? (
+        <div className="milestone-note">幹得漂亮啊我自己，有認真地活著吧</div>
       ) : null}
     </article>
   );

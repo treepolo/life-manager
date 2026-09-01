@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildFinancialAchievement,
   buildTaskAchievements,
+  taskMilestoneTier,
 } from "@/modules/simple/achievements";
 import { ageOnDate, daysUntilNextBirthday } from "@/modules/simple/date";
 import { dailyTaskCompletionInputSchema, userProfileInputSchema } from "@/modules/simple/schema";
@@ -32,15 +33,33 @@ function completion(index: number, date: string): DailyTaskCompletion {
 }
 
 describe("成就與人生時間", () => {
-  it("每次任務完成固定累積一單位並辨識里程碑", () => {
+  it("每次任務完成固定累積一單位並以每 25 次作為下一個里程碑", () => {
     const completions = Array.from({ length: 100 }, (_, index) => completion(index, `2026-08-${String((index % 30) + 1).padStart(2, "0")}`));
     const [achievement] = buildTaskAchievements([task()], completions, "2026-08-31");
     expect(achievement.count).toBe(100);
     expect(achievement.achievementName).toBe("運科文章");
     expect(achievement.achievementUnit).toBe("篇");
     expect(achievement.reachedMilestone).toBe(100);
-    expect(achievement.nextMilestone).toBe(250);
+    expect(achievement.nextMilestone).toBe(125);
     expect(achievement.isExactMilestone).toBe(true);
+    expect(achievement.milestoneTier).toBe("large");
+  });
+
+  it("里程碑採多層週期疊加並由較高等級覆蓋，同時在 1000 後持續生效", () => {
+    expect(taskMilestoneTier(24)).toBeNull();
+    expect(taskMilestoneTier(25)).toBe("small");
+    expect(taskMilestoneTier(50)).toBe("medium");
+    expect(taskMilestoneTier(100)).toBe("large");
+    expect(taskMilestoneTier(200)).toBe("major");
+    expect(taskMilestoneTier(300)).toBe("major");
+    expect(taskMilestoneTier(500)).toBe("huge");
+    expect(taskMilestoneTier(700)).toBe("huge");
+    expect(taskMilestoneTier(1000)).toBe("highest");
+    expect(taskMilestoneTier(1025)).toBe("small");
+    expect(taskMilestoneTier(1050)).toBe("medium");
+    expect(taskMilestoneTier(1100)).toBe("large");
+    expect(taskMilestoneTier(1500)).toBe("huge");
+    expect(taskMilestoneTier(2000)).toBe("highest");
   });
 
   it("忽略未來完成紀錄且沒有成果設定的任務不進成就卡", () => {
@@ -51,6 +70,8 @@ describe("成就與人生時間", () => {
     );
     expect(achievements).toHaveLength(1);
     expect(achievements[0].count).toBe(1);
+    expect(achievements[0].nextMilestone).toBe(25);
+    expect(achievements[0].milestoneTier).toBeNull();
   });
 
   it("計算財務相對起點、六個月變化與當前歷史新高", () => {
