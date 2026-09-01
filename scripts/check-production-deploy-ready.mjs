@@ -4,8 +4,11 @@ const config = readFileSync(new URL("../wrangler.toml", import.meta.url), "utf8"
 
 function sectionBody(header) {
   const escaped = header.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const match = config.match(new RegExp(`^${escaped}\\s*$([\\s\\S]*?)(?=^\\[|\\Z)`, "m"));
-  return match?.[1] ?? null;
+  const match = new RegExp(`^${escaped}\\s*$`, "m").exec(config);
+  if (!match) return null;
+  const rest = config.slice(match.index + match[0].length);
+  const nextHeader = rest.search(/^\[/m);
+  return nextHeader === -1 ? rest : rest.slice(0, nextHeader);
 }
 
 function stringValue(body, key) {
