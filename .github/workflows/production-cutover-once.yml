@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   deploy-production-once:
-    if: github.event.head_commit.message == 'ops: deploy production cutover'
+    if: "${{ github.event.head_commit.message == 'ops: deploy production cutover' }}"
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
