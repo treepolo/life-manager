@@ -1,4 +1,4 @@
-import { useMemo, type CSSProperties, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, type CSSProperties, type FormEvent } from "react";
 
 import { useResource } from "@/app/hooks/use-resource";
 import { CrayonLineChart } from "@/components/CrayonLineChart";
@@ -132,6 +132,7 @@ function AchievementBoard({
   netWorthGoal,
   birthDate,
   today,
+  achievementCardsReady,
 }: {
   taskAchievements: TaskAchievement[];
   history: FinancialHistory[];
@@ -139,14 +140,38 @@ function AchievementBoard({
   netWorthGoal: number | null;
   birthDate: string | null;
   today: string;
+  achievementCardsReady: boolean;
 }) {
+  const achievementGridRef = useRef<HTMLDivElement>(null);
+  const didResetInitialScroll = useRef(false);
+
+  useEffect(() => {
+    if (!achievementCardsReady || didResetInitialScroll.current) return;
+    const grid = achievementGridRef.current;
+    if (!grid) return;
+
+    let secondFrame = 0;
+    const firstFrame = requestAnimationFrame(() => {
+      grid.scrollLeft = 0;
+      secondFrame = requestAnimationFrame(() => {
+        grid.scrollLeft = 0;
+        didResetInitialScroll.current = true;
+      });
+    });
+
+    return () => {
+      cancelAnimationFrame(firstFrame);
+      if (secondFrame) cancelAnimationFrame(secondFrame);
+    };
+  }, [achievementCardsReady]);
+
   return (
     <section className="achievement-board" aria-label="成就">
       <div className="achievement-board-head">
         <div className="achievement-title-copy"><p className="eyebrow">成就</p><h1>你已經累積到這裡</h1></div>
         <LifeRibbon birthDate={birthDate} today={today} />
       </div>
-      <div className="achievement-grid">
+      <div className="achievement-grid" ref={achievementGridRef}>
         {taskAchievements.slice(0, 2).map((achievement) => <TaskAchievementCard achievement={achievement} key={achievement.taskId} />)}
         <PopulationComparisonCard
           label="月收入"
@@ -256,6 +281,7 @@ export function HomePage() {
   const taskAchievements = useMemo(() => buildTaskAchievements(tasks, completions, today), [tasks, completions, today]);
   const incomeAchievement = useMemo(() => buildFinancialAchievement(history, "MONTHLY_INCOME", today), [history, today]);
   const netWorthAchievement = useMemo(() => buildFinancialAchievement(history, "NET_WORTH", today), [history, today]);
+  const achievementCardsReady = tasksResource.list.data !== undefined && completionsResource.list.data !== undefined;
 
   const toggleTask = (task: DailyTask) => {
     const existing = todayCompletionByTask.get(task.id);
@@ -301,6 +327,7 @@ export function HomePage() {
         netWorthGoal={netWorthGoal}
         birthDate={birthDate}
         today={today}
+        achievementCardsReady={achievementCardsReady}
       />
 
       <section className={allDone ? "hero-scribble hero-with-tasks is-all-done" : "hero-scribble hero-with-tasks"}>
