@@ -6,7 +6,6 @@ import { PopulationComparisonCard } from "@/components/PopulationComparisonCard"
 import {
   buildFinancialAchievement,
   buildTaskAchievements,
-  taskMilestoneTier,
   type FinancialAchievement,
   type TaskAchievement,
 } from "@/modules/simple/achievements";
@@ -35,21 +34,6 @@ import {
 import "./HomePage.css";
 
 const money = new Intl.NumberFormat("zh-TW", { maximumFractionDigits: 0 });
-const milestonePreviewCounts = [25, 50, 100, 200, 500, 1000] as const;
-const milestonePreviewNames = ["小里程碑", "中里程碑", "大里程碑", "重大里程碑", "特大里程碑", "最高里程碑"] as const;
-
-const milestonePreviewAchievements: TaskAchievement[] = milestonePreviewCounts.map((count, index) => ({
-  taskId: `milestone-preview-${count}`,
-  achievementName: milestonePreviewNames[index],
-  achievementUnit: "篇",
-  count,
-  latestCompletionDate: null,
-  reachedMilestone: count,
-  nextMilestone: count + 25,
-  isExactMilestone: true,
-  milestoneTier: taskMilestoneTier(count),
-  milestoneProgress: 0,
-}));
 
 function moneyText(value: number | null | undefined): string {
   return value === null || value === undefined ? "尚未設定" : `NT$ ${money.format(value)}`;
@@ -150,7 +134,6 @@ function AchievementBoard({
   birthDate,
   today,
   achievementCardsReady,
-  milestonePreview = false,
 }: {
   taskAchievements: TaskAchievement[];
   history: FinancialHistory[];
@@ -159,41 +142,35 @@ function AchievementBoard({
   birthDate: string | null;
   today: string;
   achievementCardsReady: boolean;
-  milestonePreview?: boolean;
 }) {
-  const cardsReady = milestonePreview || achievementCardsReady;
   return (
-    <section className="achievement-board" aria-label={milestonePreview ? "任務里程碑預覽" : "成就"}>
+    <section className="achievement-board" aria-label="成就">
       <div className="achievement-board-head">
-        <div className="achievement-title-copy"><p className="eyebrow">{milestonePreview ? "E3 驗收" : "成就"}</p><h1>{milestonePreview ? "六級任務里程碑預覽" : "你已經累積到這裡"}</h1></div>
-        {milestonePreview ? null : <LifeRibbon birthDate={birthDate} today={today} />}
+        <div className="achievement-title-copy"><p className="eyebrow">成就</p><h1>你已經累積到這裡</h1></div>
+        <LifeRibbon birthDate={birthDate} today={today} />
       </div>
-      <div className="achievement-grid" aria-busy={!cardsReady}>
-        {cardsReady ? (
+      <div className="achievement-grid" aria-busy={!achievementCardsReady}>
+        {achievementCardsReady ? (
           <>
-            {taskAchievements.slice(0, milestonePreview ? 6 : 2).map((achievement) => <TaskAchievementCard achievement={achievement} key={achievement.taskId} />)}
-            {milestonePreview ? null : (
-              <>
-                <PopulationComparisonCard
-                  label="月收入"
-                  metricKind="MONTHLY_INCOME"
-                  history={history}
-                  goal={incomeGoal}
-                  today={today}
-                  model={TAIWAN_MONTHLY_INCOME_MODEL}
-                  info={TAIWAN_MONTHLY_INCOME_INFO}
-                />
-                <PopulationComparisonCard
-                  label="淨資產"
-                  metricKind="NET_WORTH"
-                  history={history}
-                  goal={netWorthGoal}
-                  today={today}
-                  model={TAIWAN_NET_WORTH_MODEL}
-                  info={TAIWAN_NET_WORTH_INFO}
-                />
-              </>
-            )}
+            {taskAchievements.slice(0, 2).map((achievement) => <TaskAchievementCard achievement={achievement} key={achievement.taskId} />)}
+            <PopulationComparisonCard
+              label="月收入"
+              metricKind="MONTHLY_INCOME"
+              history={history}
+              goal={incomeGoal}
+              today={today}
+              model={TAIWAN_MONTHLY_INCOME_MODEL}
+              info={TAIWAN_MONTHLY_INCOME_INFO}
+            />
+            <PopulationComparisonCard
+              label="淨資產"
+              metricKind="NET_WORTH"
+              history={history}
+              goal={netWorthGoal}
+              today={today}
+              model={TAIWAN_NET_WORTH_MODEL}
+              info={TAIWAN_NET_WORTH_INFO}
+            />
           </>
         ) : null}
       </div>
@@ -287,9 +264,6 @@ export function HomePage() {
   const incomeAchievement = useMemo(() => buildFinancialAchievement(history, "MONTHLY_INCOME", today), [history, today]);
   const netWorthAchievement = useMemo(() => buildFinancialAchievement(history, "NET_WORTH", today), [history, today]);
   const achievementCardsReady = tasksResource.list.data !== undefined && completionsResource.list.data !== undefined;
-  const milestonePreview = typeof window !== "undefined"
-    && window.location.hostname === "life-manager-staging.life-manager.workers.dev"
-    && new URLSearchParams(window.location.search).get("milestonePreview") === "1";
 
   const toggleTask = (task: DailyTask) => {
     const existing = todayCompletionByTask.get(task.id);
@@ -325,23 +299,6 @@ export function HomePage() {
   const loadError = [profileResource.list.error, categoriesResource.list.error, tasksResource.list.error, completionsResource.list.error, goalsResource.list.error, historyResource.list.error]
     .find(Boolean);
   const actionError = completionsResource.create.error ?? completionsResource.remove.error ?? historyResource.create.error;
-
-  if (milestonePreview) {
-    return (
-      <div className="page crayon-page">
-        <AchievementBoard
-          taskAchievements={milestonePreviewAchievements}
-          history={[]}
-          incomeGoal={null}
-          netWorthGoal={null}
-          birthDate={null}
-          today={today}
-          achievementCardsReady
-          milestonePreview
-        />
-      </div>
-    );
-  }
 
   return (
     <div className="page crayon-page">
