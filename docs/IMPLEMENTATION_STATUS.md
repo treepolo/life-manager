@@ -1,30 +1,34 @@
 # 實作狀態
 
-本表只追蹤 2026-08-30 精簡改造後的有效需求。舊版完整狀態可由 Git 歷史查閱。
+本表追蹤 2026-08-30 精簡改造後的有效產品與維運狀態。舊版完整狀態由 Git 歷史保留。
 
-| 需求 | 狀態 | 證據／剩餘閘門 |
+| 項目 | 狀態 | 證據／剩餘工作 |
 |---|---|---|
-| PROD-001~004 | VERIFIED | `refactor/core-life-manager` 已完成新三頁產品、五種資料資源與精簡 Worker；GitHub Actions 完整 `npm run verify` 已通過。 |
-| PROD-005 | AWAITING_USER_SETUP | 正式舊表清理必須先確認所有裝置 outbox=0、完成遠端 D1 備份與新版 staging 驗證。 |
-| TASK-001~006 | VERIFIED | 新任務／分類模型、每日完成／撤銷與分類累積計算已通過單元、Worker/D1 與 Playwright 驗證。 |
-| FIN-001~006 | VERIFIED | 新目標與財務歷史模型、修改／刪除、最新有效值回退與首頁反映已通過單元、Worker/D1 與 Playwright 驗證。 |
-| UI-001~006 | VERIFIED | 三頁蠟筆手繪介面與三張成果圖已通過桌機、大桌機、平板與兩種手機 viewport 驗證。 |
-| OFF-001~005 | VERIFIED | 既有同步底座已泛化至新版五種資源；離線 DELETE 與連續 UPSERT outbox 修正已通過單元及離線恢復同步 Playwright 驗證。 |
-| OPS-001~004 | VERIFIED | Cloudflare/D1/Access/PWA 底座保留，舊 provider、OAuth、cron、通知產品程式已退出；lint、型別、Worker/D1、build、掃描與需求覆蓋均通過。 |
-| OPS-005 | AWAITING_USER_SETUP | 不建立或套用 drop 舊表 migration，直到正式資料安全閘門完成。 |
+| 核心產品改造 | VERIFIED | 首頁／每日任務／設定三頁、新版通用 API、離線同步與 Worker 已完成並通過完整 Verify。 |
+| 任務／分類 | VERIFIED | 建立、編輯、封存／恢復、每日完成／撤銷、分類累積成果皆已驗證。 |
+| 任務成果／里程碑 | VERIFIED | 成果名稱／單位、週期里程碑級距、金色／琥珀色分級與固定里程碑文案已完成並由 staging 驗收。 |
+| 財務 | VERIFIED | 固定月收入、淨資產目標與歷史新增／修改／刪除、目前值與圖表已驗證；`SAVINGS` 舊語意相容轉為 `NET_WORTH`。 |
+| 台灣人口比較 | VERIFIED | 收入／資產分布模型、runtime 比較卡與資料驗證已納入 Verify。 |
+| 個人資料 | VERIFIED | 出生日期與生日年度進度已納入現行資料模型。 |
+| 離線／同步／PWA | VERIFIED | IndexedDB、outbox、跨裝置 pull、衝突機制與 PWA 安全更新皆保留並通過回歸。 |
+| staging | LIVE | 獨立 Worker、D1、Cloudflare Access 與自動部署流程已運作。 |
+| production | LIVE | production D1／Access／Worker 已完成 cutover；正式 D1 schema 13，staging 業務資料已 promotion，production 實際讀寫與同步已驗收。 |
+| production 自動部署 | ENABLED | `ENABLE_PRODUCTION_DEPLOY=true`；只有 `master` 完整 Verify 成功後才允許部署。 |
+| 舊產品表 cleanup | PENDING_DESTRUCTIVE_CLEANUP | 安全前置條件已大致完成，但尚未建立／執行 drop 舊產品表 migration；必須獨立驗證與保留可回復備份。 |
+| Repo hygiene | IN_PROGRESS | 文件、舊分支、未使用依賴與歷史命名仍在 D 階段清理。 |
 
-## 本次改造已驗證的程式工作
+## Production cutover 完成事項
 
-- 新增 `0011_simple_core.sql`，建立任務分類、每日任務、每日完成、財務目標、財務歷史五張新版表。
-- 通用 API 與同步資源只暴露新版五種產品實體。
-- Worker API 只保留健康檢查、通用 CRUD、裝置同步、變更拉取與同步衝突。
-- 首頁、每日任務、設定三頁全部重做；舊產品頁面與模組已從分支刪除。
-- 新增財務歷史刪除、完整分頁讀取、離線刪除 tombstone 與 outbox 合併。
-- 新版單元測試、Worker/D1 測試、production build 與 Playwright 回歸全部通過。
-- Playwright 覆蓋每日任務建立／完成／撤銷、財務目標與歷史新增／修正／刪除、離線新增後恢復同步、核心入口／成果區塊，以及 1366×900、1920×1080、768×1024、390×844、320×568 五種 viewport。
-- production placeholder／secret 掃描與新版需求追蹤覆蓋檢查均通過。
+- production `wrangler.toml` 已綁定正式 D1 與 Cloudflare Access AUD。
+- production D1 已在 migration 前建立完整備份並套用 `0011`～`0013`。
+- staging → production 資料 promotion 已完成：現行六張業務表逐表比對一致，外鍵檢查通過，並建立 production 自己的同步 change seed。
+- 正式 Worker 已上線，使用者確認既有資料可見，並完成實際寫入／同步驗證。
+- `ENABLE_PRODUCTION_DEPLOY=true` 已啟用後續 `master` 自動發布。
 
-## 尚未完成
+## D 階段尚未完成
 
-- 尚未部署 staging 或 production。
-- 尚未 drop 正式 D1 舊產品表；這是刻意保留的資料安全閘門，必須先確認所有裝置 outbox=0、完成遠端 D1 備份並驗證 staging。
+- 更新所有仍停留在 schema 11、積蓄、尚未 production 上線等舊敘述的文件。
+- 收斂大量歷史 Codex／ops／refactor 分支，只保留仍有用途的長期分支。
+- 確認並移除未使用 npm 依賴／舊腳本，不以猜測刪除。
+- 評估 bundle/code splitting 與其他 repo hygiene。
+- 舊 D1 產品表只在新的破壞性 cleanup migration 完成完整重放、備份與驗證後才移除；此工作與一般程式 cleanup 分開執行。
