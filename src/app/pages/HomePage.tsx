@@ -1,7 +1,6 @@
-import { useMemo, type CSSProperties, type FormEvent } from "react";
+import { lazy, Suspense, useMemo, type CSSProperties, type FormEvent } from "react";
 
 import { useResource } from "@/app/hooks/use-resource";
-import { CrayonLineChart } from "@/components/CrayonLineChart";
 import { PopulationComparisonCard } from "@/components/PopulationComparisonCard";
 import {
   buildFinancialAchievement,
@@ -32,6 +31,8 @@ import {
 } from "@/modules/simple/taiwan-distributions";
 
 import "./HomePage.css";
+
+const CrayonLineChart = lazy(() => import("@/components/CrayonLineChart").then((module) => ({ default: module.CrayonLineChart })));
 
 const money = new Intl.NumberFormat("zh-TW", { maximumFractionDigits: 0 });
 
@@ -377,7 +378,8 @@ export function HomePage() {
         </article>
       </section>
 
-      <div className="chart-stack">
+      <Suspense fallback={<div className="crayon-panel chart-empty">正在載入成果圖…</div>}>
+        <div className="chart-stack">
         <CrayonLineChart
           title="每日任務累積完成次數"
           description="每條線代表一個任務分類；今天完成一次就累積一次。"
@@ -410,7 +412,8 @@ export function HomePage() {
           timelineStartDate={birthDate}
           birthDate={birthDate}
         />
-      </div>
+        </div>
+      </Suspense>
     </div>
   );
 }
