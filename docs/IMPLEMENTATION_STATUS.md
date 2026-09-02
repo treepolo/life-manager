@@ -31,9 +31,9 @@
 - client 已做 route lazy loading，首頁 Recharts 圖表亦獨立 lazy load；最大單一 JS chunk 由約 775 KB 降至約 395 KB，初始 app chunk 約 263 KB，完整 Verify 通過。
 - 本輪 dependency、repo audit、decimal、code-split probe branches 已移除；暫時 workflow 也未留在正式 cleanup branch。
 - 靜態 unused-code audit 已完成；對仍可能是模組 API／工具入口的 unused export 不為追求零警告而強行移除，避免低收益回歸。
+- `cleanup/post-cutover-20260902` 最終完整 Verify 已通過，確認文件、依賴、source cleanup 與 code splitting 的整體組合全部通過。
 
 尚待完成：
 
-- `cleanup/post-cutover-20260902` 做最終完整 Verify，確認文件、依賴、source cleanup 與 code splitting 的整體組合全部通過。
 - 大量歷史 Codex／ops／refactor 分支多數未合併進 `master`，不自動刪除；若要收斂，另做明確歷史分支清理決策。
 - 正式舊表清理尚未執行；執行前再次確認所有實際裝置 `outbox=0`、建立當下 production 備份、在非 production 完整重放 cleanup migration，cleanup 後再驗證現行六張業務表與正式 CRUD／同步。
