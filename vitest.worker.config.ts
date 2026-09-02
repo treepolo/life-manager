@@ -10,9 +10,6 @@ export default defineConfig({
         bindings: {
           ENVIRONMENT: "test",
           ACCESS_AUD: "test-audience",
-          TOKEN_ENCRYPTION_KEY: "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
-          GOOGLE_CLIENT_ID: "worker-test-google-client-id",
-          OAUTH_STATE_TTL_MINUTES: "60",
           TEST_MIGRATIONS: await readD1Migrations(fileURLToPath(new URL("./migrations", import.meta.url))),
         },
       },
