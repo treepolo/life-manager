@@ -15,7 +15,7 @@
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react-jsx",
-    "types": ["vite/client", "vite-plugin-pwa/client", "vitest/globals", "@testing-library/jest-dom", "@cloudflare/workers-types"],
+    "types": ["vite/client", "vitest/globals", "@testing-library/jest-dom", "@cloudflare/workers-types"],
     "paths": {
       "@/*": ["./src/*"]
     }
