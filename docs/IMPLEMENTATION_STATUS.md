@@ -21,10 +21,18 @@
 - 正式 Worker 已上線；既有資料可見，實際寫入後 outbox=0，重新整理後資料仍存在。
 - `ENABLE_PRODUCTION_DEPLOY=true` 已啟用，後續 `master` 只有完整 Verify 成功後才自動發布 production。
 
-## D 階段進行中
+## D 階段進度
 
-- 同步仍停留在 schema 11、積蓄、尚未 production 上線等舊文件敘述。
-- 收斂大量歷史 Codex／ops／refactor 分支，只保留仍有用途的長期分支。
-- 確認並移除未使用 npm 依賴／舊腳本，不以猜測刪除。
-- 評估 bundle/code splitting 與其他 repo hygiene。
+已完成：
+
+- README、專案指南、實作狀態、維運與設定檢查文件已同步 production 現況、schema 13 與「淨資產」術語。
+- 移除退役的 Web Push、CSV／Firstrade、排程與未使用 Vite/PWA/Tailwind plugin 依賴；完整 Verify 通過後才保留變更，安裝套件數由約 623 降至約 330。
+- 移除已無引用的舊 money／time utility 與 `decimal.js`；並移除 Worker 測試中的舊 OAuth binding。
+- client 已做 route lazy loading，首頁 Recharts 圖表亦獨立 lazy load；最大單一 JS chunk 由約 775 KB 降至約 395 KB，初始 app chunk 約 263 KB，完整 Verify 通過。
+
+尚待完成：
+
+- 收斂本次 cleanup 建立的 probe branches；既有大量歷史 Codex／ops／refactor 分支不因未合併就直接刪除。
+- 對剩餘 unused export／舊腳本做最後低風險盤點；只刪除能證明無入口者。
+- cleanup branch 最終完整 Verify 後，才考慮合併回 `master`。
 - 正式舊表清理尚未執行；執行前再次確認所有實際裝置 `outbox=0`、建立當下 production 備份、在非 production 完整重放 cleanup migration，cleanup 後再驗證現行六張業務表與正式 CRUD／同步。
