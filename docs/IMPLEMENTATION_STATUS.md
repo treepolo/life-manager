@@ -29,10 +29,11 @@
 - 移除退役的 Web Push、CSV／Firstrade、排程與未使用 Vite/PWA/Tailwind plugin 依賴；完整 Verify 通過後才保留變更，安裝套件數由約 623 降至約 330。
 - 移除已無引用的舊 money／time utility 與 `decimal.js`；並移除 Worker 測試中的舊 OAuth binding。
 - client 已做 route lazy loading，首頁 Recharts 圖表亦獨立 lazy load；最大單一 JS chunk 由約 775 KB 降至約 395 KB，初始 app chunk 約 263 KB，完整 Verify 通過。
+- 本輪 dependency、repo audit、decimal、code-split probe branches 已移除；暫時 workflow 也未留在正式 cleanup branch。
+- 靜態 unused-code audit 已完成；對仍可能是模組 API／工具入口的 unused export 不為追求零警告而強行移除，避免低收益回歸。
 
 尚待完成：
 
-- 收斂本次 cleanup 建立的 probe branches；既有大量歷史 Codex／ops／refactor 分支不因未合併就直接刪除。
-- 對剩餘 unused export／舊腳本做最後低風險盤點；只刪除能證明無入口者。
-- cleanup branch 最終完整 Verify 後，才考慮合併回 `master`。
+- `cleanup/post-cutover-20260902` 做最終完整 Verify，確認文件、依賴、source cleanup 與 code splitting 的整體組合全部通過。
+- 大量歷史 Codex／ops／refactor 分支多數未合併進 `master`，不自動刪除；若要收斂，另做明確歷史分支清理決策。
 - 正式舊表清理尚未執行；執行前再次確認所有實際裝置 `outbox=0`、建立當下 production 備份、在非 production 完整重放 cleanup migration，cleanup 後再驗證現行六張業務表與正式 CRUD／同步。
